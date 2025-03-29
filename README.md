@@ -24,8 +24,10 @@ If it's useful to you, consider starring it on GitHub, which is very important f
 - Practical functions such as customizing bond radius scaling factors, recalculating species weights, organizing molecular groups, and element order
 - Generate reaction flow graph (new in ver. 1.1)
 
-![Reaction Flow](examples/output.svg)
-Picture made by graphviz  
+### Reaction Flow Chart output example
+
+![Reaction Flow](examples/reaction_flow_example.svg)
+Picture quickly made by graphviz  
 
 To install and use:  
 ```
@@ -34,9 +36,11 @@ dot -Tsvg mysystem.dot > mysystem.svg
 ```
 Now view the .svg file by any browser or viewer
 
-Data output: 
+### Data output example
 
-[CSV File](examples/FeCHON_5frames.csv)
+Quickly plotted by Matplotlib
+
+![Data Plotted by Matplotlib](examples/dataplot_example.jpg)
 
 ## Usage
 ---------

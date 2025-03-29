@@ -21,8 +21,22 @@
 - 自定义键合半径缩放因子、自定义重算物种权重、整理分子组、元素顺序等实用功能。
 - 生成反应流的图(如下图)
 
-![Reaction Flow](examples/output.svg)
-[CSV File](examples/FeCHON_5frames.csv)
+### 反应流图片示例
+
+![Reaction Flow](examples/reaction_flow_example.svg)
+由graphviz绘制
+安装和快速使用:  
+```
+sudo apt install graphviz # or dnf for redhat/fedora...
+dot -Tsvg mysystem.dot > mysystem.svg
+```
+可随意使用浏览器或图片查看器查看.svg文件
+
+### 数据输出示例
+
+（结合Matplotlib快速绘图）
+
+![Data Plotted by Matplotlib](examples/dataplot_example.jpg)
 
 ## 使用方法
 ---------
