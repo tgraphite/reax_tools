@@ -8,9 +8,8 @@
 #include <iostream>
 #include <vector>
 
-ReaxSpecies::ReaxSpecies(const std::string& file_path, const std::string& save_path,
-	const std::vector<std::string>& order)
-	: file_path(file_path), save_path(save_path), order(order)
+ReaxSpecies::ReaxSpecies(const std::string& file_path)
+	: file_path(file_path)
 {
 	file.open(file_path);
 	if (!file.is_open())
@@ -24,23 +23,8 @@ ReaxSpecies::ReaxSpecies(const std::string& file_path, const std::string& save_p
 	get_nums();
 }
 
-ReaxSpecies::ReaxSpecies(const std::string& file_path, const std::vector<std::string>& order)
-	: file_path(file_path), order(order)
-{
-	file.open(file_path);
-	if (!file.is_open())
-	{
-		std::cerr << "Failed to open file: " << file_path << std::endl
-			<< "Exit." << std::endl;
-		exit(EXIT_FAILURE);
-	}
-
-	get_formulas();
-	get_nums();
-}
-
-// Overloaded constructor function for import data from class Universe.
-ReaxSpecies::ReaxSpecies(const std::vector<std::string>& order) : order(order) {}
+// For import data from class Universe.
+ReaxSpecies::ReaxSpecies() {}
 
 ReaxSpecies::~ReaxSpecies()
 {
@@ -124,19 +108,47 @@ void ReaxSpecies::get_nums()
 	}
 }
 
-void ReaxSpecies::rename_all_formulas()
+void ReaxSpecies::rename_all_formulas(const std::vector<std::string>& order)
 {
-	for (auto& pair : formulas_nums)
+	// Create a temporary map to store formulas that need to be renamed.
+	std::map<std::string, std::vector<float>> to_insert;
+	std::vector<std::string> to_erase;
+	
+	// First step: collect all formulas that need to be renamed.
+	for (const auto& pair : formulas_nums)
 	{
 		std::string old_formula = pair.first;
 		std::vector<float> nums = pair.second;
 
-		std::string new_formula = rename_formula(old_formula);
+		if (old_formula.starts_with("grp_"))
+		{
+			continue;
+		}
+
+		std::string new_formula = rename_formula(old_formula, order);
+
+		
 		if (!(new_formula == old_formula))
 		{
-			formulas_nums[new_formula] = nums;
-			formulas_nums.erase(old_formula);
+			to_insert[new_formula] = nums;
+			to_erase.push_back(old_formula);
 		}
+	}
+
+	// Second step: delete old formulas and add new formulas.
+	for (const auto& formula : to_erase)
+	{
+		auto it = formulas_nums.find(formula);
+		if (it != formulas_nums.end())
+		{
+			formulas_nums.erase(it);
+		}
+	}
+
+	// Third step: add new formulas.
+	for (const auto& pair : to_insert)
+	{
+		formulas_nums[pair.first] = pair.second;
 	}
 }
 
@@ -433,7 +445,8 @@ void ReaxSpecies::save_file()
 	fprintf(stdout, "Save file %s successfully.\n", save_path.c_str());
 }
 
-// When calling from Universe, use this function to set file_path and save.
+// When calling from Universe, use this function to set file_path and save. 
+// In that situation, the constructor did not get the raw file path, so we need to set it here.
 void ReaxSpecies::save_file(const std::string& raw_file_path)
 {
 	this->file_path = raw_file_path;

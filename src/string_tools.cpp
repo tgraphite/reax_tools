@@ -109,6 +109,7 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 }
 
 /// Using try-catch exception will make too much debug pollution, and cost a little bit more time.
+// This function is used to check if the first column of xyz file is a number or element symbol.
 bool can_convert_to_int(const std::string& str)
 {
 	for (size_t i = 0; i < str.size(); i++)
