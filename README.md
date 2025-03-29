@@ -25,6 +25,17 @@ If it's useful to you, consider starring it on GitHub, which is very important f
 - Generate reaction flow graph (new in ver. 1.1)
 
 ![Reaction Flow](examples/output.svg)
+Picture made by graphviz  
+
+To install and use:  
+```
+sudo apt install graphviz # or dnf for redhat/fedora...
+dot -Tsvg mysystem.dot > mysystem.svg
+```
+Now view the .svg file by any browser or viewer
+
+Data output: 
+
 [CSV File](examples/FeCHON_5frames.csv)
 
 ## Usage
