@@ -1,60 +1,73 @@
-# ReaxTools 1.1
+# ReaxTools 1.1 Version
+[简体中文](README_zh.md)
+(Auto Translated by LLM)
 
-(This doucment is translated by Claude-3.7 from Chinese version, be careful)
+Post-processing for ReaxFF/AIMD simulation trajectories,   generating cleaned species evolution and reaction relationship information.  
 
-A high-performance C++ tool for analyzing molecular dynamics trajectories, with a focus on reactive systems.
+Permanent update address: https://github.com/tgraphite/reax_tools  
+If it's useful to you, consider starring it on GitHub, which is very important for me to develop the project. Thank you!  
 
-[中文版说明](README_zh.md)
 
-## Updates in 1.1
-- Added reaction flow graph functionality to track reactions between molecules
-- Improved molecule identification algorithm for better accuracy
-- Support for both .xyz and .lammpstrj file formats
-- Fixed multiple stability issues
+
+## 1.1 Version Update Notes
+---------
+- All code is now open source
+- Added reaction flowchart functionality, which can trace reaction relationships between molecules
+- With the help of Cursor, the lazy author has resumed updates
 
 ## Features
-
-- **High Performance**: Completely rewritten in C++, optimized for speed and memory efficiency
-- **Trajectory Analysis**: Direct processing of trajectory files (.xyz, .lammpstrj)
-- **Species Identification**: Identifies molecular species using van der Waals radii
-- **Reaction Tracking**: Tracks reactions between frames and builds reaction flow graphs
-- **Visualization**: Generates DOT format graphs for reaction visualization
-- **Low Dependencies**: Only requires the C++ standard library and fmt
+-----
+- Extremely minimalist tool, no dependencies or installation process required
+- Better performance, capable of handling million-atom systems, low-end laptops can process 1GB trajectories within 5-10 minutes, with memory consumption under 200 MB
+- Direct trajectory reading function, supports .lammpstrj files and .xyz files (such as pos-1.xyz trajectories produced by CP2K can also be used)
+- Function to clean up the .species.out output from LAMMPS
+- Practical functions such as customizing bond radius scaling factors, recalculating species weights, organizing molecular groups, and element order
 
 ## Usage
-
+---------
+(Enter -h to display this help)
 ```
-Usage: 
-  -f .xyz/.lammpstrj file -> [TRAJ MODE] determine molecules by van der Waals radius
-  -s lammps reaxff/species file (species.out) -> [SPECIES MODE] determine species by file input
+-f <.xyz/.lammpstrj file>
+// [Read trajectory] Determines bonds using van der Waals radii, establishes molecular topology and analysis
 
-[TRAJ MODE SETTINGS]
-  -r radius scaling factor (default 1.2)
-  -t type names, split in comma, e.g. C,H,O,N,S,F
+-s <lammps species.out file> 
+// (Species) [Read species file] reads the file and cleans it up
 
-[SPECIES MODE SETTINGS]
-  -me merge molecules into groups by element number (default C), i.e. mols have 1~4 Carbons -> group_C1-C4
-  -mr merge range for the process above, split in comma (default: 1,4,8,16)
-  -rc rescale group weight by selected atom number, not mol number, i.e. C2H4 -> weight 2, C4H8 -> weight 4 (default: no)
-  --order output formulas in correct element order, split in comma (default: C,H,O,N,S,F,P)
+-r <value>
+// Adjusts the scaling factor of van der Waals radii, default is 1.2 (same as OVITO)
+// Increasing this value will make it easier to determine bonding between atoms, making molecules larger. The opposite is also true.
+
+-t <element,element...>
+// Comma-separated element names, such as C,H,O,N,S,F (mandatory when reading lammpstrj)
+// If you don't want to count a particular element, such as a fixed Fe substrate, you can set its symbol to X.
+
+-me <element>
+// Merges species types by the number of atoms of a specified element, e.g., C1~C4 merged into group_C1-C4. The option name is an abbreviation for merge-element.
+
+-mr <range1,range2...>
+// Merges species types within specified atomic number ranges, e.g., 1,4,8,16. The option name is an abbreviation for merge-range.
+// e.g. -mr 1,4,8,16
+
+-rc 
+// Recalculates the weight of species based on the number of atoms specified by -me, such as C2H4 considered as weight 2, not as one molecule. The option name is an abbreviation for recalc.
+
+--order <element,element...>
+// Organizes the order of elements in the output chemical formula (default: C,H,O,N,S,F,P)
+// e.g. --order C,H,O,N
 ```
-
 ### Examples
 
-Process an XYZ trajectory with carbon, hydrogen, oxygen, and nitrogen atoms:
-```bash
-./reax_tools -f trajectory.xyz -t C,H,O,N
-```
+Processing an XYZ trajectory containing carbon, hydrogen, oxygen, and nitrogen atoms:
 
-Process a LAMMPS trajectory with custom van der Waals radius scaling:
-```bash
+```
+./reax_tools -f trajectory.xyz -me C -rc -mr 1,4,6,8
 ./reax_tools -f trajectory.lammpstrj -t C,H,O,N -r 1.3
 ```
 
 ## Output Files
-
-- `.species.csv` - Contains molecular species statistics and evolution data
-- `.dot` - Reaction flow graph that can be visualized with tools like Graphviz
+---------
+- .species.csv - Contains molecular species statistics and evolution data
+- .dot - Reaction flowcharts, can be visualized with tools like Graphviz
 
 ## Test Output
 ```
@@ -91,35 +104,31 @@ Reaction flow graph saved to ../examples/FeCHON_5frames.dot
 ```
 
 ## Implementation Details
+---------
+- Alternating Tick-Tock trajectory reading to save memory and support frame-by-frame analysis
+- Efficiently searches for nearby atoms using K-D tree algorithm
+- Determines chemical bonds based on van der Waals radii
+- Constructs molecular graphs using depth-first search algorithm
+- Calculates molecular similarity based on the intersection/union of atom ID sets, tracking reaction relationships
 
-- Tick-Tock alternating frame reading to save memory and support frame-to-frame analysis
-- K-D tree algorithm for efficient neighbor atom searching
-- Chemical bond determination based on van der Waals radii
-- Depth-first search algorithm for building molecular graphs
-- Molecule similarity calculation based on atom ID intersection/union to track reactions
+## Future Development Plans (Voting)
+-----------
+- Reaction Network: Display a complete reaction network.
+- Functional Group Transfer: Analyze the transfer of molecular fragments between different molecules. (Achieving high accuracy is difficult)
+- Visualization: Can include example Python one-click plotting code.
 
-## Performance
+## Building from Source Code
+------
+Compiled files already exist in the build directory, or you can directly download from release.  
 
-- Test case: 350MB lammpstrj trajectory, 13,000 atoms, 1,000 frames
-- Performance: ~160 seconds on a single-core processor, less than 100MB memory usage
-- Species file mode is even faster, typically taking only a few seconds
-
-## Future Development Plans
-
-- Reaction chains: Track the complete lifecycle of molecules from creation to destruction
-- Group transfer: Analyze the migration of molecular fragments between different molecules
-- Reaction kinetics: Calculate reaction rates and reaction orders
-- Visualization: Provide richer graphical output and reporting functionality
-
-## Building from Source
-
-```bash
+If you need to build from source, it's the same as other cmake compiled programs.
+```
 mkdir build
 cd build
 cmake ..
-make -j4
+cmake --build . -j8
 ```
 
 ## License
 
-No License, do anything you want.
+MIT license, or in other words, do what you want with it, the author won't come knocking, nor should you expect me to fix bugs quickly.
