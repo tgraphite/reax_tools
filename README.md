@@ -19,9 +19,13 @@ If it's useful to you, consider starring it on GitHub, which is very important f
 -----
 - Extremely minimalist tool, no dependencies or installation process required
 - Better performance, capable of handling million-atom systems, low-end laptops can process 1GB trajectories within 5-10 minutes, with memory consumption under 200 MB
-- Direct trajectory reading function, supports .lammpstrj files and .xyz files (such as pos-1.xyz trajectories produced by CP2K can also be used)
-- Function to clean up the .species.out output from LAMMPS
+- Direct trajectory reading function, supports .lammpstrj files and .xyz files (such as pos-1.xyz trajectories produced by CP2K can also be used), generate species csv file.
+- Function to clean up the .species.out output from LAMMPS, generate species csv file.
 - Practical functions such as customizing bond radius scaling factors, recalculating species weights, organizing molecular groups, and element order
+- Generate reaction flow graph (new in ver. 1.1)
+
+![Reaction Flow](examples/output.svg)
+[CSV File](examples/FeCHON_5frames.csv)
 
 ## Usage
 ---------
