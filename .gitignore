@@ -1,7 +1,7 @@
 build_target/
+build/
 .vs*/
 old/
 rdkit/
 CMakeSettings.json
 CppProperties.json
-build/
