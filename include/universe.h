@@ -56,14 +56,11 @@ public:
 	std::map<int, std::string> type_itos;
 	std::map<std::pair<int, int>, float> bond_radius;
 
-	// std::shared_ptr<MolTopoBank> moltopo_bank;
 
 	System();
 	~System();
 
 	void set_types(const std::vector<std::string>& type_names);
-	// void link_moltopo_bank(const std::shared_ptr<MolTopoBank>& moltopo_bank);
-
 	void load_xyz(std::ifstream& file);
 	void load_lammpstrj(std::ifstream& file);
 
@@ -71,7 +68,7 @@ public:
 	void basic_info();
 
 	void search_neigh(const float& r, const int& max_neigh);
-	void build_bonds_by_radius(const float& tolerance = 1.2f);
+	void build_bonds_by_radius(const float& rvdw_scale = 1.2f);
 	void build_molecules();
 	void dfs(std::shared_ptr<Atom>& atom, std::set<std::shared_ptr<Atom>>& visited, std::shared_ptr<Molecule>& mol);
 };
@@ -82,7 +79,6 @@ public:
 	std::shared_ptr<System> prev_sys;
 	std::shared_ptr<System> curr_sys;
 
-	// std::shared_ptr<MolTopoBank> moltopo_bank = std::make_shared<MolTopoBank>();
 	std::shared_ptr<ReaxSpecies> reax_species = std::make_shared<ReaxSpecies>();
 	std::shared_ptr<ReaxFlow> reax_flow = std::make_shared<ReaxFlow>();
 
@@ -90,10 +86,8 @@ public:
 	~Universe();
 
 	float compute_similarity(const std::unordered_set<int>& prev_set, const std::unordered_set<int>& curr_set);
-	// void build_evolution_map(const int& curr_frame, const std::shared_ptr<System>& prev_sys, const std::shared_ptr<System>& curr_sys, bool& ignore_single_atom);
-	// void update_evolution(const std::shared_ptr<System>& prev_sys, const std::shared_ptr<System>& curr_sys, const bool& ignore_single_atom = true);
 	void update_reax_flow(const std::shared_ptr<System>& prev_sys, const std::shared_ptr<System>& curr_sys, const int& curr_frame);
 	void flush();
 
-	void process_traj(const std::string& file_path, const std::vector<std::string>& type_names, const float& tolerance = 1.2f);
+	void process_traj(const std::string& file_path, const std::vector<std::string>& type_names, const float& rvdw_scale);
 };

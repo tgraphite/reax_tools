@@ -2,6 +2,7 @@
 [English Version](README.md)  
 用于ReaxFF/AIMD模拟轨迹的后处理，产生清洗过的物种演变和反应关系信息。  
 永久更新地址：https://github.com/tgraphite/reax_tools
+下载地址：https://github.com/tgraphite/reax_tools/releases
 如果对你有用，不妨在github上点个star，这对我搞项目很重要。谢谢！
 
 
@@ -127,3 +128,8 @@ cmake --build . -j8
 ## 许可证
 
 MIT许可证，或者说爱咋用咋用，作者不会上门找你，也别指望我修bug多勤快。
+
+## 旧版本下载次数统计区  
+
+1.0版本[attach]98527[/attach]
+0.3版本[attach]89685[/attach]

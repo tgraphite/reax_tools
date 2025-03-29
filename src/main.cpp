@@ -18,24 +18,35 @@ int main(int argc, char* argv[])
 	std::vector<std::string> sort_order = sorted_elements;
 	bool if_merge_by_element = false;
 	bool if_merge_rescale = false;
+	
+	// 帧选择参数
+	int begin_frame = 1;
+	int end_frame = -1;
+	int frame_step = 1;
 
 	// Normal Program.
 	// Getopt.
 	std::map<std::string, int> opts_nvals =
 	{ {"-f", 1}, {"-s", 1}, {"-r", 1}, {"-t", 1},
 	{"-me", 1}, {"-mr", 1}, {"-rc", 1}, {"--order", 1},
+	{"-b", 1}, {"-e", 1}, {"--step", 1},  // 添加新的帧选择参数
 	{"-h", 0}, {"--help", 0} };
+
 	std::string usage = "Usage: \n\
 	-f .xyz/.lammpstrj file -> [TRAJ MODE] determine molecules by van der Waals radius\n\
 	-s lammps reaxff/species file (spieces.out) -> [SPECIES MODE] determine species by file input\n\n\
 	[TRAJ MODE SETTINGS]\n\
 	-r raidus scaling factor (default 1.2)\n\
-	-t type names, split in comma, e.g. C,H,O,N,S,F\n\n\
+	-t type names, split in comma, e.g. C,H,O,N,S,F\n\
+	-b begin frame (default 1)\n\
+	-e end frame (default: all frames)\n\
+	--step frame step (default 1)\n\n\
 	[SPECIES MODE SETTINGS]\n\
 	-me merge molecules into groups by element number (default C), i.e. mols have 1~4 Carbons -> group_C1-C4\n\
 	-mr merge range for the process above, split in comma (default: 1,4,8,16)\n\
 	-rc rescale group weight by selected atom number, not mol number, i.e. C2H4 -> weight 2, C4H8 -> weight 4 (default: no)\n\
 	--order output formulas in correct element order, split in comma (default: C,H,O,N,S,F,P)";
+
 	std::map<std::string, std::vector<std::string>> opts_vals = neo_getopt(argc, argv, opts_nvals, usage);
 
 	for (auto& pair : opts_vals)
@@ -84,6 +95,19 @@ int main(int argc, char* argv[])
 			sort_order.clear();
 			sort_order = split(vals[0], ",");
 		}
+		// 新增帧选择参数处理
+		else if (opt == "-b")
+		{
+			begin_frame = std::stoi(vals[0]);
+		}
+		else if (opt == "-e")
+		{
+			end_frame = std::stoi(vals[0]);
+		}
+		else if (opt == "--step")
+		{
+			frame_step = std::stoi(vals[0]);
+		}
 		else if ((opt == "-h") or (opt == "--help"))
 		{
 			std::cout << usage << std::endl;
@@ -102,20 +126,25 @@ int main(int argc, char* argv[])
 		{
 			uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);
 		}
+		
+		uv.reax_species->rename_all_formulas(sort_order);
 		uv.reax_species->brief_report();
 		uv.reax_species->save_file(traj_file);
+
 		uv.reax_flow->brief_report();
 		uv.reax_flow->save_graph(traj_file);
+
 	}
 
 	// Read lammps species.out mode
 	else if (mode == "species")
 	{
-		ReaxSpecies reax_species(species_file, sort_order);
+		ReaxSpecies reax_species(species_file);
 		if (if_merge_by_element)
 		{
 			reax_species.merge_by_element(merge_target, merge_range, if_merge_rescale);
 		}
+		reax_species.rename_all_formulas(sort_order);
 		reax_species.brief_report();
 		reax_species.save_file();
 	}
