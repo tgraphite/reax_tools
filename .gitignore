@@ -1,0 +1,4 @@
+build_target/
+.vs*/
+old/
+rdkit/
