@@ -1,0 +1,36 @@
+﻿set(PROJECT_NAME reax_tools)
+cmake_minimum_required(VERSION 3.8)
+project(${PROJECT_NAME})
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# set(RDKIT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/rdkit/include)
+# set(RDKIT_LIBRARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/rdkit/lib)
+# set(rdkit_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/rdkit/lib/cmake/rdkit)
+# set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/external/rdkit/lib/cmake/rdkit)
+# find_package(rdkit REQUIRED)
+# include_directories(${RDKIT_INCLUDE_DIR})
+# link_directories(${RDKIT_LIBRARY_DIR})
+
+
+file(GLOB_RECURSE SRC_FILES "src/*.cpp" "src/*.c")
+file(GLOB_RECURSE HEADER_FILES "include/*.h")
+
+add_subdirectory(external/fmt)
+
+add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt) # RDKitGraphMol RDKitSmilesParse 
+# RDKitRDGeneral RDKitRDGeometryLib RDKitSubstructMatch RDKitChemTransforms RDKitMolDraw2D RDKitDepictor)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+if (UNIX AND NOT APPLE)
+    target_compile_options(${PROJECT_NAME} PRIVATE -O3 -march=native -mtune=native -mavx2 -mfma -g)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE _LINUX)
+elseif (WIN32)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE _WIN32)
+endif()
