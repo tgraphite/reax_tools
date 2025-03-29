@@ -8,8 +8,8 @@
 #include <iostream>
 #include <vector>
 
-ReaxSpecies::ReaxSpecies(const std::string& file_path)
-	: file_path(file_path)
+// For read data from Lammps species file.
+ReaxSpecies::ReaxSpecies(const std::string& file_path) : file_path(file_path)
 {
 	file.open(file_path);
 	if (!file.is_open())
