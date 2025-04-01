@@ -184,6 +184,8 @@ void System::load_lammpstrj(std::ifstream& file)
 			if (box_dim > 2)
 			{
 				bounds = { xlo, ylo, zlo, xhi, yhi, zhi };
+				has_boundaries = true;
+				axis_lengths = { lx, ly, lz };
 				read_box = false;
 			}
 		}
