@@ -1,4 +1,4 @@
-# ReaxTools 1.1版本
+# ReaxTools
 [English Version](README.md)  
 用于ReaxFF/AIMD模拟轨迹的后处理，产生清洗过的物种演变和反应关系信息。  
 永久更新地址：https://github.com/tgraphite/reax_tools
@@ -6,11 +6,12 @@
 如果对你有用，不妨在github上点个star，这对我搞项目很重要。谢谢！
 
 
-## 1.1版本更新说明
+## 版本更新说明
 ---------
 - 代码全部开源
 - 新增反应流程图功能，可以追踪分子间的反应关系
 - 在Cursor的帮助下，懒惰的作者已经恢复更新
+- lammpstrj支持PBC
 
 ## 特性
 -----
