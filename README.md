@@ -1,4 +1,4 @@
-# ReaxTools 1.1 Version
+# ReaxTools
 [简体中文](README_zh.md)
 
 (English Page auto Translated by LLM)
