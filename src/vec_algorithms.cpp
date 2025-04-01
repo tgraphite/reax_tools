@@ -82,6 +82,37 @@ std::vector<float> operator/(const std::vector<float>& lhs, const float& rhs)
 }
 
 
+float distance_sq(const std::vector<float>& vec_a, const std::vector<float>& vec_b)
+{
+	float dist_sq = 0.0f;
+
+	for (size_t i = 0; i < vec_a.size() && i < vec_b.size(); i++)
+	{
+		float dx = vec_a[i] - vec_b[i];		
+		dist_sq += dx * dx;
+	}
+
+	return dist_sq;
+}
+
+float distance_sq_pbc(const std::vector<float>& vec_a, const std::vector<float>& vec_b, const std::vector<float>& axis_lengths)
+{
+	float dist_sq = 0.0f;
+	
+	for (size_t i = 0; i < vec_a.size() && i < vec_b.size(); i++)
+	{
+		float dx = vec_a[i] - vec_b[i];
+		
+		if (i < axis_lengths.size() && axis_lengths[i] > 0.0f)
+		{
+			dx -= axis_lengths[i] * (int)(dx / axis_lengths[i] + (dx > 0 ? 0.5f : -0.5f));
+		}
+		
+		dist_sq += dx * dx;
+	}
+	
+	return dist_sq;
+}
 
 
 

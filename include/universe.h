@@ -35,6 +35,8 @@ public:
 	node* insert_rec(node* node_ptr, std::shared_ptr<Atom>& atom_data, const int& depth);
 	void find_neighbors(const std::shared_ptr<Atom>& atom_data, const float& radius, std::vector<std::shared_ptr<Atom>>& neighbors);
 	void find_neighbors_rec(node* node_ptr, const std::shared_ptr<Atom>& atom_data, const float& radius, std::vector<std::shared_ptr<Atom>>& neighbors);
+	void find_neighbors(const std::shared_ptr<Atom>& atom_data, const float& radius, std::vector<std::shared_ptr<Atom>>& neighbors, const std::vector<float>& axis_lengths);
+	void find_neighbors_rec(node* node_ptr, const std::shared_ptr<Atom>& atom_data, const float& radius, std::vector<std::shared_ptr<Atom>>& neighbors, const std::vector<float>& axis_lengths);
 	void clear(node* node_ptr);
 };
 
@@ -45,6 +47,9 @@ public:
 	int iatoms = 0;
 	int itypes = 0;
 	int itimestep = 0;
+
+	bool has_boundaries = false;
+	std::vector<float> axis_lengths;
 
 	std::vector<std::shared_ptr<Atom>> atoms;
 	std::vector<std::shared_ptr<Molecule>> molecules;

@@ -3,6 +3,7 @@
 #include "molecule.h"
 #include "fmt/format.h"
 #include "defines.h"
+#include "vec_algorithms.h"
 
 System::System() {}
 
@@ -58,7 +59,17 @@ void System::search_neigh(const float& radius, const int& max_neigh)
 		if (atom_data->neighs.size() < max_neigh)
 		{
 			std::vector<std::shared_ptr<Atom>> neighbors;
-			kd_tree.find_neighbors(atom_data, radius, neighbors);
+		
+			if (has_boundaries && axis_lengths.size() == 3 && 
+			    axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f && axis_lengths[2] > 0.0f)
+			{
+				kd_tree.find_neighbors(atom_data, radius, neighbors, axis_lengths);
+			}
+			else
+			{
+				kd_tree.find_neighbors(atom_data, radius, neighbors);
+			}
+			
 			for (std::shared_ptr<Atom> neighbor : neighbors)
 			{
 				atom_data->neighs.push_back(neighbor);
@@ -110,7 +121,8 @@ void System::build_bonds_by_radius(const float& rvdw_scale)
 	float bond_r;
 	float bond_sq;
 	float dist_sq;
-	float dx, dy, dz;
+	bool use_pbc = has_boundaries && axis_lengths.size() == 3 && 
+	               axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f && axis_lengths[2] > 0.0f;
 
 	for (auto& atom : atoms)
 	{
@@ -125,11 +137,17 @@ void System::build_bonds_by_radius(const float& rvdw_scale)
 				continue;
 			}
 
-			dx = atom->coord[0] - neigh->coord[0];
-			dy = atom->coord[1] - neigh->coord[1];
-			dz = atom->coord[2] - neigh->coord[2];
-
-			dist_sq = dx * dx + dy * dy + dz * dz;
+			if (use_pbc)
+			{
+				dist_sq = distance_sq_pbc(atom->coord, neigh->coord, axis_lengths);
+			}
+			else
+			{
+				float dx = atom->coord[0] - neigh->coord[0];
+				float dy = atom->coord[1] - neigh->coord[1];
+				float dz = atom->coord[2] - neigh->coord[2];
+				dist_sq = dx * dx + dy * dy + dz * dz;
+			}
 
 			std::pair<int, int> id_ij = { atom->type_id, neigh->type_id };
 			bond_r = bond_radius[id_ij];
