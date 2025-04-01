@@ -1,6 +1,7 @@
 # ReaxTools 1.1 Version
 [简体中文](README_zh.md)
-(Auto Translated by LLM)
+
+(English Page auto Translated by LLM)
 
 Post-processing for ReaxFF/AIMD simulation trajectories,   generating cleaned species evolution and reaction relationship information.  
 
@@ -9,11 +10,12 @@ If it's useful to you, consider starring it on GitHub, which is very important f
 
 
 
-## 1.1 Version Update Notes
+## Version Update Notes
 ---------
 - All code is now open source
 - Added reaction flowchart functionality, which can trace reaction relationships between molecules
 - With the help of Cursor, the lazy author has resumed updates
+- PBC supported for lammpstrj file.
 
 ## Features
 -----
