@@ -1,34 +1,16 @@
 #include <iostream>
 
+#include "defines.h"
 #include "getopt.h"
 #include "reax_species.h"
 #include "string_tools.h"
 #include "universe.h"
 
-
 int main(int argc, char *argv[]) {
     std::string mode;
     std::string traj_file;
-    float rvdw_scale = 1.2f;
-    std::vector<std::string> type_names;
-
     std::string species_file;
     std::string merge_target = "C";
-    std::vector<int> merge_range = {1, 4, 8, 16};
-    std::vector<std::string> sort_order = sorted_elements;
-    bool if_merge_by_element = false;
-    bool if_merge_rescale = false;
-
-    // 帧选择参数
-    int begin_frame = 1;
-    int end_frame = -1;
-    int frame_step = 1;
-
-    // Normal Program.
-    // Getopt.
-    std::map<std::string, int> opts_nvals = {
-        {"-f", 1},  {"-s", 1},  {"-r", 1},      {"-t", 1}, {"-me", 1},
-        {"-mr", 1}, {"-rc", 1}, {"--order", 1}, {"-h", 0}, {"--help", 0}};
 
     std::string usage =
         "Usage: \n\
@@ -46,8 +28,18 @@ int main(int argc, char *argv[]) {
 	-rc rescale group weight by selected atom number, not mol number, i.e. C2H4 -> weight 2, C4H8 -> weight 4 (default: no)\n\
 	--order output formulas in correct element order, split in comma (default: C,H,O,N,S,F,P)\n";
 
-    std::map<std::string, std::vector<std::string>> opts_vals =
-        neo_getopt(argc, argv, opts_nvals, usage);
+    std::vector<std::string> type_names;
+    std::vector<int> merge_range = {1, 4, 8, 16};
+    std::vector<std::string> sort_order = sorted_elements;
+
+    float rvdw_scale = 1.2f;
+    bool if_merge_by_element = false;
+    bool if_merge_rescale = false;
+
+    std::map<std::string, int> opts_nvals = {{"-f", 1},  {"-s", 1},  {"-r", 1},      {"-t", 1}, {"-me", 1},
+                                             {"-mr", 1}, {"-rc", 1}, {"--order", 1}, {"-h", 0}, {"--help", 0}};
+
+    std::map<std::string, std::vector<std::string>> opts_vals = neo_getopt(argc, argv, opts_nvals, usage);
 
     for (auto &pair : opts_vals) {
         std::string opt = pair.first;
@@ -77,14 +69,6 @@ int main(int argc, char *argv[]) {
         } else if (opt == "--order") {
             sort_order.clear();
             sort_order = split(vals[0], ",");
-        }
-        // 新增帧选择参数处理
-        else if (opt == "-b") {
-            begin_frame = std::stoi(vals[0]);
-        } else if (opt == "-e") {
-            end_frame = std::stoi(vals[0]);
-        } else if (opt == "--step") {
-            frame_step = std::stoi(vals[0]);
         } else if ((opt == "-h") or (opt == "--help")) {
             std::cout << usage << std::endl;
             exit(0);
@@ -98,8 +82,7 @@ int main(int argc, char *argv[]) {
         uv.process_traj(traj_file, type_names, rvdw_scale);
 
         if (if_merge_by_element) {
-            uv.reax_species->merge_by_element(merge_target, merge_range,
-                                              if_merge_rescale);
+            uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);
         }
 
         uv.reax_species->rename_all_formulas(sort_order);
@@ -115,8 +98,7 @@ int main(int argc, char *argv[]) {
     else if (mode == "species") {
         ReaxSpecies reax_species(species_file);
         if (if_merge_by_element) {
-            reax_species.merge_by_element(merge_target, merge_range,
-                                          if_merge_rescale);
+            reax_species.merge_by_element(merge_target, merge_range, if_merge_rescale);
         }
         reax_species.rename_all_formulas(sort_order);
         reax_species.brief_report();

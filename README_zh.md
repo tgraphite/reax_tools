@@ -24,7 +24,7 @@
 
 ### 反应流图片示例
 
-![Reaction Flow](examples/reaction_flow_example.svg)
+![Reaction Flow](examples/example.svg)
 由graphviz绘制
 安装和快速使用:  
 ```
@@ -37,7 +37,7 @@ dot -Tsvg mysystem.dot > mysystem.svg
 
 （结合Matplotlib快速绘图）
 
-![Data Plotted by Matplotlib](examples/dataplot_example.jpg)
+![Data Plotted by Matplotlib](examples/example.jpg)
 
 ## 使用方法
 ---------
