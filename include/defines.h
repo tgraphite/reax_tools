@@ -1,8 +1,9 @@
 #pragma once
 
-#include <vector>
-#include <string>
+#include <array>
 #include <map>
+#include <string>
+#include <vector>
 
 extern int atom_reserve;
 extern int bond_reserve;
