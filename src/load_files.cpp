@@ -39,8 +39,7 @@ void System::load_xyz(std::ifstream &file) {
             std::string type_s;
             std::vector<float> coord;
 
-            // In xyz file, atom may have type of int (1,2...) or string (C,
-            // H...)
+            // In xyz file, atom may have type of int (6...) or string (C...)
             if (!can_convert_to_int(tokens[0])) {
                 // In case of string type, give a int type for atom.
                 type_s = tokens[0];

@@ -28,7 +28,7 @@ If it's useful to you, consider starring it on GitHub, which is very important f
 
 ### Reaction Flow Chart output example
 
-![Reaction Flow](examples/reaction_flow_example.svg)
+![Reaction Flow](examples/example.svg)
 Picture quickly made by graphviz  
 
 To install and use:  
@@ -42,7 +42,7 @@ Now view the .svg file by any browser or viewer
 
 Quickly plotted by Matplotlib
 
-![Data Plotted by Matplotlib](examples/dataplot_example.jpg)
+![Data Plotted by Matplotlib](examples/example.jpg)
 
 ## Usage
 ---------
