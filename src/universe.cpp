@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_set>
+#include <omp.h>
 
 #include "atom.h"
 #include "defines.h"
@@ -12,7 +13,6 @@
 #include "molecule.h"
 #include "reax_species.h"
 #include "string_tools.h"
-
 
 Universe::Universe(){};
 
@@ -26,11 +26,11 @@ void Universe::flush() {
     curr_sys.reset();
 }
 
-void Universe::process_traj(const std::string &file_path,
-                            const std::vector<std::string> &type_names,
+void Universe::process_traj(const std::string &file_path, const std::vector<std::string> &type_names,
                             const float &rvdw_scale) {
     std::ifstream file(file_path);
     int curr_frame = 1;
+    float neigh_radius = 2.5 * rvdw_scale;
 
     while (file.is_open() and !file.eof()) {
         flush();
@@ -43,28 +43,42 @@ void Universe::process_traj(const std::string &file_path,
         else if (file_path.ends_with(".xyz"))
             curr_sys->load_xyz(file);
 
-        curr_sys->search_neigh(3.0, 10);
+        if (curr_sys->atoms.size() == 0) continue;
+
+        // 使用 OpenMP 并行化计算密集型操作
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            {
+                curr_sys->search_neigh(neigh_radius, 10);
+            }
+            
+            #pragma omp section
+            {
+                // 其他可以并行的预处理工作（如果有）
+            }
+        }
+        
+        // 这些操作有依赖关系，需要按顺序执行
         curr_sys->build_bonds_by_radius(rvdw_scale);
         curr_sys->build_molecules();
 
-        if (curr_sys->atoms.size() == 0) continue;
-
-        // Species analysis. Only depend on molecule formulas.
-        // TODO: Depend on topology.
+        // 分子公式计算可以并行
         std::vector<std::string> frame_formulas;
-        frame_formulas.reserve(curr_sys->molecules.size());
-        for (auto &mol : curr_sys->molecules) {
-            frame_formulas.push_back(mol->formula);
+        frame_formulas.resize(curr_sys->molecules.size());
+        
+        #pragma omp parallel for
+        for (size_t i = 0; i < curr_sys->molecules.size(); i++) {
+            frame_formulas[i] = curr_sys->molecules[i]->formula;
         }
+        
         reax_species->import_frame_formulas(frame_formulas);
 
-        // curr_sys->summary();
-        // Update reaction flow.
+        // 帧间依赖的操作，不能并行
         if (prev_sys && curr_sys) {
             update_reax_flow(prev_sys, curr_sys, curr_frame);
         }
 
-        // compare prev_sys and curr_sys
         std::cout << "Frame: " << curr_frame << " ";
         curr_frame++;
         curr_sys->basic_info();

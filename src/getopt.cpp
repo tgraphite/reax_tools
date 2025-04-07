@@ -11,9 +11,9 @@
 // opt_nvals: e.g. {{"-f", 1}, {"--build", 0}, {"-s", 3}}
 // return: std::map<std::string, std::vector<std::string>> opts_vals
 // e.g. {{"-f", {"filename.txt"}}, {"--build", {}}, {"-s", {"1", "2", "3"}}}
-std::map<std::string, std::vector<std::string>> neo_getopt(
-    int argc, char *argv[], std::map<std::string, int> opts_nvals,
-    const std::string &notif) {
+std::map<std::string, std::vector<std::string>> neo_getopt(int argc, char *argv[],
+                                                           std::map<std::string, int> opts_nvals,
+                                                           const std::string &notif) {
     size_t cur_pos = 1;
     size_t cur_nvals = 0;
     std::string cur_arg;
