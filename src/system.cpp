@@ -32,14 +32,10 @@ void System::set_types(const std::vector<std::string> &type_names) {
     }
 }
 
-void System::summary() {
-    fmt::print("Atoms: {}, Bonds: {}, Mols: {}\n", atoms.size(), bonds.size(),
-               molecules.size());
-}
+void System::summary() { fmt::print("Atoms: {}, Bonds: {}, Mols: {}\n", atoms.size(), bonds.size(), molecules.size()); }
 
 void System::basic_info() {
-    fmt::print("Atoms: {}, Bonds: {}, Mols: {}\n", atoms.size(), bonds.size(),
-               molecules.size());
+    fmt::print("Atoms: {}, Bonds: {}, Mols: {}\n", atoms.size(), bonds.size(), molecules.size());
 }
 
 void System::search_neigh(const float &radius, const int &max_neigh) {
@@ -53,11 +49,9 @@ void System::search_neigh(const float &radius, const int &max_neigh) {
         if (atom_data->neighs.size() < max_neigh) {
             std::vector<std::shared_ptr<Atom>> neighbors;
 
-            if (has_boundaries && axis_lengths.size() == 3 &&
-                axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
+            if (has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
                 axis_lengths[2] > 0.0f) {
-                kd_tree.find_neighbors(atom_data, radius, neighbors,
-                                       axis_lengths);
+                kd_tree.find_neighbors(atom_data, radius, neighbors, axis_lengths);
             } else {
                 kd_tree.find_neighbors(atom_data, radius, neighbors);
             }
@@ -90,15 +84,11 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
         for (int type_j = 1; type_j <= itypes; type_j++) {
             std::pair<int, int> pair_ij = {type_i, type_j};
             if (type_itos[type_i] == "H" && type_itos[type_j] == "H") {
-                bond_radius[pair_ij] =
-                    0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) *
-                    rvdw_scale;
+                bond_radius[pair_ij] = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
             } else if (type_itos[type_i] == "X" or type_itos[type_j] == "X") {
                 bond_radius[pair_ij] = 0.0f;
             } else {
-                bond_radius[pair_ij] =
-                    0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) *
-                    rvdw_scale;
+                bond_radius[pair_ij] = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
             }
         }
     }
@@ -106,8 +96,7 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
     float bond_r;
     float bond_sq;
     float dist_sq;
-    bool use_pbc = has_boundaries && axis_lengths.size() == 3 &&
-                   axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
+    bool use_pbc = has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
                    axis_lengths[2] > 0.0f;
 
     for (auto &atom : atoms) {
@@ -115,15 +104,12 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
             if (neigh == atom) {
                 continue;
             }
-            if (std::find(neigh->bonded_atoms.begin(),
-                          neigh->bonded_atoms.end(),
-                          atom) != neigh->bonded_atoms.end()) {
+            if (std::find(neigh->bonded_atoms.begin(), neigh->bonded_atoms.end(), atom) != neigh->bonded_atoms.end()) {
                 continue;
             }
 
             if (use_pbc) {
-                dist_sq =
-                    distance_sq_pbc(atom->coord, neigh->coord, axis_lengths);
+                dist_sq = distance_sq_pbc(atom->coord, neigh->coord, axis_lengths);
             } else {
                 float dx = atom->coord[0] - neigh->coord[0];
                 float dy = atom->coord[1] - neigh->coord[1];
@@ -136,8 +122,7 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
             bond_sq = bond_r * bond_r;
 
             if (dist_sq < bond_sq) {
-                std::pair<std::shared_ptr<Atom>, std::shared_ptr<Atom>>
-                    pair_ij = {atom, neigh};
+                std::pair<std::shared_ptr<Atom>, std::shared_ptr<Atom>> pair_ij = {atom, neigh};
                 auto bond = std::make_shared<Bond>(atom, neigh);
 
                 bonds.push_back(bond);
@@ -172,8 +157,7 @@ void System::build_molecules() {
     }
 }
 
-void System::dfs(std::shared_ptr<Atom> &atom,
-                 std::set<std::shared_ptr<Atom>> &visited,
+void System::dfs(std::shared_ptr<Atom> &atom, std::set<std::shared_ptr<Atom>> &visited,
                  std::shared_ptr<Molecule> &cur_mol) {
     visited.insert(atom);
     cur_mol->insert(atom);

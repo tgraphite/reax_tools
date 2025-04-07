@@ -32,24 +32,15 @@ class KD_tree {
 
     node *root = nullptr;
     void insert(std::shared_ptr<Atom> &atom_data);
-    node *insert_rec(node *node_ptr, std::shared_ptr<Atom> &atom_data,
-                     const int &depth);
-    void find_neighbors(const std::shared_ptr<Atom> &atom_data,
-                        const float &radius,
+    node *insert_rec(node *node_ptr, std::shared_ptr<Atom> &atom_data, const int &depth);
+    void find_neighbors(const std::shared_ptr<Atom> &atom_data, const float &radius,
                         std::vector<std::shared_ptr<Atom>> &neighbors);
-    void find_neighbors_rec(node *node_ptr,
-                            const std::shared_ptr<Atom> &atom_data,
-                            const float &radius,
+    void find_neighbors_rec(node *node_ptr, const std::shared_ptr<Atom> &atom_data, const float &radius,
                             std::vector<std::shared_ptr<Atom>> &neighbors);
-    void find_neighbors(const std::shared_ptr<Atom> &atom_data,
-                        const float &radius,
-                        std::vector<std::shared_ptr<Atom>> &neighbors,
-                        const std::vector<float> &axis_lengths);
-    void find_neighbors_rec(node *node_ptr,
-                            const std::shared_ptr<Atom> &atom_data,
-                            const float &radius,
-                            std::vector<std::shared_ptr<Atom>> &neighbors,
-                            const std::vector<float> &axis_lengths);
+    void find_neighbors(const std::shared_ptr<Atom> &atom_data, const float &radius,
+                        std::vector<std::shared_ptr<Atom>> &neighbors, const std::vector<float> &axis_lengths);
+    void find_neighbors_rec(node *node_ptr, const std::shared_ptr<Atom> &atom_data, const float &radius,
+                            std::vector<std::shared_ptr<Atom>> &neighbors, const std::vector<float> &axis_lengths);
     void clear(node *node_ptr);
 };
 
@@ -86,9 +77,7 @@ class System {
     void search_neigh(const float &r, const int &max_neigh);
     void build_bonds_by_radius(const float &rvdw_scale = 1.2f);
     void build_molecules();
-    void dfs(std::shared_ptr<Atom> &atom,
-             std::set<std::shared_ptr<Atom>> &visited,
-             std::shared_ptr<Molecule> &mol);
+    void dfs(std::shared_ptr<Atom> &atom, std::set<std::shared_ptr<Atom>> &visited, std::shared_ptr<Molecule> &mol);
 };
 
 class Universe {
@@ -102,14 +91,11 @@ class Universe {
     Universe();
     ~Universe();
 
-    float compute_similarity(const std::unordered_set<int> &prev_set,
-                             const std::unordered_set<int> &curr_set);
-    void update_reax_flow(const std::shared_ptr<System> &prev_sys,
-                          const std::shared_ptr<System> &curr_sys,
+    float compute_similarity(const std::unordered_set<int> &prev_set, const std::unordered_set<int> &curr_set);
+    void update_reax_flow(const std::shared_ptr<System> &prev_sys, const std::shared_ptr<System> &curr_sys,
                           const int &curr_frame);
     void flush();
 
-    void process_traj(const std::string &file_path,
-                      const std::vector<std::string> &type_names,
+    void process_traj(const std::string &file_path, const std::vector<std::string> &type_names,
                       const float &rvdw_scale);
 };
