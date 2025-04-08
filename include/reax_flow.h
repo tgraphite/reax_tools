@@ -31,7 +31,7 @@ class ReaxFlow {
     std::map<std::string, int> formula_to_node_id;
 
    public:
-    void add_reaction(int frame, const std::shared_ptr<Molecule>& source, const std::shared_ptr<Molecule>& target);
+    void add_reaction(int frame, Molecule* source, Molecule* target);
     void brief_report();
     void save_graph(const std::string& raw_file_path);
 };

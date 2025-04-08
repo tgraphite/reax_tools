@@ -11,10 +11,8 @@ struct Molecule {
     int id;
     std::unordered_set<int> atom_ids;
 
-    std::vector<std::shared_ptr<Atom>> mol_atoms;
-    std::vector<std::shared_ptr<Bond>> mol_bonds;
-    std::vector<std::shared_ptr<Angle>> mol_angles;
-    std::vector<std::shared_ptr<Dihedral>> mol_dihedrals;
+    std::vector<Atom*> mol_atoms;
+    std::vector<Bond*> mol_bonds;
 
     std::string formula;
     std::map<std::string, int> types_nums;
@@ -26,14 +24,10 @@ struct Molecule {
 
     std::string info();
 
-    void insert(std::shared_ptr<Atom>& atom);
-    void insert(std::shared_ptr<Bond>& bond);
-    void insert(std::shared_ptr<Angle>& angle);
-    void insert(std::shared_ptr<Dihedral>& dihedral);
-    bool has(std::shared_ptr<Atom>& atom);
-    bool has(std::shared_ptr<Bond>& bond);
-    bool has(std::shared_ptr<Angle>& angle);
-    bool has(std::shared_ptr<Dihedral>& dihedral);
+    void insert(Atom*& atom);
+    void insert(Bond*& bond);
+    bool has(Atom*& atom);
+    bool has(Bond*& bond);
     void update_formula();
     void update_topo();
 };

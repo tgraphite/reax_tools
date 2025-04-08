@@ -4,9 +4,9 @@
 #include "universe.h"
 #include "vec_algorithms.h"
 
-void KD_tree::insert(std::shared_ptr<Atom> &atom_data) { root = insert_rec(root, atom_data, 0); }
+void KD_tree::insert(Atom *atom_data) { root = insert_rec(root, atom_data, 0); }
 
-KD_tree::node *KD_tree::insert_rec(KD_tree::node *node_ptr, std::shared_ptr<Atom> &atom_data, const int &depth) {
+KD_tree::node *KD_tree::insert_rec(KD_tree::node *node_ptr, Atom *atom_data, const int &depth) {
     if (!node_ptr) return new node(atom_data, depth % 3);
 
     int axis = node_ptr->axis;
@@ -18,13 +18,40 @@ KD_tree::node *KD_tree::insert_rec(KD_tree::node *node_ptr, std::shared_ptr<Atom
     return node_ptr;
 }
 
-void KD_tree::find_neighbors(const std::shared_ptr<Atom> &atom_data, const float &radius,
-                             std::vector<std::shared_ptr<Atom>> &neighbors, const std::vector<float> &axis_lengths) {
-    find_neighbors_rec(root, atom_data, radius, neighbors, axis_lengths);
+void KD_tree::find_neighbors(Atom *atom_data, std::vector<Atom *> &neighbors, const float &radius) {
+    find_neighbors_rec(root, atom_data, neighbors, radius);
 }
 
-void KD_tree::find_neighbors_rec(KD_tree::node *node_ptr, const std::shared_ptr<Atom> &atom_data, const float &radius,
-                                 std::vector<std::shared_ptr<Atom>> &neighbors,
+void KD_tree::find_neighbors(Atom *atom_data, std::vector<Atom *> &neighbors, const float &radius,
+                             const std::vector<float> &axis_lengths) {
+    find_neighbors_rec(root, atom_data, neighbors, radius, axis_lengths);
+}
+
+void KD_tree::find_neighbors_rec(node *node_ptr, Atom *atom_data, std::vector<Atom *> &neighbors, const float &radius) {
+    if (!node_ptr) return;
+
+    float dx = node_ptr->atom_data->coord[0] - atom_data->coord[0];
+    float dy = node_ptr->atom_data->coord[1] - atom_data->coord[1];
+    float dz = node_ptr->atom_data->coord[2] - atom_data->coord[2];
+    float dist_sq = dx * dx + dy * dy + dz * dz;
+
+    if (dist_sq < radius * radius) neighbors.push_back(node_ptr->atom_data);
+
+    int axis = node_ptr->axis;
+    float delta = atom_data->coord[axis] - node_ptr->atom_data->coord[axis];
+    float delta_sq = delta * delta;
+    float radius_sq = radius * radius;
+
+    if (delta < 0) {
+        find_neighbors_rec(node_ptr->left, atom_data, neighbors, radius);
+        if (delta_sq < radius_sq) find_neighbors_rec(node_ptr->right, atom_data, neighbors, radius);
+    } else {
+        find_neighbors_rec(node_ptr->right, atom_data, neighbors, radius);
+        if (delta_sq < radius_sq) find_neighbors_rec(node_ptr->left, atom_data, neighbors, radius);
+    }
+}
+
+void KD_tree::find_neighbors_rec(node *node_ptr, Atom *atom_data, std::vector<Atom *> &neighbors, const float &radius,
                                  const std::vector<float> &axis_lengths) {
     if (!node_ptr) return;
 
@@ -42,40 +69,11 @@ void KD_tree::find_neighbors_rec(KD_tree::node *node_ptr, const std::shared_ptr<
     float radius_sq = radius * radius;
 
     if (delta < 0) {
-        find_neighbors_rec(node_ptr->left, atom_data, radius, neighbors, axis_lengths);
-        if (delta * delta < radius_sq) find_neighbors_rec(node_ptr->right, atom_data, radius, neighbors, axis_lengths);
+        find_neighbors_rec(node_ptr->left, atom_data, neighbors, radius, axis_lengths);
+        if (delta * delta < radius_sq) find_neighbors_rec(node_ptr->right, atom_data, neighbors, radius, axis_lengths);
     } else {
-        find_neighbors_rec(node_ptr->right, atom_data, radius, neighbors, axis_lengths);
-        if (delta * delta < radius_sq) find_neighbors_rec(node_ptr->left, atom_data, radius, neighbors, axis_lengths);
-    }
-}
-
-void KD_tree::find_neighbors(const std::shared_ptr<Atom> &atom_data, const float &radius,
-                             std::vector<std::shared_ptr<Atom>> &neighbors) {
-    find_neighbors_rec(root, atom_data, radius, neighbors);
-}
-
-void KD_tree::find_neighbors_rec(KD_tree::node *node_ptr, const std::shared_ptr<Atom> &atom_data, const float &radius,
-                                 std::vector<std::shared_ptr<Atom>> &neighbors) {
-    if (!node_ptr) return;
-
-    float dx = node_ptr->atom_data->coord[0] - atom_data->coord[0];
-    float dy = node_ptr->atom_data->coord[1] - atom_data->coord[1];
-    float dz = node_ptr->atom_data->coord[2] - atom_data->coord[2];
-    float dist_sq = dx * dx + dy * dy + dz * dz;
-
-    if (dist_sq < radius * radius) neighbors.push_back(node_ptr->atom_data);
-
-    int axis = node_ptr->axis;
-    float delta = atom_data->coord[axis] - node_ptr->atom_data->coord[axis];
-    float delta_sq = delta * delta;
-    float radius_sq = radius * radius;
-    if (delta < 0) {
-        find_neighbors_rec(node_ptr->left, atom_data, radius, neighbors);
-        if (delta_sq < radius_sq) find_neighbors_rec(node_ptr->right, atom_data, radius, neighbors);
-    } else {
-        find_neighbors_rec(node_ptr->right, atom_data, radius, neighbors);
-        if (delta_sq < radius_sq) find_neighbors_rec(node_ptr->left, atom_data, radius, neighbors);
+        find_neighbors_rec(node_ptr->right, atom_data, neighbors, radius, axis_lengths);
+        if (delta * delta < radius_sq) find_neighbors_rec(node_ptr->left, atom_data, neighbors, radius, axis_lengths);
     }
 }
 

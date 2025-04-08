@@ -8,21 +8,28 @@
 System::System() {}
 
 System::~System() {
-    // Have to clear all the low->high pointers first, otherwise will cause
-    // cycle reference and memory leak.
     for (auto &atom : atoms) {
-        atom->bonds.clear();
-        atom->neighs.clear();
-        atom->bonded_atoms.clear();
+        atom->clear();
     }
+
+    for (auto &atom : atoms) {
+        delete atom;
+    }
+
+    for (auto &bond : bonds) {
+        delete bond;
+    }
+
+    for (auto &molecule : molecules) {
+        delete molecule;
+    }
+
     atoms.clear();
-    molecules.clear();
-    dihedrals.clear();
-    angles.clear();
     bonds.clear();
+    molecules.clear();
 }
 
-void System::set_types(const std::vector<std::string> &type_names) {
+void System::set_types(std::vector<std::string> &type_names) {
     itypes = type_names.size();
     int type_id = 0;
     for (auto &name : type_names) {
@@ -31,8 +38,6 @@ void System::set_types(const std::vector<std::string> &type_names) {
         type_stoi[name] = type_id;
     }
 }
-
-void System::summary() { fmt::print("Atoms: {}, Bonds: {}, Mols: {}\n", atoms.size(), bonds.size(), molecules.size()); }
 
 void System::basic_info() {
     fmt::print("Atoms: {}, Bonds: {}, Mols: {}\n", atoms.size(), bonds.size(), molecules.size());
@@ -47,16 +52,16 @@ void System::search_neigh(const float &radius, const int &max_neigh) {
 
     for (auto &atom_data : atoms) {
         if (atom_data->neighs.size() < max_neigh) {
-            std::vector<std::shared_ptr<Atom>> neighbors;
+            std::vector<Atom *> neighbors;
 
             if (has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
                 axis_lengths[2] > 0.0f) {
-                kd_tree.find_neighbors(atom_data, radius, neighbors, axis_lengths);
+                kd_tree.find_neighbors(atom_data, neighbors, radius, axis_lengths);
             } else {
-                kd_tree.find_neighbors(atom_data, radius, neighbors);
+                kd_tree.find_neighbors(atom_data, neighbors, radius);
             }
 
-            for (std::shared_ptr<Atom> neighbor : neighbors) {
+            for (auto &neighbor : neighbors) {
                 atom_data->neighs.push_back(neighbor);
                 if (atom_data->neighs.size() >= max_neigh) {
                     break;
@@ -69,7 +74,7 @@ void System::search_neigh(const float &radius, const int &max_neigh) {
 void System::build_bonds_by_radius(const float &rvdw_scale) {
     std::map<int, float> atomic_radius;
     /// When using default atomic radius in constant.h
-    for (const auto &pair : type_stoi) {
+    for (auto &pair : type_stoi) {
         std::string typ_s = pair.first;
         int typ_i = pair.second;
 
@@ -122,8 +127,7 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
             bond_sq = bond_r * bond_r;
 
             if (dist_sq < bond_sq) {
-                std::pair<std::shared_ptr<Atom>, std::shared_ptr<Atom>> pair_ij = {atom, neigh};
-                auto bond = std::make_shared<Bond>(atom, neigh);
+                Bond *bond = new Bond(atom, neigh);
 
                 bonds.push_back(bond);
                 atom->bonds.push_back(bond);
@@ -136,14 +140,14 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
 }
 
 void System::build_molecules() {
-    std::set<std::shared_ptr<Atom>> visited;
+    std::set<Atom *> visited;
     int new_mol_id = 0;
 
     for (auto &atom : atoms) {
         if (visited.find(atom) == visited.end())  // If not visited
         {
             new_mol_id++;
-            auto new_mol = std::make_shared<Molecule>(new_mol_id);
+            Molecule *new_mol = new Molecule(new_mol_id);
             dfs(atom, visited, new_mol);
             molecules.push_back(new_mol);
         }
@@ -151,14 +155,10 @@ void System::build_molecules() {
 
     for (auto &molecule : molecules) {
         molecule->update_formula();
-        molecule->update_topo();
-        // uint32_t hash = moltopo_bank->include_mol(molecule);
-        // molecule->hash = hash;
     }
 }
 
-void System::dfs(std::shared_ptr<Atom> &atom, std::set<std::shared_ptr<Atom>> &visited,
-                 std::shared_ptr<Molecule> &cur_mol) {
+void System::dfs(Atom *atom, std::set<Atom *> &visited, Molecule *cur_mol) {
     visited.insert(atom);
     cur_mol->insert(atom);
 

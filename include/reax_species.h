@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <mutex>
 
 #include "defines.h"
 
@@ -16,6 +17,7 @@ class ReaxSpecies {
     std::map<std::string, std::vector<float>> formulas_nums;
     std::vector<std::vector<std::string>> all_frame_formulas;
     int nframes = 0;
+    std::mutex mutex_;
 
    public:
     // When read from Lammps reax/c/bonds file.
@@ -35,10 +37,8 @@ class ReaxSpecies {
     void rename_all_formulas(const std::vector<std::string>& order);
 
     // The -me option
-    void merge_formulas(const std::vector<std::string>& formulas,
-                        const std::string& new_formula);
-    void merge_by_element(const std::string& target_element,
-                          const std::vector<int>& ranges, bool recalc = false);
+    void merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula);
+    void merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool recalc = false);
 
     // The -rc option
     void scale_formula(const std::string& formula, const float& k);

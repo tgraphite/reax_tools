@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+#include <mutex>
 
 #include "fmt/format.h"
 #include "string_tools.h"
@@ -314,14 +315,19 @@ void ReaxSpecies::show_nums() {
 }
 
 // Get current frame formulas (std::map<std::string, int>) from class Universe.
-void ReaxSpecies::import_frame_formulas(
-    const std::vector<std::string> &frame_formulas) {
-    all_frame_formulas.push_back(frame_formulas);
+void ReaxSpecies::import_frame_formulas(const std::vector<std::string> &formulas) {
+    // 使用互斥锁保护共享资源
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    all_frame_formulas.push_back(formulas);
 }
 
 // Analyze imported frame formulas and get standard formulas_nums after
 // ReaxSpeices::import_frame_formulas all done.
 void ReaxSpecies::analyze_frame_formulas() {
+    // 使用互斥锁保护共享资源
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     // all_formulas_set : any occured formula, non-repeat.
     std::unordered_set<std::string> all_formulas_set;
     nframes = all_frame_formulas.size();
