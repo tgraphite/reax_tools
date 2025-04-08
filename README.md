@@ -77,7 +77,7 @@ Quickly plotted by Matplotlib
 // e.g. --order C,H,O,N
 
 --nt num_threads
-// self-explainatory
+// self-explainatory, default=4 (best in most conditions)
 ```
 ### Examples
 
