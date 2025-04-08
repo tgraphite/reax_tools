@@ -75,6 +75,9 @@ Quickly plotted by Matplotlib
 --order <element,element...>
 // Organizes the order of elements in the output chemical formula (default: C,H,O,N,S,F,P)
 // e.g. --order C,H,O,N
+
+--nt num_threads
+// self-explainatory
 ```
 ### Examples
 
