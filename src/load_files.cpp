@@ -2,7 +2,7 @@
 #include "string_tools.h"
 #include "universe.h"
 
-void System::load_xyz(std::ifstream &file) {
+void System::load_xyz(std::ifstream& file) {
     std::string line;
     std::string delim = " ";
     int atom_id = 0;
@@ -27,8 +27,6 @@ void System::load_xyz(std::ifstream &file) {
             iatoms = std::stoi(tokens[0]);
             atoms.reserve(iatoms);
             bonds.reserve(iatoms * 3);
-            angles.reserve(iatoms * 5);
-            dihedrals.reserve(iatoms * 8);
             molecules.reserve(iatoms / 2);
 
             skip = true;
@@ -60,10 +58,8 @@ void System::load_xyz(std::ifstream &file) {
                 }
             }
 
-            coord = {std::stof(tokens[1]), std::stof(tokens[2]),
-                     std::stof(tokens[3])};
-            std::shared_ptr<Atom> atom =
-                std::make_shared<Atom>(atom_id, type_i, coord, type_s);
+            coord = {std::stof(tokens[1]), std::stof(tokens[2]), std::stof(tokens[3])};
+            Atom* atom = new Atom(atom_id, type_i, coord, type_s);
             atoms.push_back(atom);
 
             // When there's no atom numbers line in xyz file, iatoms = 0, and
@@ -75,7 +71,7 @@ void System::load_xyz(std::ifstream &file) {
     }
 }
 
-void System::load_lammpstrj(std::ifstream &file) {
+void System::load_lammpstrj(std::ifstream& file) {
     // load a frame from lammpstrj, create a system instance.
     // when finish all atoms in this frame, stop.
     std::string line;
@@ -112,8 +108,7 @@ void System::load_lammpstrj(std::ifstream &file) {
                 read_box = true;
             }
             if (tokens[1] == "ATOMS") {
-                if (std::find(tokens.begin(), tokens.end(), "xs") !=
-                    tokens.end()) {
+                if (std::find(tokens.begin(), tokens.end(), "xs") != tokens.end()) {
                     is_relative_coord = true;
                 }
                 read_atoms = true;
@@ -125,8 +120,6 @@ void System::load_lammpstrj(std::ifstream &file) {
             iatoms = std::stoi(tokens[0]);
             atoms.reserve(iatoms);
             bonds.reserve(iatoms * 3);
-            angles.reserve(iatoms * 5);
-            dihedrals.reserve(iatoms * 8);
             molecules.reserve(iatoms / 2);
             read_natoms = false;
         } else if (read_box) {
@@ -161,8 +154,7 @@ void System::load_lammpstrj(std::ifstream &file) {
             std::vector<float> coord;
 
             if (!is_relative_coord) {
-                coord = {std::stof(tokens[2]), std::stof(tokens[3]),
-                         std::stof(tokens[4])};
+                coord = {std::stof(tokens[2]), std::stof(tokens[3]), std::stof(tokens[4])};
             } else {
                 coord = {
                     xlo + std::stof(tokens[2]) * lx,
@@ -171,8 +163,7 @@ void System::load_lammpstrj(std::ifstream &file) {
                 };
             }
 
-            std::shared_ptr<Atom> atom =
-                std::make_shared<Atom>(id, type_i, coord, type_s);
+            Atom* atom = new Atom(id, type_i, coord, type_s);
             atoms.push_back(atom);
             atoms_count++;
 

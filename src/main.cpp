@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
     std::string usage =
         "Usage: \n\
 	-f .xyz/.lammpstrj file -> [TRAJ MODE] determine molecules by van der Waals radius\n\
+    -nt num_threads (default 4)\n\
 	-s lammps reaxff/species file (spieces.out) -> [SPECIES MODE] determine species by file input\n\n\
 	[TRAJ MODE SETTINGS]\n\
 	-r raidus scaling factor (default 1.2)\n\
@@ -32,12 +33,14 @@ int main(int argc, char *argv[]) {
     std::vector<int> merge_range = {1, 4, 8, 16};
     std::vector<std::string> sort_order = sorted_elements;
 
+    int num_threads = 4;
     float rvdw_scale = 1.2f;
     bool if_merge_by_element = false;
     bool if_merge_rescale = false;
 
-    std::map<std::string, int> opts_nvals = {{"-f", 1},  {"-s", 1},  {"-r", 1},      {"-t", 1}, {"-me", 1},
-                                             {"-mr", 1}, {"-rc", 1}, {"--order", 1}, {"-h", 0}, {"--help", 0}};
+    std::map<std::string, int> opts_nvals = {{"-f", 1},  {"-s", 1},     {"-r", 1},  {"-t", 1},
+                                             {"-me", 1}, {"-mr", 1},    {"-rc", 1}, {"--order", 1},
+                                             {"-h", 0},  {"--help", 0}, {"-nt", 1}};
 
     std::map<std::string, std::vector<std::string>> opts_vals = neo_getopt(argc, argv, opts_nvals, usage);
 
@@ -55,6 +58,8 @@ int main(int argc, char *argv[]) {
             rvdw_scale = std::stof(vals[0]);
         } else if (opt == "-t") {
             type_names = split(vals[0], ",");
+        } else if (opt == "-nt") {
+            num_threads = std::stoi(vals[0]);
         } else if (opt == "-me") {
             if_merge_by_element = true;
             merge_target = vals[0];
@@ -79,7 +84,7 @@ int main(int argc, char *argv[]) {
     if (mode == "traj") {
         Universe uv;
 
-        uv.process_traj(traj_file, type_names, rvdw_scale);
+        uv.process_traj(traj_file, type_names, rvdw_scale, num_threads);
 
         if (if_merge_by_element) {
             uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);

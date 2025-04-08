@@ -6,20 +6,16 @@
 #include "defines.h"
 
 std::map<std::string, int> parse_formula(const std::string &formula);
-std::string rename_formula(
-    const std::string &formula,
-    const std::vector<std::string> &order = sorted_elements);
+std::string rename_formula(const std::string &formula, const std::vector<std::string> &order = sorted_elements);
 std::vector<std::string> split_by_space(const std::string &str);
 bool can_convert_to_int(const std::string &str);
-std::vector<std::string> split(const std::string &str,
-                               const std::string &delim);
+std::vector<std::string> split(const std::string &str, const std::string &delim);
 
 // This template function accepts a container of pointer (e.g.
 // vector<shared_ptr<Actual-type>>) prints the ptr->info() for the first N
 // elements. if two_way = true, prints first and last N prt->info().
 template <typename T>
-void print_info(const T &container, const size_t &num,
-                const bool &two_way = true) {
+void print_info(const T &container, const size_t &num, const bool &two_way = true) {
     size_t size = container.size();
 
     if (size == 0) return;
