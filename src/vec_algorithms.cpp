@@ -64,8 +64,7 @@ std::vector<float> operator/(const std::vector<float>& lhs, const float& rhs) {
     return vector_scale(lhs, 1 / rhs);
 }
 
-float distance_sq(const std::vector<float>& vec_a, const std::vector<float>& vec_b,
-                  const std::vector<float>& axis_lengths) {
+float distance_sq(const std::vector<float>& vec_a, const std::vector<float>& vec_b) {
     float dist_sq = 0.0f;
 
     for (size_t i = 0; i < vec_a.size() && i < vec_b.size(); i++) {

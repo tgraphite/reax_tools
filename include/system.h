@@ -15,8 +15,7 @@ class System {
     int iatoms = 0;
     int itypes = 0;
     int itimestep = 0;
-
-    bool has_boundaries = false;
+    bool has_boundaries;
     std::vector<float> axis_lengths;
 
     std::vector<Atom *> atoms;
@@ -34,10 +33,11 @@ class System {
     void load_xyz(std::ifstream &file);
     void load_lammpstrj(std::ifstream &file);
 
-    void summary();
-    void basic_info();
+    void finish(std::string &filepath);
+    void finish();
     void dump_lammps_data(std::string &filepath);
 
+    void search_neigh(const float &radius, const int &max_neigh);
     void search_neigh_naive(const float &radius, const int &max_neigh);
     void search_neigh_cell_list(const float &radius, const int &max_neigh);
     void search_neigh_kdtree(const float &radius, const int &max_neigh);

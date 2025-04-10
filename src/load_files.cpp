@@ -11,9 +11,6 @@ void System::load_xyz(std::ifstream& file) {
     float xlo, xhi, ylo, yhi, zlo, zhi, lx, ly, lz;
     float x, y, z;
 
-    has_boundaries = false;
-    axis_lengths = {100000, 100000, 100000};  // modify this later
-
     std::string given_type;
     int type_int;
     std::string type_str;
@@ -29,6 +26,13 @@ void System::load_xyz(std::ifstream& file) {
         if ((tokens.size() == 0) or (tokens[0] == "#")) {
             continue;
         }
+        // Skip time or energy information lines
+        else if (std::find(tokens.begin(), tokens.end(), "time") != tokens.end() &&
+                 std::find(tokens.begin(), tokens.end(), "=") != tokens.end() &&
+                 std::find(tokens.begin(), tokens.end(), "E") != tokens.end()) {
+            this->has_boundaries = false;
+            continue;
+        }
         // Atom numbers line
         else if (tokens.size() == 1 && can_convert_to_int(tokens[0])) {
             iatoms = std::stoi(tokens[0]);
@@ -36,7 +40,6 @@ void System::load_xyz(std::ifstream& file) {
             bonds.reserve(iatoms * 3);
             molecules.reserve(iatoms / 2);
             continue;
-
         } else if (tokens[0].starts_with("Lattice")) {
             // Lattice="25.774014 0.0 0.0 0.0 65.670043 0.0 0.0 0.0 85.0" Origin="-0.058304 0.0 30.0"...
 
@@ -66,8 +69,7 @@ void System::load_xyz(std::ifstream& file) {
             axis_lengths = {lx, ly, lz};
 
             continue;
-
-        } else if (tokens.size() >= 4) {
+        } else if (tokens.size() >= 4 && tokens.size() <= 5) {
             if (tokens.size() == 4) {
                 atom_count++;
                 atom_id = atom_count;
@@ -89,8 +91,16 @@ void System::load_xyz(std::ifstream& file) {
             // In xyz file, atom may have type of int (6...) or string (C...)
             if (!can_convert_to_int(given_type)) {
                 // In case of string type, give a int type for atom.
+                // Notice that must get the types correct!
                 try {
-                    type_int = type_stoi[given_type];
+                    if (!type_stoi.contains(given_type)) {
+                        type_int = type_stoi.size();
+                        type_itos[type_int] = given_type;
+                        type_stoi[given_type] = type_int;
+                        itypes++;
+                    } else {
+                        type_int = type_stoi[given_type];
+                    }
                     type_str = given_type;
                 } catch (const std::invalid_argument& e) {
                     throw std::runtime_error("Invalid element type in xyzfile: " + given_type);
@@ -204,7 +214,7 @@ void System::load_lammpstrj(std::ifstream& file) {
             box_dim++;
             if (box_dim > 2) {
                 bounds = {xlo, ylo, zlo, xhi, yhi, zhi};
-                has_boundaries = true;
+                this->has_boundaries = true;
                 axis_lengths = {lx, ly, lz};
                 read_box = false;
             }
@@ -230,10 +240,6 @@ void System::load_lammpstrj(std::ifstream& file) {
                 x = x < 0 ? x + lx : x;
                 y = y < 0 ? y + ly : y;
                 z = z < 0 ? z + lz : z;
-            } else {
-                x = std::stof(tokens[2]) * lx;
-                y = std::stof(tokens[3]) * ly;
-                z = std::stof(tokens[4]) * lz;
             }
 
             Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);
