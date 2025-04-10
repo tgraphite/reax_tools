@@ -40,34 +40,43 @@ void System::set_types(std::vector<std::string> &type_names) {
     }
 }
 
-void System::basic_info() {
-    fmt::print("Atoms: {}, Bonds: {}, Mols: {}\n", atoms.size(), bonds.size(), molecules.size());
+void System::finish() {
+    if (has_boundaries) {
+        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: true\n", atoms.size(), bonds.size(), molecules.size());
+    } else {
+        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: false (cost lots of time)\n", atoms.size(), bonds.size(),
+                   molecules.size());
+    }
 }
 
+void System::finish(std::string &filepath) {
+    if (has_boundaries) {
+        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: true, dump: {}\n", atoms.size(), bonds.size(),
+                   molecules.size(), filepath);
+    } else {
+        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: false (cost lots of time), dump: {}\n", atoms.size(),
+                   bonds.size(), molecules.size(), filepath);
+    }
+    dump_lammps_data(filepath);
+}
+
+// A fallback method for systems without periodic boundaries.
 void System::search_neigh_naive(const float &radius, const int &max_neigh) {
     float radius_sq = radius * radius;
     float dist_sq;
-    // Define a function pointer type for distance calculation functions
-    using DistanceFunction =
-        float (*)(const std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
-    DistanceFunction distance_function;
-
-    if (has_boundaries) {
-        distance_function = &distance_sq_pbc;
-    } else {
-        distance_function = &distance_sq;
-    }
-
     // Naive search for test
-    for (auto &curr_atom : atoms) {
-        if (curr_atom->neighs.size() >= max_neigh) continue;
 
+    // Define a function pointer type for distance calculation function
+    for (auto &curr_atom : atoms) {
         for (auto &other_atom : atoms) {
             if (curr_atom == other_atom) continue;
 
-            dist_sq = distance_function(curr_atom->coord, other_atom->coord, axis_lengths);
+            dist_sq = distance_sq(curr_atom->coord, other_atom->coord);
             if (dist_sq <= radius) {
                 curr_atom->neighs.push_back(other_atom);
+            }
+            if (curr_atom->neighs.size() >= max_neigh) {
+                continue;
             }
         }
     }
@@ -77,6 +86,15 @@ void System::search_neigh_cell_list(const float &radius, const int &max_neigh) {
     Cell_list cell_list(atoms, radius, axis_lengths, max_neigh);
     for (auto &atom : atoms) {
         cell_list.search_neighbors(atom);
+    }
+}
+
+void System::search_neigh(const float &radius, const int &max_neigh) {
+    if (has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
+        axis_lengths[2] > 0.0f) {
+        search_neigh_cell_list(radius, max_neigh);
+    } else {
+        search_neigh_naive(radius, max_neigh);
     }
 }
 
@@ -125,9 +143,7 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
     for (int type_i = 1; type_i <= itypes; type_i++) {
         for (int type_j = 1; type_j <= itypes; type_j++) {
             std::pair<int, int> pair_ij = {type_i, type_j};
-            if (type_itos[type_i] == "H" && type_itos[type_j] == "H") {
-                bond_radius[pair_ij] = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
-            } else if (type_itos[type_i] == "X" or type_itos[type_j] == "X") {
+            if (type_itos[type_i] == "X" or type_itos[type_j] == "X") [[unlikely]] {
                 bond_radius[pair_ij] = 0.0f;
             } else {
                 bond_radius[pair_ij] = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
@@ -138,32 +154,24 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
     float bond_r;
     float bond_sq;
     float dist_sq;
-    bool use_pbc = has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
-                   axis_lengths[2] > 0.0f;
 
     for (auto &atom : atoms) {
         for (auto &neigh : atom->neighs) {
             if (neigh == atom) {
                 continue;
             }
-            if (std::find(neigh->bonded_atoms.begin(), neigh->bonded_atoms.end(), atom) != neigh->bonded_atoms.end()) {
-                continue;
-            }
 
-            if (use_pbc) {
+            if (has_boundaries) {
                 dist_sq = distance_sq_pbc(atom->coord, neigh->coord, axis_lengths);
             } else {
-                float dx = atom->coord[0] - neigh->coord[0];
-                float dy = atom->coord[1] - neigh->coord[1];
-                float dz = atom->coord[2] - neigh->coord[2];
-                dist_sq = dx * dx + dy * dy + dz * dz;
+                dist_sq = distance_sq(atom->coord, neigh->coord);
             }
 
             std::pair<int, int> id_ij = {atom->type_id, neigh->type_id};
             bond_r = bond_radius[id_ij];
             bond_sq = bond_r * bond_r;
 
-            if (dist_sq < bond_sq) {
+            if (dist_sq <= bond_sq) {
                 Bond *bond = new Bond(atom, neigh);
 
                 bonds.push_back(bond);
@@ -260,6 +268,4 @@ void System::dump_lammps_data(std::string &filepath) {
     fmt::print(file, "\n");
 
     fclose(file);
-
-    fmt::print("Lammps data file written to: {}\n", filepath);
 }

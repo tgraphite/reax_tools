@@ -100,7 +100,7 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
 
             threads.push_back(std::thread([&, thread_id]() {
                 System *curr_sys = current_systems[thread_id];
-                curr_sys->search_neigh_cell_list(neigh_radius, 10);
+                curr_sys->search_neigh(neigh_radius, 10);
                 curr_sys->build_bonds_by_radius(rvdw_scale);
                 curr_sys->build_molecules();
             }));
@@ -127,8 +127,6 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
                 frame_formulas[i] = curr_sys->molecules[i]->formula;
             }
             reax_species->import_frame_formulas(frame_formulas);
-            fmt::print("Frame: {} ", curr_frame);
-            curr_sys->basic_info();
 
             if (curr_thread == 0) {
                 update_reax_flow(last_system, curr_sys, curr_frame);
@@ -136,10 +134,13 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
                 update_reax_flow(current_systems[curr_thread - 1], curr_sys, curr_frame);
             }
 
+            fmt::print("Frame: {} ", curr_frame);
             if (if_dump_lammps_data) {
                 std::string lammps_data_file =
                     file_path.substr(0, file_path.find_last_of(".")) + "_" + std::to_string(curr_frame) + ".data";
-                curr_sys->dump_lammps_data(lammps_data_file);
+                curr_sys->finish(lammps_data_file);
+            } else {
+                curr_sys->finish();
             }
 
             curr_frame++;
