@@ -15,7 +15,7 @@ class System {
     int iatoms = 0;
     int itypes = 0;
     int itimestep = 0;
-    bool has_boundaries;
+    bool has_boundaries = false;
     std::vector<float> axis_lengths;
 
     std::vector<Atom *> atoms;

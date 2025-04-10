@@ -150,8 +150,8 @@ void System::load_lammpstrj(std::ifstream& file) {
     // For rectangular box, maybe support triclinc box later.
     // xlo, ylo, zlo, xhi, yhi, zhi
     std::vector<float> bounds(6, 0.0f);
-    float xlo, xhi, ylo, yhi, zlo, zhi, lx, ly, lz;
-    float x, y, z;
+    float xlo = 0.0f, xhi = 0.0f, ylo = 0.0f, yhi = 0.0f, zlo = 0.0f, zhi = 0.0f, lx = 0.0f, ly = 0.0f, lz = 0.0f;
+    float x = 0.0f, y = 0.0f, z = 0.0f;
 
     // When lammpstrj style set to xs(,ys,zs), file uses relative coord.
     bool is_relative_coord = false;
