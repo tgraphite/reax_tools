@@ -36,8 +36,12 @@ class System {
 
     void summary();
     void basic_info();
+    void dump_lammps_data(std::string &filepath);
 
-    void search_neigh(const float &r, const int &max_neigh);
+    void search_neigh_naive(const float &radius, const int &max_neigh);
+    void search_neigh_cell_list(const float &radius, const int &max_neigh);
+    void search_neigh_kdtree(const float &radius, const int &max_neigh);
+
     void build_bonds_by_radius(const float &rvdw_scale);
     void build_molecules();
     void dfs(Atom *atom, std::set<Atom *> &visited, Molecule *mol);

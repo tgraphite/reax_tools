@@ -35,7 +35,7 @@ void KD_tree::find_neighbors_rec(node *node_ptr, Atom *atom_data, std::vector<At
     float dz = node_ptr->atom_data->coord[2] - atom_data->coord[2];
     float dist_sq = dx * dx + dy * dy + dz * dz;
 
-    if (dist_sq < radius * radius) neighbors.push_back(node_ptr->atom_data);
+    if (dist_sq < radius * radius && node_ptr->atom_data != atom_data) neighbors.push_back(node_ptr->atom_data);
 
     int axis = node_ptr->axis;
     float delta = atom_data->coord[axis] - node_ptr->atom_data->coord[axis];
@@ -57,7 +57,7 @@ void KD_tree::find_neighbors_rec(node *node_ptr, Atom *atom_data, std::vector<At
 
     float dist_sq = distance_sq_pbc(node_ptr->atom_data->coord, atom_data->coord, axis_lengths);
 
-    if (dist_sq < radius * radius) neighbors.push_back(node_ptr->atom_data);
+    if (dist_sq < radius * radius && node_ptr->atom_data != atom_data) neighbors.push_back(node_ptr->atom_data);
 
     int axis = node_ptr->axis;
     float delta = atom_data->coord[axis] - node_ptr->atom_data->coord[axis];
@@ -66,14 +66,17 @@ void KD_tree::find_neighbors_rec(node *node_ptr, Atom *atom_data, std::vector<At
         delta = delta - axis_lengths[axis] * floor(delta / axis_lengths[axis] + 0.5f);
     }
 
+    float delta_sq = delta * delta;
     float radius_sq = radius * radius;
 
     if (delta < 0) {
         find_neighbors_rec(node_ptr->left, atom_data, neighbors, radius, axis_lengths);
-        if (delta * delta < radius_sq) find_neighbors_rec(node_ptr->right, atom_data, neighbors, radius, axis_lengths);
+        if (delta_sq < radius_sq || radius > 0.5f * axis_lengths[axis])
+            find_neighbors_rec(node_ptr->right, atom_data, neighbors, radius, axis_lengths);
     } else {
         find_neighbors_rec(node_ptr->right, atom_data, neighbors, radius, axis_lengths);
-        if (delta * delta < radius_sq) find_neighbors_rec(node_ptr->left, atom_data, neighbors, radius, axis_lengths);
+        if (delta_sq < radius_sq || radius > 0.5f * axis_lengths[axis])
+            find_neighbors_rec(node_ptr->left, atom_data, neighbors, radius, axis_lengths);
     }
 }
 

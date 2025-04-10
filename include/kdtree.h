@@ -1,4 +1,5 @@
 #include <vector>
+#include <set>
 
 #include "atom.h"
 
@@ -24,6 +25,9 @@ class KD_tree {
 
     void find_neighbors_rec(node *node_ptr, Atom *atom_data, std::vector<Atom *> &neighbors, const float &radius);
     void find_neighbors_rec(node *node_ptr, Atom *atom_data, std::vector<Atom *> &neighbors, const float &radius,
+                            const std::vector<float> &axis_lengths);
+
+    void find_neighbors_rec(node *node_ptr, Atom *atom_data, std::set<Atom*> &neighbors, const float &radius,
                             const std::vector<float> &axis_lengths);
 
     void clear(node *node_ptr);

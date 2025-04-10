@@ -152,18 +152,30 @@ void System::load_lammpstrj(std::ifstream& file) {
             int type_i = std::stoi(tokens[1]);
             std::string type_s = type_itos[type_i];
             std::vector<float> coord;
+            float x, y, z;
+
+            // wrap and transform into {0, lx, 0, ly, 0, lz} box.
 
             if (!is_relative_coord) {
-                coord = {std::stof(tokens[2]), std::stof(tokens[3]), std::stof(tokens[4])};
+                x = std::stof(tokens[2]);
+                y = std::stof(tokens[3]);
+                z = std::stof(tokens[4]);
             } else {
-                coord = {
-                    xlo + std::stof(tokens[2]) * lx,
-                    ylo + std::stof(tokens[3]) * ly,
-                    zlo + std::stof(tokens[4]) * lz,
-                };
+                x = std::stof(tokens[2]) * lx;
+                y = std::stof(tokens[3]) * ly;
+                z = std::stof(tokens[4]) * lz;
             }
 
-            Atom* atom = new Atom(id, type_i, coord, type_s);
+            if (has_boundaries) {
+                x = fmod(x, lx);
+                y = fmod(y, ly);
+                z = fmod(z, lz);
+                x = x < 0 ? x + lx : x;
+                y = y < 0 ? y + ly : y;
+                z = z < 0 ? z + lz : z;
+            }
+
+            Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);
             atoms.push_back(atom);
             atoms_count++;
 
