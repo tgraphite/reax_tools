@@ -151,7 +151,7 @@ void System::load_lammpstrj(std::ifstream& file) {
     // xlo, ylo, zlo, xhi, yhi, zhi
     std::vector<float> bounds(6, 0.0f);
     float xlo = 0.0f, xhi = 0.0f, ylo = 0.0f, yhi = 0.0f, zlo = 0.0f, zhi = 0.0f, lx = 0.0f, ly = 0.0f, lz = 0.0f;
-    float x = 0.0f, y = 0.0f, z = 0.0f;
+    float x, y, z;
 
     // When lammpstrj style set to xs(,ys,zs), file uses relative coord.
     bool is_relative_coord = false;
@@ -240,6 +240,10 @@ void System::load_lammpstrj(std::ifstream& file) {
                 x = x < 0 ? x + lx : x;
                 y = y < 0 ? y + ly : y;
                 z = z < 0 ? z + lz : z;
+            } else {
+                x = std::stof(tokens[2]) * lx;
+                y = std::stof(tokens[3]) * ly;
+                z = std::stof(tokens[4]) * lz;
             }
 
             Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);

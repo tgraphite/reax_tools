@@ -42,7 +42,8 @@ void System::set_types(std::vector<std::string> &type_names) {
 
 void System::finish() {
     if (has_boundaries) {
-        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: true\n", atoms.size(), bonds.size(), molecules.size());
+        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: {:.2f} {:.2f} {:.2f}\n", atoms.size(), bonds.size(),
+                   molecules.size(), axis_lengths[0], axis_lengths[1], axis_lengths[2]);
     } else {
         fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: false (cost lots of time)\n", atoms.size(), bonds.size(),
                    molecules.size());
@@ -51,11 +52,11 @@ void System::finish() {
 
 void System::finish(std::string &filepath) {
     if (has_boundaries) {
-        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: true, dump: {}\n", atoms.size(), bonds.size(),
-                   molecules.size(), filepath);
+        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: {:.2f} {:.2f} {:.2f}\n", atoms.size(), bonds.size(),
+                   molecules.size(), axis_lengths[0], axis_lengths[1], axis_lengths[2]);
     } else {
-        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: false (cost lots of time), dump: {}\n", atoms.size(),
-                   bonds.size(), molecules.size(), filepath);
+        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: false (cost lots of time)\n", atoms.size(), bonds.size(),
+                   molecules.size());
     }
     dump_lammps_data(filepath);
 }
