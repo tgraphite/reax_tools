@@ -1,5 +1,4 @@
 # ReaxTools
-[简体中文](README_zh.md)
 
 A high performance reactive MD post-process program
 - Compatible for LAMMPS, CP2K or any program writes lammpstrj / xyz files.
