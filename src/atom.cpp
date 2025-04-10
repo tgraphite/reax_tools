@@ -15,6 +15,19 @@ void Atom::clear() {
     bonds.clear();
 }
 
+bool Atom::contains_neighbor(Atom *atom) {
+    if (neighs.size() == 0) {
+        return false;
+    }
+
+    for (Atom *neigh : neighs) {
+        if (neigh == atom) {
+            return true;
+        }
+    }
+    return false;
+}
+
 Atom::~Atom() { clear(); }
 
 std::string Atom::info() {

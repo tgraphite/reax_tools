@@ -92,6 +92,10 @@ void Cell_list::search_neighbors(Atom* atom) {
                 break;
             }
 
+            if (atom->contains_neighbor(candidate_neighbor) || candidate_neighbor->contains_neighbor(atom)) {
+                continue;
+            }
+
             if (candidate_neighbor != atom) {
                 distance_sq = distance_sq_pbc(atom->coord, candidate_neighbor->coord, axis_lengths);
                 if (distance_sq < radius_sq) {
