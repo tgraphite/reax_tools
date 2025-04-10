@@ -1,3 +1,4 @@
+#include <fmt/core.h>
 #include <vec_algorithms.h>
 
 std::vector<float> add_vectors(const std::vector<float>& vec_a, const std::vector<float>& vec_b) {
@@ -85,7 +86,6 @@ float distance_sq_pbc(const std::vector<float>& vec_a, const std::vector<float>&
         if (i < axis_lengths.size() && axis_lengths[i] > 0.0f) {
             dx = dx - axis_lengths[i] * floor(dx / axis_lengths[i] + 0.5f);
         }
-
         dist_sq += dx * dx;
     }
 
