@@ -24,6 +24,7 @@ struct Atom {
         : id(_id), type_id(_type_id), coord(_coord), type_name(_type_name){};
     ~Atom();
 
+    bool contains_neighbor(Atom* atom);
     void clear();
 
     std::string info();
