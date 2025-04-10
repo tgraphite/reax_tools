@@ -4,67 +4,129 @@
 
 void System::load_xyz(std::ifstream& file) {
     std::string line;
-    std::string delim = " ";
+    std::vector<std::string> tokens;
     int atom_id = 0;
-    bool skip = false;
+    int atom_count = 0;
+
+    float xlo, xhi, ylo, yhi, zlo, zhi, lx, ly, lz;
+    float x, y, z;
+
+    has_boundaries = false;
+    axis_lengths = {100000, 100000, 100000};  // modify this later
+
+    std::string given_type;
+    int type_int;
+    std::string type_str;
+    std::string tmp_str;
 
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open file");
     }
 
     while (getline(file, line)) {
-        std::vector<std::string> tokens = split_by_space(line);
+        tokens = split_by_space(line);
 
-        if (skip) {
-            skip = false;
-            continue;
-        } else if ((tokens.size() == 0) or (tokens[0] == "#")) {
+        if ((tokens.size() == 0) or (tokens[0] == "#")) {
             continue;
         }
         // Atom numbers line
         else if (tokens.size() == 1 && can_convert_to_int(tokens[0])) {
-            // System::iatoms
             iatoms = std::stoi(tokens[0]);
             atoms.reserve(iatoms);
             bonds.reserve(iatoms * 3);
             molecules.reserve(iatoms / 2);
-
-            skip = true;
             continue;
+
+        } else if (tokens[0].starts_with("Lattice")) {
+            // Lattice="25.774014 0.0 0.0 0.0 65.670043 0.0 0.0 0.0 85.0" Origin="-0.058304 0.0 30.0"...
+
+            // Lattice="10.000
+            tmp_str = tokens[0];
+            lx = std::stof(split(tmp_str, "\"")[1]);
+
+            // 10.000
+            ly = std::stof(tokens[4]);
+
+            // 10.000"
+            tmp_str = tokens[8];
+            lz = std::stof(split(tmp_str, "\"")[0]);
+
+            // Origin="0.000
+            tmp_str = tokens[9];
+            xlo = std::stof(split(tmp_str, "\"")[1]);
+
+            // 0.000
+            ylo = std::stof(tokens[10]);
+
+            // 10.000"
+            tmp_str = tokens[11];
+            zlo = std::stof(split(tmp_str, "\"")[0]);
+
+            has_boundaries = true;
+            axis_lengths = {lx, ly, lz};
+
+            continue;
+
         } else if (tokens.size() >= 4) {
-            int type_i;
-            atom_id++;
-            std::string type_s;
-            std::vector<float> coord;
+            if (tokens.size() == 4) {
+                atom_count++;
+                atom_id = atom_count;
+                given_type = tokens[0];
+                x = std::stof(tokens[1]);
+                y = std::stof(tokens[2]);
+                z = std::stof(tokens[3]);
+            } else if (tokens.size() == 5) {
+                atom_count++;
+                atom_id = std::stoi(tokens[0]);
+                given_type = tokens[1];
+                x = std::stof(tokens[2]);
+                y = std::stof(tokens[3]);
+                z = std::stof(tokens[4]);
+            } else {
+                throw std::runtime_error("Invalid atom line in xyz file: " + line);
+            }
 
             // In xyz file, atom may have type of int (6...) or string (C...)
-            if (!can_convert_to_int(tokens[0])) {
+            if (!can_convert_to_int(given_type)) {
                 // In case of string type, give a int type for atom.
-                type_s = tokens[0];
-                if (type_stoi.contains(type_s)) {
-                    type_i = type_stoi[type_s];
-                } else {
-                    type_i = ++itypes;
-                    type_stoi[type_s] = type_i;
-                    type_itos[type_i] = type_s;
+                try {
+                    type_int = type_stoi[given_type];
+                    type_str = given_type;
+                } catch (const std::invalid_argument& e) {
+                    throw std::runtime_error("Invalid element type in xyzfile: " + given_type);
                 }
             } else {
                 // In case of int type
-                type_i = std::stoi(tokens[0]);
-                if (!type_itos.contains(type_i)) {
-                    type_s = fmt::format("E_{}_", type_i);
-                    type_itos[type_i] = type_s;
-                    type_stoi[type_s] = type_i;
+                try {
+                    type_int = std::stoi(given_type);
+                    type_str = type_itos[type_int];
+                } catch (const std::invalid_argument& e) {
+                    throw std::runtime_error("Invalid element type in xyzfile: " + given_type);
                 }
             }
 
-            coord = {std::stof(tokens[1]), std::stof(tokens[2]), std::stof(tokens[3])};
-            Atom* atom = new Atom(atom_id, type_i, coord, type_s);
+            if (has_boundaries) {
+                x = x - xlo;
+                y = y - ylo;
+                z = z - zlo;
+                x = fmod(x, lx);
+                y = fmod(y, ly);
+                z = fmod(z, lz);
+                x = x < 0 ? x + lx : x;
+                y = y < 0 ? y + ly : y;
+                z = z < 0 ? z + lz : z;
+            } else {
+                x = x - xlo;
+                y = y - ylo;
+                z = z - zlo;
+            }
+
+            Atom* atom = new Atom(atom_id, type_int, {x, y, z}, type_str);
             atoms.push_back(atom);
 
             // When there's no atom numbers line in xyz file, iatoms = 0, and
             // first atom id = 1.
-            if (atom_id == iatoms) [[unlikely]] {
+            if (atom_count == iatoms) [[unlikely]] {
                 break;
             }
         }
@@ -79,6 +141,7 @@ void System::load_lammpstrj(std::ifstream& file) {
     // xlo, ylo, zlo, xhi, yhi, zhi
     std::vector<float> bounds(6, 0.0f);
     float xlo, xhi, ylo, yhi, zlo, zhi, lx, ly, lz;
+    float x, y, z;
 
     // When lammpstrj style set to xs(,ys,zs), file uses relative coord.
     bool is_relative_coord = false;
@@ -146,33 +209,31 @@ void System::load_lammpstrj(std::ifstream& file) {
                 read_box = false;
             }
         } else if (read_atoms) {
+            if (!has_boundaries) [[unlikely]] {
+                throw std::runtime_error("lammstrj file must have boundaries!");
+            }
             // Note: assume that the atom card style is "id type x y z" or "id
             // type xs ys zs" types must be set before
             int id = std::stoi(tokens[0]);
             int type_i = std::stoi(tokens[1]);
             std::string type_s = type_itos[type_i];
-            std::vector<float> coord;
-            float x, y, z;
 
             // wrap and transform into {0, lx, 0, ly, 0, lz} box.
 
             if (!is_relative_coord) {
-                x = std::stof(tokens[2]);
-                y = std::stof(tokens[3]);
-                z = std::stof(tokens[4]);
-            } else {
-                x = std::stof(tokens[2]) * lx;
-                y = std::stof(tokens[3]) * ly;
-                z = std::stof(tokens[4]) * lz;
-            }
-
-            if (has_boundaries) {
+                x = std::stof(tokens[2]) - xlo;
+                y = std::stof(tokens[3]) - ylo;
+                z = std::stof(tokens[4]) - zlo;
                 x = fmod(x, lx);
                 y = fmod(y, ly);
                 z = fmod(z, lz);
                 x = x < 0 ? x + lx : x;
                 y = y < 0 ? y + ly : y;
                 z = z < 0 ? z + lz : z;
+            } else {
+                x = std::stof(tokens[2]) * lx;
+                y = std::stof(tokens[3]) * ly;
+                z = std::stof(tokens[4]) * lz;
             }
 
             Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);
