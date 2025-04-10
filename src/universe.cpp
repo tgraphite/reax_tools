@@ -46,16 +46,28 @@ Universe::~Universe() {
 }
 
 void Universe::flush() {
+    if (last_system != nullptr) {
+        delete last_system;
+        last_system = nullptr;
+    }
+
     if (current_systems.size() > 0 && current_systems[current_systems.size() - 1] != nullptr) {
         last_system = current_systems[current_systems.size() - 1];
+        current_systems[current_systems.size() - 1] = nullptr;
     } else {
         last_system = nullptr;
+    }
+
+    for (auto &sys : current_systems) {
+        if (sys != nullptr) {
+            delete sys;
+        }
     }
     current_systems.clear();
 }
 
 void Universe::process_traj(std::string &file_path, std::vector<std::string> &type_names, const float &rvdw_scale,
-                            const int &num_threads) {
+                            const int &num_threads, const bool &if_dump_lammps_data) {
     std::ifstream file(file_path);
     int curr_frame = 1;
     float neigh_radius = 2.5 * rvdw_scale;
@@ -88,7 +100,7 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
 
             threads.push_back(std::thread([&, thread_id]() {
                 System *curr_sys = current_systems[thread_id];
-                curr_sys->search_neigh(neigh_radius, 10);
+                curr_sys->search_neigh_cell_list(neigh_radius, 10);
                 curr_sys->build_bonds_by_radius(rvdw_scale);
                 curr_sys->build_molecules();
             }));
@@ -123,6 +135,13 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
             } else {
                 update_reax_flow(current_systems[curr_thread - 1], curr_sys, curr_frame);
             }
+
+            if (if_dump_lammps_data) {
+                std::string lammps_data_file =
+                    file_path.substr(0, file_path.find_last_of(".")) + "_" + std::to_string(curr_frame) + ".data";
+                curr_sys->dump_lammps_data(lammps_data_file);
+            }
+
             curr_frame++;
         }
     }

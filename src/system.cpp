@@ -1,4 +1,5 @@
 #include "atom.h"
+#include "cell_list.h"
 #include "defines.h"
 #include "fmt/format.h"
 #include "molecule.h"
@@ -43,7 +44,43 @@ void System::basic_info() {
     fmt::print("Atoms: {}, Bonds: {}, Mols: {}\n", atoms.size(), bonds.size(), molecules.size());
 }
 
-void System::search_neigh(const float &radius, const int &max_neigh) {
+void System::search_neigh_naive(const float &radius, const int &max_neigh) {
+    float radius_sq = radius * radius;
+    float dist_sq;
+    // Define a function pointer type for distance calculation functions
+    using DistanceFunction =
+        float (*)(const std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
+    DistanceFunction distance_function;
+
+    if (has_boundaries) {
+        distance_function = &distance_sq_pbc;
+    } else {
+        distance_function = &distance_sq;
+    }
+
+    // Naive search for test
+    for (auto &curr_atom : atoms) {
+        if (curr_atom->neighs.size() >= max_neigh) continue;
+
+        for (auto &other_atom : atoms) {
+            if (curr_atom == other_atom) continue;
+
+            dist_sq = distance_function(curr_atom->coord, other_atom->coord, axis_lengths);
+            if (dist_sq <= radius) {
+                curr_atom->neighs.push_back(other_atom);
+            }
+        }
+    }
+}
+
+void System::search_neigh_cell_list(const float &radius, const int &max_neigh) {
+    Cell_list cell_list(atoms, radius, axis_lengths, max_neigh);
+    for (auto &atom : atoms) {
+        cell_list.search_neighbors(atom);
+    }
+}
+
+void System::search_neigh_kdtree(const float &radius, const int &max_neigh) {
     KD_tree kd_tree;
 
     for (auto &atom : atoms) {
@@ -173,4 +210,56 @@ void System::dfs(Atom *atom, std::set<Atom *> &visited, Molecule *cur_mol) {
             dfs(bond->atom_j, visited, cur_mol);
         }
     }
+}
+
+// Dump lammps data file for test.
+void System::dump_lammps_data(std::string &filepath) {
+    FILE *file = fopen(filepath.c_str(), "w");
+    if (!file) {
+        throw std::runtime_error("Failed to open file: " + filepath);
+    }
+
+    fmt::print(file, "# LAMMPS data file written by reax_tools\n\n");
+    fmt::print(file, "{} atoms\n", atoms.size());
+    fmt::print(file, "{} bonds\n", bonds.size());
+    fmt::print(file, "{} atom types\n", itypes);
+    fmt::print(file, "{} bond types\n\n", 1);
+
+    if (has_boundaries) {
+        fmt::print(file, "{} {} xlo xhi\n", 0, axis_lengths[0]);
+        fmt::print(file, "{} {} ylo yhi\n", 0, axis_lengths[1]);
+        fmt::print(file, "{} {} zlo zhi\n", 0, axis_lengths[2]);
+    }
+
+    fmt::print(file, "\nAtoms # full\n\n");
+
+    for (auto &mol : molecules) {
+        for (auto &atom : mol->mol_atoms) {
+            // Wrap atom coordinates into the simulation box
+            // float x = fmod(atom->coord[0], axis_lengths[0]);
+            // float y = fmod(atom->coord[1], axis_lengths[1]);
+            // float z = fmod(atom->coord[2], axis_lengths[2]);
+
+            // // Ensure coordinates are positive (in range [0, axis_length])
+            // if (x < 0) x += axis_lengths[0];
+            // if (y < 0) y += axis_lengths[1];
+            // if (z < 0) z += axis_lengths[2];
+
+            // charge is 0 for test, maybe modify later.
+            fmt::print(file, "{} {} {} 0.0 {:>.3f} {:>.3f} {:>.3f} 0 0 0\n", atom->id, mol->id, atom->type_id,
+                       atom->coord[0], atom->coord[1], atom->coord[2]);
+        }
+    }
+
+    fmt::print(file, "\nBonds\n\n");
+
+    for (size_t i = 0; i < bonds.size(); i++) {
+        fmt::print(file, "{} 1 {} {}\n", i + 1, bonds[i]->atom_i->id, bonds[i]->atom_j->id);
+    }
+
+    fmt::print(file, "\n");
+
+    fclose(file);
+
+    fmt::print("Lammps data file written to: {}\n", filepath);
 }

@@ -22,6 +22,7 @@ std::vector<float> operator*(const std::vector<float> &lhs, const float &rhs);
 std::vector<float> operator*(const float &lhs, const std::vector<float> &rhs);
 std::vector<float> operator/(const std::vector<float> &lhs, const float &rhs);
 
-float distance_sq(const std::vector<float> &vec_a, const std::vector<float> &vec_b);
+float distance_sq(const std::vector<float> &vec_a, const std::vector<float> &vec_b,
+                  const std::vector<float> &axis_lengths);
 float distance_sq_pbc(const std::vector<float> &vec_a, const std::vector<float> &vec_b,
                       const std::vector<float> &axis_lengths);
