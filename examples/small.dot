@@ -1,0 +1,17 @@
+digraph ReactionFlow {
+  rankdir=LR;
+  node [shape=box, style=filled, fillcolor=lightblue];
+
+  node0 [label="H6"];
+  node1 [label="H2"];
+  node2 [label="H8"];
+  node3 [label="H4O2"];
+  node4 [label="H2O2"];
+  node5 [label="H1O1"];
+  node6 [label="H2O1"];
+
+  node0 -> node1 [label="2", penwidth=1.69315];
+  node2 -> node1 [label="1", penwidth=1];
+  node3 -> node4 [label="1", penwidth=1];
+  node5 -> node6 [label="1", penwidth=1];
+}
