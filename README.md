@@ -7,8 +7,9 @@ A high performance reactive MD post-process program
 
 If it's useful to you, please star it on GitHub, which is very important for me. Thank you!  
 
-** If you are using an old machine, just download the latest binary version (without suffix) in release page, don't compile your self. **
-** 太老的机器就别自己编译了，直接去release页面下载最新版本程序（没有后缀名的那个）。 **
+* If you are using an old machine, just download the latest binary version (without suffix) in release page, don't compile your self. *
+
+* 太老的机器就别自己编译了，直接去release页面下载最新版本程序（没有后缀名的那个）。 *
 
 reaction graph | species | molecule identification
 --- | --- | ---
