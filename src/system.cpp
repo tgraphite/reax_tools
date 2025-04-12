@@ -135,7 +135,7 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
         int typ_i = pair.second;
 
         // pair.first: string type, pair.second: int type
-        if (default_atomic_radius.contains(typ_s))
+        if (default_atomic_radius.find(typ_s) != default_atomic_radius.end())
             atomic_radius[typ_i] = default_atomic_radius.at(typ_s);
         else
             atomic_radius[typ_i] = default_atomic_radius.at("X");
@@ -144,7 +144,7 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
     for (int type_i = 1; type_i <= itypes; type_i++) {
         for (int type_j = 1; type_j <= itypes; type_j++) {
             std::pair<int, int> pair_ij = {type_i, type_j};
-            if (type_itos[type_i] == "X" or type_itos[type_j] == "X") [[unlikely]] {
+            if (type_itos[type_i] == "X" || type_itos[type_j] == "X") {
                 bond_radius[pair_ij] = 0.0f;
             } else {
                 bond_radius[pair_ij] = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;

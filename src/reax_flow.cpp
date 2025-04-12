@@ -95,12 +95,12 @@ void ReaxFlow::brief_report() {
     // Display the top 10 most frequent reactions
     std::cout << "\nTop reactions:" << std::endl;
     int count = 0;
-    for (const auto &[edge_idx, reaction_count] : sorted_edges) {
+    for (const auto &pair : sorted_edges) {
         if (count >= 10) break;
 
-        const Edge &edge = edges[edge_idx];
+        const Edge &edge = edges[pair.first];
         std::cout << fmt::format("{}: {} -> {} (count: {})", count + 1, nodes[edge.source_node_id].formula,
-                                 nodes[edge.target_node_id].formula, reaction_count)
+                                 nodes[edge.target_node_id].formula, pair.second)
                   << std::endl;
         count++;
     }
