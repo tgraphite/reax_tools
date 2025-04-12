@@ -83,9 +83,9 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
             curr_sys->set_types(type_names);
             current_systems.push_back(curr_sys);
 
-            if (file_path.ends_with(".lammpstrj"))
+            if (ends_with(file_path, ".lammpstrj"))
                 curr_sys->load_lammpstrj(file);
-            else if (file_path.ends_with(".xyz"))
+            else if (ends_with(file_path, ".xyz"))
                 curr_sys->load_xyz(file);
 
             if (curr_sys->atoms.size() == 0) continue;

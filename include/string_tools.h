@@ -10,7 +10,8 @@ std::string rename_formula(const std::string &formula, const std::vector<std::st
 std::vector<std::string> split_by_space(const std::string &str);
 bool can_convert_to_int(const std::string &str);
 std::vector<std::string> split(const std::string &str, const std::string &delim);
-
+bool starts_with(const std::string &str, const std::string &prefix);
+bool ends_with(const std::string &str, const std::string &suffix);
 // This template function accepts a container of pointer (e.g.
 // vector<shared_ptr<Actual-type>>) prints the ptr->info() for the first N
 // elements. if two_way = true, prints first and last N prt->info().

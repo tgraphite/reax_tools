@@ -1,10 +1,10 @@
 #include "reax_species.h"
 
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <unordered_set>
 #include <vector>
-#include <mutex>
 
 #include "fmt/format.h"
 #include "string_tools.h"
@@ -14,8 +14,7 @@
 ReaxSpecies::ReaxSpecies(const std::string &file_path) : file_path(file_path) {
     file.open(file_path);
     if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << file_path << std::endl
-                  << "Exit." << std::endl;
+        std::cerr << "Failed to open file: " << file_path << std::endl << "Exit." << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -40,8 +39,7 @@ void ReaxSpecies::get_formulas() {
             std::vector<std::string> parts = split_by_space(line);
 
             for (std::string formula : parts) {
-                if (formula == "#" || formula == "Timestep" ||
-                    formula == "No_Moles" || formula == "No_Specs") {
+                if (formula == "#" || formula == "Timestep" || formula == "No_Moles" || formula == "No_Specs") {
                     continue;
                 } else {
                     formulas_set.insert(formula);
@@ -52,8 +50,7 @@ void ReaxSpecies::get_formulas() {
     file.clear();
     file.seekg(0);
 
-    formulas =
-        std::vector<std::string>(formulas_set.begin(), formulas_set.end());
+    formulas = std::vector<std::string>(formulas_set.begin(), formulas_set.end());
     for (const std::string &formula : formulas) {
         formulas_nums[formula] = std::vector<float>(nframes, 0.0);
     }
@@ -102,7 +99,7 @@ void ReaxSpecies::rename_all_formulas(const std::vector<std::string> &order) {
         std::string old_formula = pair.first;
         std::vector<float> nums = pair.second;
 
-        if (old_formula.starts_with("grp_")) {
+        if (starts_with(old_formula, "grp_")) {
             continue;
         }
 
@@ -129,8 +126,7 @@ void ReaxSpecies::rename_all_formulas(const std::vector<std::string> &order) {
 }
 
 // User accessable.
-void ReaxSpecies::merge_formulas(const std::vector<std::string> &formulas,
-                                 const std::string &new_formula) {
+void ReaxSpecies::merge_formulas(const std::vector<std::string> &formulas, const std::string &new_formula) {
     std::vector<float> new_nums(nframes, 0.0);
     for (const std::string &formula : formulas) {
         std::vector<float> num = formulas_nums[formula];
@@ -160,7 +156,7 @@ void ReaxSpecies::rescale_all_by_element(const std::string &target_element) {
         std::vector<float> &old_nums = pair.second;
         std::map<std::string, int> elements_weights = parse_formula(formula);
 
-        if (formula.starts_with("group_")) {
+        if (starts_with(formula, "group_")) {
             continue;
         }
 
@@ -178,9 +174,7 @@ void ReaxSpecies::rescale_all_by_element(const std::string &target_element) {
 }
 
 // User accessable.
-void ReaxSpecies::merge_by_element(const std::string &target_element,
-                                   const std::vector<int> &ranges,
-                                   bool rescale) {
+void ReaxSpecies::merge_by_element(const std::string &target_element, const std::vector<int> &ranges, bool rescale) {
     for (size_t i = 0; i < ranges.size(); i++) {
         int start;
         int end;
@@ -189,8 +183,7 @@ void ReaxSpecies::merge_by_element(const std::string &target_element,
         if (i < ranges.size() - 1) {
             start = ranges[i];
             end = ranges[i + 1] - 1;
-            new_formula = "grp_" + target_element + std::to_string(start) +
-                          "-" + std::to_string(end);
+            new_formula = "grp_" + target_element + std::to_string(start) + "-" + std::to_string(end);
         } else {
             start = ranges[i];
             end = 10000;
@@ -204,30 +197,25 @@ void ReaxSpecies::merge_by_element(const std::string &target_element,
             std::string old_formula = pair.first;
             std::vector<float> &old_nums = pair.second;
 
-            if (old_formula.starts_with("grp_")) {
+            if (starts_with(old_formula, "grp_")) {
                 continue;
             }
 
-            std::map<std::string, int> elements_weights =
-                parse_formula(old_formula);
+            std::map<std::string, int> elements_weights = parse_formula(old_formula);
 
             for (auto &elem_weight : elements_weights) {
                 std::string elem = elem_weight.first;
                 float weight = float(elem_weight.second);
 
-                if (target_element == elem && weight >= start &&
-                    weight <= end) {
+                if (target_element == elem && weight >= start && weight <= end) {
                     if (rescale) {
-                        std::vector<float> weighed_nums =
-                            vector_scale(old_nums, weight);
+                        std::vector<float> weighed_nums = vector_scale(old_nums, weight);
                         new_nums = add_vectors(new_nums, weighed_nums);
-                        formulas_nums[old_formula] =
-                            std::vector<float>(nframes, 0.0);
+                        formulas_nums[old_formula] = std::vector<float>(nframes, 0.0);
                         formulas_to_erase.push_back(old_formula);
                     } else {
                         new_nums = add_vectors(new_nums, old_nums);
-                        formulas_nums[old_formula] =
-                            std::vector<float>(nframes, 0.0);
+                        formulas_nums[old_formula] = std::vector<float>(nframes, 0.0);
                         formulas_to_erase.push_back(old_formula);
                     }
                 }
@@ -235,8 +223,7 @@ void ReaxSpecies::merge_by_element(const std::string &target_element,
         }
 
         formulas_nums[new_formula] = new_nums;
-        std::cout << "Merge " << formulas_to_erase.size() << " formulas into "
-                  << new_formula << std::endl;
+        std::cout << "Merge " << formulas_to_erase.size() << " formulas into " << new_formula << std::endl;
 
         for (const auto &formula : formulas_to_erase) {
             formulas_nums.erase(formula);
@@ -251,9 +238,7 @@ void ReaxSpecies::brief_report() {
         return;
     }
 
-    std::string header =
-        fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin",
-                    "mid", "end", "average");
+    std::string header = fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end", "average");
     std::cout << header << std::endl;
 
     for (const auto &pair : formulas_nums) {
@@ -285,9 +270,7 @@ void ReaxSpecies::brief_report() {
         mid /= f_range;
         end /= f_range;
 
-        std::string info =
-            fmt::format("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}{:>8.2f}", formula,
-                        begin, mid, end, average);
+        std::string info = fmt::format("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}{:>8.2f}", formula, begin, mid, end, average);
         std::cout << info << std::endl;
     }
 }
@@ -318,7 +301,7 @@ void ReaxSpecies::show_nums() {
 void ReaxSpecies::import_frame_formulas(const std::vector<std::string> &formulas) {
     // 使用互斥锁保护共享资源
     std::lock_guard<std::mutex> lock(mutex_);
-    
+
     all_frame_formulas.push_back(formulas);
 }
 
@@ -327,7 +310,7 @@ void ReaxSpecies::import_frame_formulas(const std::vector<std::string> &formulas
 void ReaxSpecies::analyze_frame_formulas() {
     // 使用互斥锁保护共享资源
     std::lock_guard<std::mutex> lock(mutex_);
-    
+
     // all_formulas_set : any occured formula, non-repeat.
     std::unordered_set<std::string> all_formulas_set;
     nframes = all_frame_formulas.size();
@@ -358,8 +341,7 @@ void ReaxSpecies::save_file() {
 
     FILE *file = fopen(save_path.c_str(), "w");
     if (file == NULL) {
-        fprintf(stderr, "Cannot open file %s for writing.\n",
-                save_path.c_str());
+        fprintf(stderr, "Cannot open file %s for writing.\n", save_path.c_str());
         return;
     }
 

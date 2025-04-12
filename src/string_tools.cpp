@@ -43,8 +43,7 @@ std::map<std::string, int> parse_formula(const std::string &formula) {
 
 // format formula by order.
 // default order: see sorted_elements in constants.h
-std::string rename_formula(const std::string &formula,
-                           const std::vector<std::string> &order) {
+std::string rename_formula(const std::string &formula, const std::vector<std::string> &order) {
     std::map<std::string, int> elements_nums = parse_formula(formula);
     std::string result;
 
@@ -77,8 +76,7 @@ std::vector<std::string> split_by_space(const std::string &str) {
     return tokens;
 }
 
-std::vector<std::string> split(const std::string &str,
-                               const std::string &delim) {
+std::vector<std::string> split(const std::string &str, const std::string &delim) {
     std::vector<std::string> tokens;
     size_t prev = 0, pos = 0;
     while (pos < str.length() && prev < str.length()) {
@@ -90,8 +88,6 @@ std::vector<std::string> split(const std::string &str,
     }
     return tokens;
 }
-
-
 
 /// Using try-catch exception will make too much debug pollution, and cost a
 /// little bit more time.
@@ -109,4 +105,14 @@ std::ostream &operator<<(std::ostream &os, const std::vector<std::string> &vs) {
         os << v << ", ";
     }
     return os;
+}
+
+// old implementation of starts_with
+bool starts_with(const std::string &str, const std::string &prefix) {
+    return str.size() >= prefix.size() && std::equal(prefix.begin(), prefix.end(), str.begin());
+}
+
+// old implementation of ends_with
+bool ends_with(const std::string &str, const std::string &suffix) {
+    return str.size() >= suffix.size() && std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
 }

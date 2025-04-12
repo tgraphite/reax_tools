@@ -40,7 +40,7 @@ void System::load_xyz(std::ifstream& file) {
             bonds.reserve(iatoms * 3);
             molecules.reserve(iatoms / 2);
             continue;
-        } else if (tokens[0].starts_with("Lattice")) {
+        } else if (starts_with(tokens[0], "Lattice")) {
             // Lattice="25.774014 0.0 0.0 0.0 65.670043 0.0 0.0 0.0 85.0" Origin="-0.058304 0.0 30.0"...
 
             // Lattice="10.000
@@ -93,7 +93,7 @@ void System::load_xyz(std::ifstream& file) {
                 // In case of string type, give a int type for atom.
                 // Notice that must get the types correct!
                 try {
-                    if (!type_stoi.contains(given_type)) {
+                    if (type_stoi.find(given_type) == type_stoi.end()) {
                         type_int = type_stoi.size();
                         type_itos[type_int] = given_type;
                         type_stoi[given_type] = type_int;
@@ -136,7 +136,7 @@ void System::load_xyz(std::ifstream& file) {
 
             // When there's no atom numbers line in xyz file, iatoms = 0, and
             // first atom id = 1.
-            if (atom_count == iatoms) [[unlikely]] {
+            if (atom_count == iatoms) {
                 break;
             }
         }
@@ -155,6 +155,12 @@ void System::load_lammpstrj(std::ifstream& file) {
 
     // When lammpstrj style set to xs(,ys,zs), file uses relative coord.
     bool is_relative_coord = false;
+    int atom_id_column = 0;
+    int atom_type_column = 1;
+    int atom_x_column = 2;
+    int atom_y_column = 3;
+    int atom_z_column = 4;
+
     bool read_timestep = false;
     bool read_natoms = false;
     bool read_box = false;
@@ -183,7 +189,25 @@ void System::load_lammpstrj(std::ifstream& file) {
             if (tokens[1] == "ATOMS") {
                 if (std::find(tokens.begin(), tokens.end(), "xs") != tokens.end()) {
                     is_relative_coord = true;
+                    atom_x_column = std::find(tokens.begin(), tokens.end(), "xs") - tokens.begin() - 2;
+                    atom_y_column = std::find(tokens.begin(), tokens.end(), "ys") - tokens.begin() - 2;
+                    atom_z_column = std::find(tokens.begin(), tokens.end(), "zs") - tokens.begin() - 2;
+                } else {
+                    // find index of id, type, x, y, z
+                    atom_x_column = std::find(tokens.begin(), tokens.end(), "x") - tokens.begin() - 2;
+                    atom_y_column = std::find(tokens.begin(), tokens.end(), "y") - tokens.begin() - 2;
+                    atom_z_column = std::find(tokens.begin(), tokens.end(), "z") - tokens.begin() - 2;
                 }
+                atom_id_column = std::find(tokens.begin(), tokens.end(), "id") - tokens.begin() - 2;
+                atom_type_column = std::find(tokens.begin(), tokens.end(), "type") - tokens.begin() - 2;
+
+                static bool printed_column_info = false;
+                if (!printed_column_info) {
+                    fmt::print("Column index of lammpstrj file:id: {}, type: {}, x: {}, y: {}, z: {}\n", atom_id_column,
+                               atom_type_column, atom_x_column, atom_y_column, atom_z_column);
+                    printed_column_info = true;
+                }
+
                 read_atoms = true;
             }
         } else if (read_timestep) {
@@ -219,21 +243,21 @@ void System::load_lammpstrj(std::ifstream& file) {
                 read_box = false;
             }
         } else if (read_atoms) {
-            if (!has_boundaries) [[unlikely]] {
+            if (!has_boundaries) {
                 throw std::runtime_error("lammstrj file must have boundaries!");
             }
             // Note: assume that the atom card style is "id type x y z" or "id
             // type xs ys zs" types must be set before
-            int id = std::stoi(tokens[0]);
-            int type_i = std::stoi(tokens[1]);
+            int id = std::stoi(tokens[atom_id_column]);
+            int type_i = std::stoi(tokens[atom_type_column]);
             std::string type_s = type_itos[type_i];
 
             // wrap and transform into {0, lx, 0, ly, 0, lz} box.
 
             if (!is_relative_coord) {
-                x = std::stof(tokens[2]) - xlo;
-                y = std::stof(tokens[3]) - ylo;
-                z = std::stof(tokens[4]) - zlo;
+                x = std::stof(tokens[atom_x_column]) - xlo;
+                y = std::stof(tokens[atom_y_column]) - ylo;
+                z = std::stof(tokens[atom_z_column]) - zlo;
                 x = fmod(x, lx);
                 y = fmod(y, ly);
                 z = fmod(z, lz);
@@ -241,9 +265,9 @@ void System::load_lammpstrj(std::ifstream& file) {
                 y = y < 0 ? y + ly : y;
                 z = z < 0 ? z + lz : z;
             } else {
-                x = std::stof(tokens[2]) * lx;
-                y = std::stof(tokens[3]) * ly;
-                z = std::stof(tokens[4]) * lz;
+                x = std::stof(tokens[atom_x_column]) * lx;
+                y = std::stof(tokens[atom_y_column]) * ly;
+                z = std::stof(tokens[atom_z_column]) * lz;
             }
 
             Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);
@@ -251,7 +275,7 @@ void System::load_lammpstrj(std::ifstream& file) {
             atoms_count++;
 
             // End reading.
-            if (atoms_count == iatoms) [[unlikely]] {
+            if (atoms_count == iatoms) {
                 break;
             }
         }
