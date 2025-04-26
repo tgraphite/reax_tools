@@ -1,0 +1,265 @@
+;This file contains LJ parameters that can be assigned by Sobtop
+;The lines beginning with semicolon are comment lines
+;Meaning of each column:
+;Column 1: Atom type. Should be no more than 10 characters, no - symbol
+;Column 2: vdW nonbond radius (half of r0) in Angstrom
+;Column 3: Well depth (epsilon) in kcal/mol
+;The content after semicolon is description of atom type
+
+;Your own atom type may be added here
+Ctest    1.9255      0.105   ;My carbon
+Si_bulk  2.329       0.093   ;Si in bulk SiO2
+O_bulk   1.947       0.054   ;O in bulk SiO2
+
+;The following ones are UFF atom types
+UF_H      1.4430      0.044   ;UFF atom type of H 
+UF_He     1.1810      0.056   ;UFF atom type of He
+UF_Li     1.2255      0.025   ;UFF atom type of Li
+UF_Be     1.3725      0.085   ;UFF atom type of Be
+UF_B      2.0415      0.180   ;UFF atom type of B 
+UF_C      1.9255      0.105   ;UFF atom type of C 
+UF_N      1.8300      0.069   ;UFF atom type of N 
+UF_O      1.7500      0.060   ;UFF atom type of O 
+UF_F      1.6820      0.050   ;UFF atom type of F 
+UF_Ne     1.6215      0.042   ;UFF atom type of Ne
+UF_Na     1.4915      0.030   ;UFF atom type of Na
+UF_Mg     1.5105      0.111   ;UFF atom type of Mg
+UF_Al     2.2495      0.505   ;UFF atom type of Al
+UF_Si     2.1475      0.402   ;UFF atom type of Si
+UF_P      2.0735      0.305   ;UFF atom type of P 
+UF_S      2.0175      0.274   ;UFF atom type of S 
+UF_Cl     1.9735      0.227   ;UFF atom type of Cl
+UF_Ar     1.9340      0.185   ;UFF atom type of Ar
+UF_K      1.9060      0.035   ;UFF atom type of K 
+UF_Ca     1.6995      0.238   ;UFF atom type of Ca
+UF_Sc     1.6475      0.019   ;UFF atom type of Sc
+UF_Ti     1.5875      0.017   ;UFF atom type of Ti
+UF_V      1.5720      0.016   ;UFF atom type of V 
+UF_Cr     1.5115      0.015   ;UFF atom type of Cr
+UF_Mn     1.4805      0.013   ;UFF atom type of Mn
+UF_Fe     1.4560      0.013   ;UFF atom type of Fe
+UF_Co     1.4360      0.014   ;UFF atom type of Co
+UF_Ni     1.4170      0.015   ;UFF atom type of Ni
+UF_Cu     1.7475      0.005   ;UFF atom type of Cu
+UF_Zn     1.3815      0.124   ;UFF atom type of Zn
+UF_Ga     2.1915      0.415   ;UFF atom type of Ga
+UF_Ge     2.1400      0.379   ;UFF atom type of Ge
+UF_As     2.1150      0.309   ;UFF atom type of As
+UF_Se     2.1025      0.291   ;UFF atom type of Se
+UF_Br     2.0945      0.251   ;UFF atom type of Br
+UF_Kr     2.0705      0.220   ;UFF atom type of Kr
+UF_Rb     2.0570      0.040   ;UFF atom type of Rb
+UF_Sr     1.8205      0.235   ;UFF atom type of Sr
+UF_Y      1.6725      0.072   ;UFF atom type of Y 
+UF_Zr     1.5620      0.069   ;UFF atom type of Zr
+UF_Nb     1.5825      0.059   ;UFF atom type of Nb
+UF_Mo     1.5260      0.056   ;UFF atom type of Mo
+UF_Tc     1.4990      0.048   ;UFF atom type of Tc
+UF_Ru     1.4815      0.056   ;UFF atom type of Ru
+UF_Rh     1.4645      0.053   ;UFF atom type of Rh
+UF_Pd     1.4495      0.048   ;UFF atom type of Pd
+UF_Ag     1.5740      0.036   ;UFF atom type of Ag
+UF_Cd     1.4240      0.228   ;UFF atom type of Cd
+UF_In     2.2315      0.599   ;UFF atom type of In
+UF_Sn     2.1960      0.567   ;UFF atom type of Sn
+UF_Sb     2.2100      0.449   ;UFF atom type of Sb
+UF_Te     2.2350      0.398   ;UFF atom type of Te
+UF_I      2.2500      0.339   ;UFF atom type of I 
+UF_Xe     2.2020      0.332   ;UFF atom type of Xe
+UF_Cs     2.2585      0.045   ;UFF atom type of Cs
+UF_Ba     1.8515      0.364   ;UFF atom type of Ba
+UF_La     1.7610      0.017   ;UFF atom type of La
+UF_Ce     1.7780      0.013   ;UFF atom type of Ce
+UF_Pr     1.8030      0.010   ;UFF atom type of Pr
+UF_Nd     1.7875      0.010   ;UFF atom type of Nd
+UF_Pm     1.7735      0.009   ;UFF atom type of Pm
+UF_Sm     1.7600      0.008   ;UFF atom type of Sm
+UF_Eu     1.7465      0.008   ;UFF atom type of Eu
+UF_Gd     1.6840      0.009   ;UFF atom type of Gd
+UF_Tb     1.7255      0.007   ;UFF atom type of Tb
+UF_Dy     1.7140      0.007   ;UFF atom type of Dy
+UF_Ho     1.7045      0.007   ;UFF atom type of Ho
+UF_Er     1.6955      0.007   ;UFF atom type of Er
+UF_Tm     1.6870      0.006   ;UFF atom type of Tm
+UF_Yb     1.6775      0.228   ;UFF atom type of Yb
+UF_Lu     1.8200      0.041   ;UFF atom type of Lu
+UF_Hf     1.5705      0.072   ;UFF atom type of Hf
+UF_Ta     1.5850      0.081   ;UFF atom type of Ta
+UF_W      1.5345      0.067   ;UFF atom type of W 
+UF_Re     1.4770      0.066   ;UFF atom type of Re
+UF_Os     1.5600      0.037   ;UFF atom type of Os
+UF_Ir     1.4200      0.073   ;UFF atom type of Ir
+UF_Pt     1.3770      0.080   ;UFF atom type of Pt
+UF_Au     1.6465      0.039   ;UFF atom type of Au
+UF_Hg     1.3525      0.385   ;UFF atom type of Hg
+UF_Tl     2.1735      0.680   ;UFF atom type of Tl
+UF_Pb     2.1485      0.663   ;UFF atom type of Pb
+UF_Bi     2.1850      0.518   ;UFF atom type of Bi
+UF_Po     2.3545      0.325   ;UFF atom type of Po
+UF_At     2.3750      0.284   ;UFF atom type of At
+UF_Rn     2.3825      0.248   ;UFF atom type of Rn
+UF_Fr     2.4500      0.050   ;UFF atom type of Fr
+UF_Ra     1.8385      0.404   ;UFF atom type of Ra
+UF_Ac     1.7390      0.033   ;UFF atom type of Ac
+UF_Th     1.6980      0.026   ;UFF atom type of Th
+UF_Pa     1.7120      0.022   ;UFF atom type of Pa
+UF_U      1.6975      0.022   ;UFF atom type of U 
+UF_Np     1.7120      0.019   ;UFF atom type of Np
+UF_Pu     1.7120      0.016   ;UFF atom type of Pu
+UF_Am     1.6905      0.014   ;UFF atom type of Am
+UF_Cm     1.6630      0.013   ;UFF atom type of Cm
+UF_Bk     1.6695      0.013   ;UFF atom type of Bk
+UF_Cf     1.6565      0.013   ;UFF atom type of Cf
+UF_Es     1.6495      0.012   ;UFF atom type of Es
+UF_Fm     1.6430      0.012   ;UFF atom type of Fm
+UF_Md     1.6370      0.011   ;UFF atom type of Md
+UF_No     1.6240      0.011   ;UFF atom type of No
+UF_Lr     1.6180      0.011   ;UFF atom type of Lr
+
+;The following ones are GAFF atom types, taken from gaff.dat (Version 1.81, May 2017) in AmberTools 21
+h1        1.3870      0.0157  ;H bonded to aliphatic carbon with 1 electrwd. group                     
+h2        1.2870      0.0157  ;H bonded to aliphatic carbon with 2 electrwd. group                     
+h3        1.1870      0.0157  ;H bonded to aliphatic carbon with 3 electrwd. group                     
+h4        1.4090      0.0150  ;H bonded to non-sp3 carbon with 1 electrwd. group                       
+h5        1.3590      0.0150  ;H bonded to non-sp3 carbon with 2 electrwd. group                       
+ha        1.4590      0.0150  ;H bonded to aromatic carbon                                             
+hc        1.4870      0.0157  ;H bonded to aliphatic carbon without electrwd. group                    
+hn        0.6000      0.0157  ;H bonded to nitrogen atoms                                              
+ho        0.0000      0.0000  ;Hydroxyl group                                                          
+hp        0.6000      0.0157  ;H bonded to phosphate                                                   
+hs        0.6000      0.0157  ;Hydrogen bonded to sulphur                                              
+hw        0.0000      0.0000  ;Hydrogen in water                                                       
+hx        1.1000      0.0157  ;H bonded to C next to positively charged group                          
+o         1.6612      0.2100  ;Oxygen with one connected atom                                          
+oh        1.7210      0.2104  ;Oxygen in hydroxyl group                                                
+os        1.6837      0.1700  ;Ether and ester oxygen                                                  
+op        1.6837      0.1700  ;os in 3-memberred rings                                                 
+oq        1.6837      0.1700  ;os in 4-memberred rings                                                 
+ow        1.7683      0.1520  ;Oxygen in water                                                         
+c         1.9080      0.0860  ;Sp2 C carbonyl group                                                    
+c1        1.9080      0.2100  ;Sp C                                                                    
+c2        1.9080      0.0860  ;Sp2 C                                                                   
+c3        1.9080      0.1094  ;Sp3 C                                                                   
+ca        1.9080      0.0860  ;Sp2 C in pure aromatic systems                                          
+cc        1.9080      0.0860  ;Sp2 carbons in non-pure aromatic systems                                
+cd        1.9080      0.0860  ;Sp2 carbons in non-pure aromatic systems, identical to cc               
+ce        1.9080      0.0860  ;Inner Sp2 carbons in conjugated systems                                 
+cf        1.9080      0.0860  ;Inner Sp2 carbons in conjugated systems, identical to ce                
+cg        1.9080      0.2100  ;Inner Sp carbons in conjugated systems                                  
+ch        1.9080      0.2100  ;Inner Sp carbons in conjugated systems, identical to cg                 
+cp        1.9080      0.0860  ;Head Sp2 C that connect two rings in biphenyl sys.                      
+cq        1.9080      0.0860  ;Head Sp2 C that connect two rings in biphenyl sys. identical to cp      
+cu        1.9080      0.0860  ;Sp2 carbons in triangle systems                                         
+cv        1.9080      0.0860  ;Sp2 carbons in square systems                                           
+cx        1.9080      0.0860  ;Sp3 carbons in triangle systems                                         
+cy        1.9080      0.0860  ;Sp3 carbons in square systems                                           
+cz        1.9080      0.0860  ;Sp2 carbon in guanidine group                                           
+n         1.8240      0.1700  ;Sp2 nitrogen in amide groups                                            
+ni        1.8240      0.1700  ;n in 3-memberred rings                                                  
+nj        1.8240      0.1700  ;n in 4-memberred rings                                                  
+n1        1.8240      0.1700  ;Sp N                                                                    
+n2        1.8240      0.1700  ;aliphatic Sp2 N with two connected atoms                                
+n3        1.8240      0.1700  ;Sp3 N with three connected atoms                                        
+np        1.8240      0.1700  ;n3 in 3-memberred rings                                                 
+nq        1.8240      0.1700  ;n3 in 4-memberred rings                                                 
+n4        1.8240      0.1700  ;Sp3 N with four connected atoms                                         
+nk        1.8240      0.1700  ;n4 in 3-memberred rings                                                 
+nl        1.8240      0.1700  ;n4 in 4-memberred rings                                                 
+na        1.8240      0.1700  ;Sp2 N with three connected atoms                                        
+nb        1.8240      0.1700  ;Sp2 N in pure aromatic systems                                          
+nc        1.8240      0.1700  ;Sp2 N in non-pure aromatic systems                                      
+nd        1.8240      0.1700  ;Sp2 N in non-pure aromatic systems, identical to nc                     
+ne        1.8240      0.1700  ;Inner Sp2 N in conjugated systems                                       
+nf        1.8240      0.1700  ;Inner Sp2 N in conjugated systems, identical to ne                      
+nh        1.8240      0.1700  ;Amine N connected one or more aromatic rings                            
+nm        1.8240      0.1700  ;nh in 3-memberred rings                                                 
+nn        1.8240      0.1700  ;nh in 4-memberred rings                                                 
+no        1.8240      0.1700  ;Nitro N                                                                 
+s         2.0000      0.2500  ;S with one connected atom                                               
+s2        2.0000      0.2500  ;S with two connected atom, involved at least one double bond            
+s4        2.0000      0.2500  ;S with three connected atoms                                            
+s6        2.0000      0.2500  ;S with four connected atoms                                             
+sx        2.0000      0.2500  ;Special s4 in conjugated systems                                        
+sy        2.0000      0.2500  ;Special s6 in conjugated systems                                        
+sh        2.0000      0.2500  ;Sp3 S connected with hydrogen                                           
+ss        2.0000      0.2500  ;Sp3 S in thio-ester and thio-ether                                      
+sp        2.0000      0.2500  ;ss in 3-memberred rings                                                 
+sq        2.0000      0.2500  ;ss in 4-memberred rings                                                 
+p2        2.1000      0.2000  ;Phosphate with two connected atoms                                      
+p3        2.1000      0.2000  ;Phosphate with three connected atoms, such as PH3                       
+p4        2.1000      0.2000  ;Phosphate with three connected atoms, such as O=P(CH3)2                 
+p5        2.1000      0.2000  ;Phosphate with four connected atoms, such as O=P(OH)3                   
+pb        2.1000      0.2000  ;Sp2 P in pure aromatic systems                                          
+pc        2.1000      0.2000  ;Sp2 P in non-pure aromatic systems                                      
+pd        2.1000      0.2000  ;Sp2 P in non-pure aromatic systems, identical to pc                     
+pe        2.1000      0.2000  ;Inner Sp2 P in conjugated systems                                       
+pf        2.1000      0.2000  ;Inner Sp2 P in conjugated systems, identical to pe                      
+px        2.1000      0.2000  ;Special p4 in conjugated systems                                        
+py        2.1000      0.2000  ;Special p5 in conjugated systems                                        
+f         1.75        0.061   ;Fluorine                                                                
+cl        1.948       0.265   ;Chlorine                                                                
+br        2.02        0.420   ;Bromine                                                                 
+i         2.15        0.50    ;Iodine                                                                  
+
+;The following ones are AMBER atom types, taken from parm19.dat in AmberTools 21, corresponding to AMBER19SB with parmbsc0 and OL3
+H         0.6000      0.0157   ;H bonded to nitrogen atoms                      
+HO        0.0000      0.0000   ;hydroxyl group                                  
+HS        0.6000      0.0157   ;hydrogen bonded to sulphur (pol?)               
+HC        1.4870      0.0157   ;H aliph. bond. to C without electrwd.group      
+H1        1.3870      0.0157   ;H aliph. bond. to C with 1 electrwd. group      
+H2        1.2870      0.0157   ;H aliph. bond. to C with 2 electrwd. groups      
+H3        1.1870      0.0157   ;H aliph. bond. to C with 3 electrwd. groups       
+HP        1.1000      0.0157   ;H bonded to C next to positively charged gr     
+HA        1.4590      0.0150   ;H arom. bond. to C without elctrwd. groups      
+H4        1.4090      0.0150   ;H arom. bond. to C with 1 electrwd. group       
+H5        1.3590      0.0150   ;H arom.at C with 2 elctrwd. gr,+HCOO group      
+HZ        1.4590      0.0150   ;H bond sp C (Howard et al.JCC,16,243,1995)      
+O         1.6612      0.2100   ;carbonyl group oxygen                           
+O2        1.6612      0.2100   ;carboxyl and phosphate group oxygen             
+OH        1.7210      0.2104   ;oxygen in hydroxyl group                        
+OS        1.6837      0.1700   ;ether and ester oxygen                          
+OP        1.8500      0.1700   ;2- phosphate oxygen                             
+C*        1.9080      0.0860   ;sp2 arom. 5 memb.ring w/1 subst. (TRP)      
+CA        1.9080      0.0860   ;sp2 C pure aromatic (benzene)               
+CB        1.9080      0.0860   ;sp2 aromatic C, 5&6 membered ring junction  
+CC        1.9080      0.0860   ;sp2 aromatic C, 5 memb. ring HIS            
+CD        1.9080      0.0860   ;sp2 C atom in the middle of: C=CD-CD=C      
+CK        1.9080      0.0860   ;sp2 C 5 memb.ring in purines (dA,dG)        
+CM        1.9080      0.0860   ;sp2 C  pyrimidines in pos. 5 & 6 (dT,dC)    
+CN        1.9080      0.0860   ;sp2 C aromatic 5&6 memb.ring junct.(TRP)    
+CQ        1.9080      0.0860   ;sp2 C in 5 mem.ring of purines between 2 N  
+CR        1.9080      0.0860   ;sp2 arom as CQ but in HIS                   
+CV        1.9080      0.0860   ;sp2 arom. 5 memb.ring w/1 N and 1 H (HIS)   
+CW        1.9080      0.0860   ;sp2 arom. 5 memb.ring w/1 N-H and 1 H (HIS) 
+CY        1.9080      0.0860   ;nitrile C (Howard et al.JCC,16,243,1995)    
+CZ        1.9080      0.0860   ;sp C (Howard et al.JCC,16,243,1995)         
+CP        1.9080      0.0860   ;sp2 C 5 memb.ring in purines (G)            
+CS        1.9080      0.0860   ;sp2 C  pyrimidines in pos. 5 & 6 (U)        
+CI        1.9080      0.1094   ;parmbsc0                                        
+C5        1.9080      0.0860   ;sp2 C 5 memb.ring in purines (A)                
+C4        1.9080      0.0860   ;sp2 C  pyrimidines in pos. 5 & 6 (C)            
+CT        1.9080      0.1094   ;sp3 aliphatic C                                 
+CX        1.9080      0.1094   ;protein C-alpha (new to ff10)                   
+XC        1.9080      0.1094   ;protein C-alpha (new to ff19)                   
+C         1.9080      0.0860   ;sp2 C carbonyl group                            
+N         1.8240      0.1700   ;sp2 nitrogen in amide groups                    
+NA        1.8240      0.1700   ;sp2 N in 5 memb.ring w/H atom (HIS)         
+N2        1.8240      0.1700   ;sp2 N in amino groups                       
+N*        1.8240      0.1700   ;sp2 N                                       
+NC        1.8240      0.1700   ;sp2 N in 6 memb.ring w/LP (ADE,GUA)         
+NB        1.8240      0.1700   ;sp2 N in 5 memb.ring w/LP (HIS,ADE,GUA)     
+NT        1.8240      0.1700   ;sp3 N for amino groups amino groups         
+NY        1.8240      0.1700   ;nitrile N (Howard et al.JCC,16,243,1995)    
+N3        1.8240      0.1700   ;sp3 N for charged amino groups (Lys, etc)       
+S         2.0000      0.2500   ;S in disulfide linkage,pol:JPC,102,2399,98      
+SH        2.0000      0.2500   ;S in cystine                                    
+P         2.1000      0.2000   ;phosphate,pol:JACS,112,8543,90,K.J.Miller       
+MG        0.7926      0.8947   ;magnesium                                       
+C0        1.7131      0.459789 ;calcium                                         
+Zn        1.10        0.0125   ;Zn2+                                            
+F         1.75        0.061    ;fluorine (not fluoride!)                        
+Cl        1.948       0.265    ;chlorine  (Applequist) (not chloride!)          
+Br        2.22        0.320    ;bromine  (Applequist) (not bromide!)            
+I         2.35        0.40     ;iodine   (Applequist) (not iodide!)             
+EP        0.00        0.0000   ;extra point                                     
+                          

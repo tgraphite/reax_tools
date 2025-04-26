@@ -12,7 +12,7 @@ If it's useful to you, please star it on GitHub, which is very important for me.
 
 reaction graph | species | molecule identification
 --- | --- | ---
-<img src="examples/example.svg" width="200">|<img src="examples/example.jpg" width="210">| <img src="examples/molecules.png" width="200"> |
+<img src="examples/reactions.png" width="200">|<img src="examples/species.jpg" width="210">| <img src="examples/molecules.png" width="200"> |
 
 
 ## Features

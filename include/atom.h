@@ -10,6 +10,8 @@ struct Atom {
     // Initialize order. Do not move.
     int id;
     int type_id;
+    int valence_electrons;
+    bool valence_electrons_saturated = false;
     std::vector<float> coord;
     std::string type_name;
     std::string desc;
@@ -33,8 +35,9 @@ struct Atom {
 struct Bond {
     Atom* atom_i;
     Atom* atom_j;
+    int order;
 
-    Bond(Atom* _atom_i, Atom* _atom_j) : atom_i(_atom_i), atom_j(_atom_j){};
+    Bond(Atom* _atom_i, Atom* _atom_j) : atom_i(_atom_i), atom_j(_atom_j), order(0){};
     ~Bond();
 
     std::string info();

@@ -1,9 +1,9 @@
-﻿set(PROJECT_NAME reax_tools)
+set(PROJECT_NAME reax_tools)
 cmake_minimum_required(VERSION 3.8)
+
 project(${PROJECT_NAME})
 
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 set(BUILD_SHARED_LIBS OFF)
@@ -23,6 +23,5 @@ if (UNIX AND NOT APPLE)
     target_link_options(${PROJECT_NAME} PRIVATE -static)
 elseif (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE _WIN32)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT")
-    target_compile_options(${PROJECT_NAME} PRIVATE /MT)
+ #   target_compile_options(${PROJECT_NAME} PRIVATE /MT)
 endif()

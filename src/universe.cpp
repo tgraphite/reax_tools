@@ -1,7 +1,5 @@
 #include "universe.h"
 
-#include <omp.h>
-
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -68,11 +66,15 @@ void Universe::flush() {
 
 void Universe::process_traj(std::string &file_path, std::vector<std::string> &type_names, const float &rvdw_scale,
                             const int &num_threads, const bool &if_dump_lammps_data) {
-    std::ifstream file(file_path);
+    // TODO: current frame index management is rubbish, but works, optimize later!
     int curr_frame = 1;
-    float neigh_radius = 2.5 * rvdw_scale;
 
-    while (file.is_open() and !file.eof()) {
+    float neigh_radius = 2.5 * rvdw_scale;
+    bool is_first_frame;
+    std::ifstream file(file_path);
+    std::string bond_count_filepath = file_path.substr(0, file_path.find_last_of(".")) + "_bond_count.csv";
+
+    while (file.is_open() && !file.eof()) {
         if (curr_frame > 1) {
             flush();
         }
@@ -134,15 +136,25 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
                 update_reax_flow(current_systems[curr_thread - 1], curr_sys, curr_frame);
             }
 
-            fmt::print("Frame: {} ", curr_frame);
-            if (if_dump_lammps_data) {
-                std::string lammps_data_file =
-                    file_path.substr(0, file_path.find_last_of(".")) + "_" + std::to_string(curr_frame) + ".data";
-                curr_sys->finish(lammps_data_file);
+            std::string lammps_data_file =
+                file_path.substr(0, file_path.find_last_of(".")) + "_" + std::to_string(curr_frame) + ".data";
+            if (if_dump_lammps_data) curr_sys->dump_lammps_data(lammps_data_file);
+
+            if (curr_frame == 1) {
+                is_first_frame = true;
+                fmt::print("Atom Types: ");
+                for (auto &pair : curr_sys->type_itos) {
+                    fmt::print("{}={} ", pair.first, pair.second);
+                }
+                fmt::print("\n");
             } else {
-                curr_sys->finish();
+                is_first_frame = false;
             }
 
+            curr_sys->dump_bond_count(bond_count_filepath, is_first_frame);
+
+            fmt::print("Frame: {} ", curr_frame);
+            curr_sys->finish();
             curr_frame++;
         }
     }

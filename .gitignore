@@ -1,8 +1,12 @@
 build_target/
+build_*/
 build/
+out/
 .vs*/
 old/
 rdkit/
 CMakeSettings.json
 CppProperties.json
 big.lammpstrj
+*.csv
+*.data

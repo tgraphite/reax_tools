@@ -23,7 +23,7 @@ void System::load_xyz(std::ifstream& file) {
     while (getline(file, line)) {
         tokens = split_by_space(line);
 
-        if ((tokens.size() == 0) or (tokens[0] == "#")) {
+        if ((tokens.size() == 0) || (tokens[0] == "#")) {
             continue;
         }
         // Skip time or energy information lines
@@ -94,7 +94,7 @@ void System::load_xyz(std::ifstream& file) {
                 // Notice that must get the types correct!
                 try {
                     if (type_stoi.find(given_type) == type_stoi.end()) {
-                        type_int = type_stoi.size();
+                        type_int = type_stoi.size() + 1;  // To ensure all types are count from 1.
                         type_itos[type_int] = given_type;
                         type_stoi[given_type] = type_int;
                         itypes++;
@@ -174,7 +174,7 @@ void System::load_lammpstrj(std::ifstream& file) {
 
     while (getline(file, line)) {
         std::vector<std::string> tokens = split_by_space(line);
-        if ((tokens.size() == 0) or (tokens[0] == "#")) {
+        if ((tokens.size() == 0) || (tokens[0] == "#")) {
             continue;
         } else if (tokens[0] == "ITEM:") {
             if (tokens[1] == "TIMESTEP") {

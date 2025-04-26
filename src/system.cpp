@@ -50,15 +50,34 @@ void System::finish() {
     }
 }
 
-void System::finish(std::string &filepath) {
-    if (has_boundaries) {
-        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: {:.2f} {:.2f} {:.2f}\n", atoms.size(), bonds.size(),
-                   molecules.size(), axis_lengths[0], axis_lengths[1], axis_lengths[2]);
-    } else {
-        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: false (cost lots of time)\n", atoms.size(), bonds.size(),
-                   molecules.size());
+void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
+    static FILE *file;
+
+    if (is_first_frame) {
+        file = fopen(filepath.c_str(), "w");
+        for (auto &ij_count : bond_type_counts) {
+            fmt::print(file, "{}-{}", type_itos[ij_count.first.first], type_itos[ij_count.first.second]);
+
+            // if ij_count is not the last element.
+            if (&ij_count != &*std::prev(bond_type_counts.end())) {
+                fmt::print(file, ",");
+            }
+        }
+        fmt::print(file, "\n");
+        fclose(file);
     }
-    dump_lammps_data(filepath);
+
+    file = fopen(filepath.c_str(), "a");
+    for (auto &ij_count : bond_type_counts) {
+        fmt::print(file, "{}", ij_count.second);
+
+        // if ij_count is not the last element.
+        if (&ij_count != &*std::prev(bond_type_counts.end())) {
+            fmt::print(file, ",");
+        }
+    }
+    fmt::print(file, "\n");
+    fclose(file);
 }
 
 // A fallback method for systems without periodic boundaries.
@@ -128,6 +147,8 @@ void System::search_neigh_kdtree(const float &radius, const int &max_neigh) {
 }
 
 void System::build_bonds_by_radius(const float &rvdw_scale) {
+    // prepare types and radius.
+
     std::map<int, float> atomic_radius;
     /// When using default atomic radius in constant.h
     for (auto &pair : type_stoi) {
@@ -149,12 +170,15 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
             } else {
                 bond_radius[pair_ij] = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
             }
+
+            bond_type_counts[pair_ij] = 0;
         }
     }
 
-    float bond_r;
-    float bond_sq;
-    float dist_sq;
+    // compute.
+    static float bond_r;
+    static float bond_sq;
+    static float dist_sq;
 
     for (auto &atom : atoms) {
         for (auto &neigh : atom->neighs) {
@@ -174,6 +198,7 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
 
             if (dist_sq <= bond_sq) {
                 Bond *bond = new Bond(atom, neigh);
+                bond_type_counts[id_ij]++;
 
                 bonds.push_back(bond);
                 atom->bonds.push_back(bond);
