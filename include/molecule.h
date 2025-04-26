@@ -28,8 +28,12 @@ struct Molecule {
     void insert(Bond*& bond);
     bool has(Atom*& atom);
     bool has(Bond*& bond);
+
     void update_formula();
     void update_topo();
+    void calc_bond_order();
+
+    void dump_mol2(const std::string& filename);
 };
 
 // TODO, Important:

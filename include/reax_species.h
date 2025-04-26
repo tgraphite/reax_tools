@@ -3,7 +3,6 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include "defines.h"
 
@@ -17,7 +16,6 @@ class ReaxSpecies {
     std::map<std::string, std::vector<float>> formulas_nums;
     std::vector<std::vector<std::string>> all_frame_formulas;
     int nframes = 0;
-    std::mutex mutex_;
 
    public:
     // When read from Lammps reax/c/bonds file.

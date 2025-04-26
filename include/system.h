@@ -15,6 +15,7 @@ class System {
     int iatoms = 0;
     int itypes = 0;
     int itimestep = 0;
+    int iframe = 0;
     bool has_boundaries = false;
     std::vector<float> axis_lengths;
 
@@ -25,6 +26,7 @@ class System {
     std::map<std::string, int> type_stoi;
     std::map<int, std::string> type_itos;
     std::map<std::pair<int, int>, float> bond_radius;
+    std::map<std::pair<int, int>, float> bond_type_counts;
 
     System();
     ~System();
@@ -33,9 +35,9 @@ class System {
     void load_xyz(std::ifstream &file);
     void load_lammpstrj(std::ifstream &file);
 
-    void finish(std::string &filepath);
     void finish();
     void dump_lammps_data(std::string &filepath);
+    void dump_bond_count(std::string &filepath, bool &is_first_frame);
 
     void search_neigh(const float &radius, const int &max_neigh);
     void search_neigh_naive(const float &radius, const int &max_neigh);

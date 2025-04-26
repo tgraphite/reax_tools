@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
     std::string mode;
     std::string traj_file;
     std::string species_file;
+    std::string xyz_file;
     std::string merge_target = "C";
 
     std::string usage =
@@ -43,10 +44,11 @@ int main(int argc, char *argv[]) {
     bool if_merge_by_element = false;
     bool if_merge_rescale = false;
     bool if_dump_lammps_data = false;
+    bool if_dump_bond_count = true;
 
-    std::map<std::string, int> opts_nvals = {{"-f", 1},  {"-s", 1},     {"-r", 1},  {"-t", 1},
-                                             {"-me", 1}, {"-mr", 1},    {"-rc", 1}, {"--order", 1},
-                                             {"-h", 0},  {"--help", 0}, {"-nt", 1}, {"--dump", 0}};
+    std::map<std::string, int> opts_nvals = {{"-f", 1},  {"-s", 1},     {"-r", 1},      {"-t", 1}, {"-me", 1},
+                                             {"-mr", 1}, {"-rc", 1},    {"--order", 1}, {"-h", 0}, {"--help", 0},
+                                             {"-nt", 1}, {"--dump", 0}, {"--topo", 1}};
 
     std::map<std::string, std::vector<std::string>> opts_vals = neo_getopt(argc, argv, opts_nvals, usage);
 
@@ -60,6 +62,9 @@ int main(int argc, char *argv[]) {
         } else if (opt == "-s") {
             species_file = vals[0];
             mode = "species";
+        } else if (opt == "--topo") {
+            mode = "topo";
+            xyz_file = vals[0];
         } else if (opt == "-r") {
             rvdw_scale = std::stof(vals[0]);
         } else if (opt == "-t") {
@@ -80,7 +85,7 @@ int main(int argc, char *argv[]) {
         } else if (opt == "--order") {
             sort_order.clear();
             sort_order = split(vals[0], ",");
-        } else if ((opt == "-h") or (opt == "--help")) {
+        } else if ((opt == "-h") || (opt == "--help")) {
             std::cout << usage << std::endl;
             exit(0);
         } else if (opt == "--dump") {
@@ -116,4 +121,15 @@ int main(int argc, char *argv[]) {
         reax_species.brief_report();
         reax_species.save_file();
     }
+
+    // Create topo file mode
+    // else if (mode == "topo") {
+    //     System sys;
+    //     sys.load_file(xyz_file);
+    //     sys.search_neigh(2.5 * rvdw_scale, 10);
+    //     sys.build_molecules();
+    //     for (auto &mol : sys.mols) {
+    //         std::cout << mol->info() << std::endl;
+    //     }
+    // }
 }

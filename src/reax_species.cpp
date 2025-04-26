@@ -1,7 +1,6 @@
 #include "reax_species.h"
 
 #include <iostream>
-#include <mutex>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -257,11 +256,11 @@ void ReaxSpecies::brief_report() {
 
         for (size_t i = 0; i < nframes; i++) {
             average += nums[i];
-            if ((i >= begin_l) and (i < begin_l + range))
+            if ((i >= begin_l) && (i < begin_l + range))
                 begin += nums[i];
-            else if ((i >= mid_l) and (i < mid_l + range))
+            else if ((i >= mid_l) && (i < mid_l + range))
                 mid += nums[i];
-            else if ((i >= end_l) and (i < end_l + range))
+            else if ((i >= end_l) && (i < end_l + range))
                 end += nums[i];
         }
 
@@ -299,18 +298,12 @@ void ReaxSpecies::show_nums() {
 
 // Get current frame formulas (std::map<std::string, int>) from class Universe.
 void ReaxSpecies::import_frame_formulas(const std::vector<std::string> &formulas) {
-    // 使用互斥锁保护共享资源
-    std::lock_guard<std::mutex> lock(mutex_);
-
     all_frame_formulas.push_back(formulas);
 }
 
 // Analyze imported frame formulas and get standard formulas_nums after
 // ReaxSpeices::import_frame_formulas all done.
 void ReaxSpecies::analyze_frame_formulas() {
-    // 使用互斥锁保护共享资源
-    std::lock_guard<std::mutex> lock(mutex_);
-
     // all_formulas_set : any occured formula, non-repeat.
     std::unordered_set<std::string> all_formulas_set;
     nframes = all_frame_formulas.size();
