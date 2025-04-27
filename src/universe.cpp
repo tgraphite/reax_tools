@@ -233,7 +233,7 @@ void Universe::update_reax_flow(System *prev_sys, System *curr_sys, const int &c
 
         // If found a match and not the same molecule (similarity between 0.5
         // and 1.0), record the reaction.
-        if (best_match && best_similarity >= 0.01 && best_similarity < 1.0) {
+        if (best_match && best_similarity >= 0.2 && best_similarity < 1.0) {
             reax_flow->add_reaction(curr_frame, prev_mol, best_match);
         }
     }

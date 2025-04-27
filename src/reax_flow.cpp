@@ -14,18 +14,17 @@ void ReaxFlow::add_reaction(int frame, Molecule *source, Molecule *target) {
     if (formula_to_node_id.find(source->formula) != formula_to_node_id.end()) {
         source_id = formula_to_node_id[source->formula];
         // Update node appearance frames
-        if (std::find(nodes[source_id].frames_appeared.begin(), nodes[source_id].frames_appeared.end(), frame - 1) ==
-            nodes[source_id].frames_appeared.end()) {
-            nodes[source_id].frames_appeared.push_back(frame - 1);
+        if (std::find(nodes[source_id]->frames_appeared.begin(), nodes[source_id]->frames_appeared.end(), frame - 1) ==
+            nodes[source_id]->frames_appeared.end()) {
+            nodes[source_id]->frames_appeared.push_back(frame - 1);
         }
     } else {
         // Create new node
         // TODO: Generate SMILES string
-        Node source_node;
-        source_node.formula = source->formula;
-
-        source_node.smiles = "";
-        source_node.frames_appeared.push_back(frame - 1);
+        Node *source_node = new Node();  // Allocate memory for the new node
+        source_node->formula = source->formula;
+        source_node->smiles = "";
+        source_node->frames_appeared.push_back(frame - 1);
 
         nodes.push_back(source_node);
         source_id = nodes.size() - 1;
@@ -37,17 +36,16 @@ void ReaxFlow::add_reaction(int frame, Molecule *source, Molecule *target) {
     if (formula_to_node_id.find(target->formula) != formula_to_node_id.end()) {
         target_id = formula_to_node_id[target->formula];
         // Update node appearance frames
-        if (std::find(nodes[target_id].frames_appeared.begin(), nodes[target_id].frames_appeared.end(), frame) ==
-            nodes[target_id].frames_appeared.end()) {
-            nodes[target_id].frames_appeared.push_back(frame);
+        if (std::find(nodes[target_id]->frames_appeared.begin(), nodes[target_id]->frames_appeared.end(), frame) ==
+            nodes[target_id]->frames_appeared.end()) {
+            nodes[target_id]->frames_appeared.push_back(frame);
         }
     } else {
         // Create new node
-        Node target_node;
-        target_node.formula = target->formula;
-        // TODO: Generate SMILES string
-        target_node.smiles = "";
-        target_node.frames_appeared.push_back(frame);
+        Node *target_node = new Node();  // Allocate memory for the new node
+        target_node->formula = target->formula;
+        target_node->smiles = "";
+        target_node->frames_appeared.push_back(frame);
 
         nodes.push_back(target_node);
         target_id = nodes.size() - 1;
@@ -57,10 +55,10 @@ void ReaxFlow::add_reaction(int frame, Molecule *source, Molecule *target) {
     // Check if the edge already exists
     bool edge_exists = false;
     for (auto &edge : edges) {
-        if (edge.source_node_id == source_id && edge.target_node_id == target_id) {
+        if (edge->source_node_id == source_id && edge->target_node_id == target_id) {
             // Edge already exists, increase reaction count
-            edge.reaction_count++;
-            edge.frames_occurred.push_back(frame);
+            edge->reaction_count++;
+            edge->frames_occurred.push_back(frame);
             edge_exists = true;
             break;
         }
@@ -68,11 +66,11 @@ void ReaxFlow::add_reaction(int frame, Molecule *source, Molecule *target) {
 
     // If the edge does not exist, create a new edge
     if (!edge_exists) {
-        Edge new_edge;
-        new_edge.source_node_id = source_id;
-        new_edge.target_node_id = target_id;
-        new_edge.reaction_count = 1;
-        new_edge.frames_occurred.push_back(frame);
+        Edge *new_edge = new Edge();  // Allocate memory for the new edge
+        new_edge->source_node_id = source_id;
+        new_edge->target_node_id = target_id;
+        new_edge->reaction_count = 1;
+        new_edge->frames_occurred.push_back(frame);
         edges.push_back(new_edge);
     }
 }
@@ -86,7 +84,7 @@ void ReaxFlow::brief_report() {
     // Sort edges by reaction count
     std::vector<std::pair<int, int>> sorted_edges;
     for (size_t i = 0; i < edges.size(); i++) {
-        sorted_edges.push_back({i, edges[i].reaction_count});
+        sorted_edges.push_back({i, edges[i]->reaction_count});
     }
 
     std::sort(sorted_edges.begin(), sorted_edges.end(),
@@ -98,22 +96,58 @@ void ReaxFlow::brief_report() {
     for (const auto &pair : sorted_edges) {
         if (count >= 10) break;
 
-        const Edge &edge = edges[pair.first];
-        std::cout << fmt::format("{}: {} -> {} (count: {})", count + 1, nodes[edge.source_node_id].formula,
-                                 nodes[edge.target_node_id].formula, pair.second)
+        const Edge *edge = edges[pair.first];
+        std::cout << fmt::format("{}: {} -> {} (count: {})", count + 1, nodes[edge->source_node_id]->formula,
+                                 nodes[edge->target_node_id]->formula, pair.second)
                   << std::endl;
         count++;
     }
 }
 
 // Save reaction flow graph as DOT format for Graphviz.
-void ReaxFlow::save_graph(const std::string &raw_file_path) {
+void ReaxFlow::save_graph(const std::string &raw_file_path, int &max_reactions) {
     std::string save_path = raw_file_path.substr(0, raw_file_path.find_last_of(".")) + ".dot";
     std::ofstream file(save_path);
 
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open file " << save_path << " for writing." << std::endl;
+    if (!file) {
+        std::cerr << "Error: Could not open dot file {} for writing.";
         return;
+    }
+
+    // Sort edges by reaction count in descending order
+    std::vector<Edge *> sorted_edges = edges;
+    std::sort(sorted_edges.begin(), sorted_edges.end(),
+              [](const Edge *a, const Edge *b) { return a->reaction_count > b->reaction_count; });
+
+    int reaction_count_threshold;
+
+    if (sorted_edges.size() < max_reactions) {
+        reaction_count_threshold = 0;
+    } else {
+        reaction_count_threshold = sorted_edges[max_reactions - 1]->reaction_count;
+    }
+
+    std::vector<Edge *> output_edges;
+    std::vector<Node *> output_nodes;
+    std::map<int, int> node_id_map;  // Map from original node id to new node id
+
+    for (auto &edge : edges) {
+        if (edge->reaction_count < reaction_count_threshold) continue;
+
+        // Add source node if not already added
+        if (node_id_map.find(edge->source_node_id) == node_id_map.end()) {
+            output_nodes.push_back(nodes[edge->source_node_id]);
+            node_id_map[edge->source_node_id] = output_nodes.size() - 1;
+        }
+
+        // Add target node if not already added
+        if (node_id_map.find(edge->target_node_id) == node_id_map.end()) {
+            output_nodes.push_back(nodes[edge->target_node_id]);
+            node_id_map[edge->target_node_id] = output_nodes.size() - 1;
+        }
+
+        // Add edge to output edges
+        output_edges.push_back(edge);
     }
 
     // DOT file header
@@ -122,25 +156,22 @@ void ReaxFlow::save_graph(const std::string &raw_file_path) {
     file << "  node [shape=box, style=filled, fillcolor=lightblue];\n\n";
 
     // Write nodes
-    for (size_t i = 0; i < nodes.size(); i++) {
-        file << "  node" << i << " [label=\"" << nodes[i].formula;
-        if (!nodes[i].smiles.empty()) {
-            file << "\\n" << nodes[i].smiles;
-        }
-        file << "\"];\n";
+    for (size_t i = 0; i < output_nodes.size(); i++) {
+        file << "  node" << i << " [label=\"" << output_nodes[i]->formula << "\"];\n";
     }
 
     file << "\n";
 
     // Write edges
-    for (const auto &edge : edges) {
-        file << "  node" << edge.source_node_id << " -> node" << edge.target_node_id;
-        file << " [label=\"" << edge.reaction_count << "\", penwidth=" << std::min(5.0, 1.0 + log(edge.reaction_count))
-             << "];\n";
+    float penwidth = 1.0f;
+    for (const auto &edge : output_edges) {
+        penwidth = std::min(5.0, 1.0 + log(edge->reaction_count));
+        file << " node" << node_id_map[edge->source_node_id] << " -> node" << node_id_map[edge->target_node_id]
+             << " [label=\"" << edge->reaction_count << "\", penwidth=" << penwidth << "];\n";
     }
 
     file << "}\n";
     file.close();
 
-    std::cout << "Reaction flow graph saved to " << save_path << std::endl;
+    fmt::print("Reaction flow graph saved to {}\n", save_path);
 }

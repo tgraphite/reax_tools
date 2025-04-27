@@ -24,8 +24,8 @@ class ReaxFlow {
         std::vector<int> frames_occurred;
     };
 
-    std::vector<Node> nodes;
-    std::vector<Edge> edges;
+    std::vector<Node*> nodes;
+    std::vector<Edge*> edges;
 
     // Get node id from formula
     std::map<std::string, int> formula_to_node_id;
@@ -33,5 +33,5 @@ class ReaxFlow {
    public:
     void add_reaction(int frame, Molecule* source, Molecule* target);
     void brief_report();
-    void save_graph(const std::string& raw_file_path);
+    void save_graph(const std::string& raw_file_path, int& max_reactions);
 };
