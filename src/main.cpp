@@ -45,6 +45,7 @@ int main(int argc, char *argv[]) {
     bool if_merge_rescale = false;
     bool if_dump_lammps_data = false;
     bool if_dump_bond_count = true;
+    int max_reactions = 50;
 
     std::map<std::string, int> opts_nvals = {{"-f", 1},  {"-s", 1},     {"-r", 1},      {"-t", 1}, {"-me", 1},
                                              {"-mr", 1}, {"-rc", 1},    {"--order", 1}, {"-h", 0}, {"--help", 0},
@@ -108,7 +109,7 @@ int main(int argc, char *argv[]) {
         uv.reax_species->save_file(traj_file);
 
         uv.reax_flow->brief_report();
-        uv.reax_flow->save_graph(traj_file);
+        uv.reax_flow->save_graph(traj_file, max_reactions);
     }
 
     // Read lammps species.out mode
