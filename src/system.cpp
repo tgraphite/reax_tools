@@ -3,6 +3,7 @@
 #include "defines.h"
 #include "fmt/format.h"
 #include "molecule.h"
+#include "reax_species.h"
 #include "universe.h"
 #include "vec_algorithms.h"
 
@@ -81,8 +82,8 @@ void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
 }
 
 // A fallback method for systems without periodic boundaries.
-void System::search_neigh_naive(const float &radius, const int &max_neigh) {
-    float radius_sq = radius * radius;
+void System::search_neigh_naive() {
+    float radius_sq = rvdw_scale * rvdw_scale * 2.5 * 2.5;
     float dist_sq;
     // Naive search for test
 
@@ -92,7 +93,7 @@ void System::search_neigh_naive(const float &radius, const int &max_neigh) {
             if (curr_atom == other_atom) continue;
 
             dist_sq = distance_sq(curr_atom->coord, other_atom->coord);
-            if (dist_sq <= radius) {
+            if (dist_sq <= radius_sq) {
                 curr_atom->neighs.push_back(other_atom);
             }
             if (curr_atom->neighs.size() >= max_neigh) {
@@ -102,51 +103,25 @@ void System::search_neigh_naive(const float &radius, const int &max_neigh) {
     }
 }
 
-void System::search_neigh_cell_list(const float &radius, const int &max_neigh) {
+void System::search_neigh_cell_list() {
+    float radius = 2.5 * rvdw_scale;
+
     Cell_list cell_list(atoms, radius, axis_lengths, max_neigh);
     for (auto &atom : atoms) {
         cell_list.search_neighbors(atom);
     }
 }
 
-void System::search_neigh(const float &radius, const int &max_neigh) {
+void System::search_neigh() {
     if (has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
         axis_lengths[2] > 0.0f) {
-        search_neigh_cell_list(radius, max_neigh);
+        search_neigh_cell_list();
     } else {
-        search_neigh_naive(radius, max_neigh);
+        search_neigh_naive();
     }
 }
 
-void System::search_neigh_kdtree(const float &radius, const int &max_neigh) {
-    KD_tree kd_tree;
-
-    for (auto &atom : atoms) {
-        kd_tree.insert(atom);
-    }
-
-    for (auto &atom_data : atoms) {
-        if (atom_data->neighs.size() < max_neigh) {
-            std::vector<Atom *> neighbors;
-
-            if (has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
-                axis_lengths[2] > 0.0f) {
-                kd_tree.find_neighbors(atom_data, neighbors, radius, axis_lengths);
-            } else {
-                kd_tree.find_neighbors(atom_data, neighbors, radius);
-            }
-
-            for (auto &neighbor : neighbors) {
-                atom_data->neighs.push_back(neighbor);
-                if (atom_data->neighs.size() >= max_neigh) {
-                    break;
-                }
-            }
-        }
-    }
-}
-
-void System::build_bonds_by_radius(const float &rvdw_scale) {
+void System::build_bonds_by_radius() {
     // prepare types and radius.
 
     std::map<int, float> atomic_radius;
@@ -176,9 +151,9 @@ void System::build_bonds_by_radius(const float &rvdw_scale) {
     }
 
     // compute.
-    static float bond_r;
-    static float bond_sq;
-    static float dist_sq;
+    float bond_r;
+    float bond_sq;
+    float dist_sq;
 
     for (auto &atom : atoms) {
         for (auto &neigh : atom->neighs) {
@@ -294,4 +269,92 @@ void System::dump_lammps_data(std::string &filepath) {
     fmt::print(file, "\n");
 
     fclose(file);
+}
+
+void System::process_this() {
+    search_neigh();
+    build_bonds_by_radius();
+    build_molecules();
+}
+
+void System::process_reax() {
+    std::vector<std::string> frame_formulas(molecules.size());
+    for (size_t i = 0; i < molecules.size(); i++) {
+        frame_formulas[i] = molecules[i]->formula;
+    }
+    reax_species->import_frame_formulas(frame_id, frame_formulas);
+
+    if (prev_sys == nullptr) return;
+
+    for (auto &prev_mol : prev_sys->molecules) {
+        if (prev_mol == nullptr) continue;
+
+        // Ignore single atom molecule.
+        if (prev_mol->atom_ids.size() == 1) continue;
+
+        // Find the most similar molecule in current frame.
+        Molecule *best_match = nullptr;
+        float best_similarity = 0.0f;
+
+        std::vector<int> intersection;
+        std::vector<int> union_set;
+
+        // Optimization: stop searching once a similarity > 0.5 is found.
+        bool found_match = false;
+
+        for (auto &curr_mol : this->molecules) {
+            if (curr_mol == nullptr) continue;
+
+            // Ignore single atom molecule.
+            // if (curr_mol->atom_ids.size() == 1) continue;
+
+            // If the formula is the same, consider it the same molecule, skip.
+            if (prev_mol->formula == curr_mol->formula) continue;
+
+            // Quick filter: skip if the size difference is too large.
+            // if ((curr_mol->atom_ids.size() / prev_mol->atom_ids.size() >= 2) ||
+            //     (prev_mol->atom_ids.size() / curr_mol->atom_ids.size() >= 2))
+            //     continue;
+
+            // Calculate similarity: intersection / union.
+            intersection.clear();
+            union_set.clear();
+
+            std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
+                                  curr_mol->atom_ids.end(), back_inserter(intersection));
+
+            // Quick check: if intersection is empty, similarity is 0.
+            if (intersection.empty()) continue;
+
+            // Quick check: if intersection size equals prev_mol size and
+            // curr_mol size, then they are the same molecule.
+            if (intersection.size() == prev_mol->atom_ids.size() && intersection.size() == curr_mol->atom_ids.size())
+                continue;  // Same molecule, not reaction.
+
+            std::set_union(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
+                           curr_mol->atom_ids.end(), back_inserter(union_set));
+
+            float similarity = float(intersection.size()) / float(union_set.size());
+
+            // If similarity exceeds the threshold, record and stop searching.
+            if (similarity > 0.5) {
+                best_match = curr_mol;
+                best_similarity = similarity;
+                found_match = true;
+                break;  // If a good match is found, stop searching.
+            }
+
+            // If similarity exceeds the threshold, record and stop searching.
+            else if (similarity > best_similarity) {
+                best_match = curr_mol;
+                best_similarity = similarity;
+            }
+        }
+
+        // If found a match and not the same molecule (similarity between 0.5
+        // and 1.0), record the reaction.
+        if (best_match && best_similarity >= 0.2 && best_similarity < 1.0) {
+            reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
+        }
+    }
 }

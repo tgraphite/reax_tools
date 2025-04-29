@@ -8,6 +8,8 @@
 
 #include "atom.h"
 #include "molecule.h"
+#include "reax_flow.h"
+#include "reax_species.h"
 
 class System {
    public:
@@ -15,8 +17,12 @@ class System {
     int iatoms = 0;
     int itypes = 0;
     int itimestep = 0;
-    int iframe = 0;
+    int frame_id = 0;
+
     bool has_boundaries = false;
+    float rvdw_scale;
+    int max_neigh;
+
     std::vector<float> axis_lengths;
 
     std::vector<Atom *> atoms;
@@ -27,6 +33,10 @@ class System {
     std::map<int, std::string> type_itos;
     std::map<std::pair<int, int>, float> bond_radius;
     std::map<std::pair<int, int>, float> bond_type_counts;
+
+    System *prev_sys = nullptr;
+    ReaxFlow *reax_flow;
+    ReaxSpecies *reax_species;
 
     System();
     ~System();
@@ -39,12 +49,24 @@ class System {
     void dump_lammps_data(std::string &filepath);
     void dump_bond_count(std::string &filepath, bool &is_first_frame);
 
-    void search_neigh(const float &radius, const int &max_neigh);
-    void search_neigh_naive(const float &radius, const int &max_neigh);
-    void search_neigh_cell_list(const float &radius, const int &max_neigh);
-    void search_neigh_kdtree(const float &radius, const int &max_neigh);
+    void search_neigh();
+    void search_neigh_naive();
+    void search_neigh_cell_list();
+    void search_neigh_kdtree();
 
-    void build_bonds_by_radius(const float &rvdw_scale);
+    void build_bonds_by_radius();
     void build_molecules();
     void dfs(Atom *atom, std::set<Atom *> &visited, Molecule *mol);
+
+    void process_this();
+    void process_reax();
+    float compute_similarity(std::unordered_set<int> &prev_set, std::unordered_set<int> &curr_set);
+    void process_outputs();
+
+    void set_rvdw_scale(float value) { rvdw_scale = value; }
+    void set_max_neigh(int value) { max_neigh = value; }
+    void set_reax_flow(ReaxFlow *value) { reax_flow = value; }
+    void set_reax_species(ReaxSpecies *value) { reax_species = value; }
+    void set_frame_id(int value) { frame_id = value; }
+    void set_prev_sys(System *value) { prev_sys = value; }
 };

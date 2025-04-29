@@ -10,3 +10,4 @@ CppProperties.json
 big.lammpstrj
 *.csv
 *.data
+*.archive*
