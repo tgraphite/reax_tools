@@ -28,7 +28,7 @@ class ReaxSpecies {
 
     void get_formulas();
     void get_nums();
-    void import_frame_formulas(const std::vector<std::string>& frame_formulas);
+    void import_frame_formulas(int& frame_id, const std::vector<std::string>& frame_formulas);
     void analyze_frame_formulas();
 
     // The --order option

@@ -67,22 +67,30 @@ void Universe::flush() {
 void Universe::process_traj(std::string &file_path, std::vector<std::string> &type_names, const float &rvdw_scale,
                             const int &num_threads, const bool &if_dump_lammps_data) {
     // TODO: current frame index management is rubbish, but works, optimize later!
-    int curr_frame = 1;
-
+    int curr_frame_id = 1;
+    int max_neigh = 10;
     float neigh_radius = 2.5 * rvdw_scale;
-    bool is_first_frame;
+    bool is_first_frame = true;
+
     std::ifstream file(file_path);
     std::string bond_count_filepath = file_path.substr(0, file_path.find_last_of(".")) + "_bond_count.csv";
 
     while (file.is_open() && !file.eof()) {
-        if (curr_frame > 1) {
+        if (curr_frame_id > 1) {
             flush();
         }
 
         // Serial read. systems readed in the right order.
-        for (int curr_thread = 0; curr_thread < num_threads; curr_thread++) {
+        for (int thread_id = 0; thread_id < num_threads; thread_id++) {
             System *curr_sys = new System();
+
+            curr_sys->set_frame_id(curr_frame_id);
             curr_sys->set_types(type_names);
+            curr_sys->set_max_neigh(max_neigh);
+            curr_sys->set_rvdw_scale(rvdw_scale);
+            curr_sys->set_reax_flow(this->reax_flow);
+            curr_sys->set_reax_species(this->reax_species);
+
             current_systems.push_back(curr_sys);
 
             if (ends_with(file_path, ".lammpstrj"))
@@ -90,7 +98,18 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
             else if (ends_with(file_path, ".xyz"))
                 curr_sys->load_xyz(file);
 
-            if (curr_sys->atoms.size() == 0) continue;
+            if (curr_sys->atoms.size() == 0) {
+                continue;
+            };
+            curr_frame_id++;
+        }
+
+        for (int thread_id = 0; thread_id < num_threads; thread_id++) {
+            if (thread_id > 0) {
+                current_systems[thread_id]->set_prev_sys(current_systems[thread_id - 1]);
+            } else {
+                current_systems[thread_id]->set_prev_sys(last_system);
+            }
         }
 
         // Parallel process system topology.
@@ -99,142 +118,63 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
             if (thread_id >= current_systems.size() || current_systems[thread_id]->atoms.size() == 0) {
                 continue;
             }
-
-            threads.push_back(std::thread([&, thread_id]() {
-                System *curr_sys = current_systems[thread_id];
-                curr_sys->search_neigh(neigh_radius, 10);
-                curr_sys->build_bonds_by_radius(rvdw_scale);
-                curr_sys->build_molecules();
-            }));
+            threads.emplace_back(&System::process_this, current_systems[thread_id]);
         }
 
-        //
         for (auto &thread : threads) {
             if (thread.joinable()) {
                 thread.join();
             }
         }
 
-        // Other issues
-        for (int curr_thread = 0; curr_thread < num_threads; curr_thread++) {
-            if (curr_thread >= current_systems.size() || current_systems[curr_thread]->atoms.size() == 0) {
+        // Parallel process reaction issues
+
+        // threads.clear();
+        // for (int thread_id = 0; thread_id < num_threads; thread_id++) {
+        //     if (thread_id >= current_systems.size() || current_systems[thread_id]->atoms.size() == 0) {
+        //         continue;
+        //     }
+
+        //     threads.emplace_back(&System::process_reax, current_systems[thread_id]);
+        // }
+
+        // for (auto &thread : threads) {
+        //     if (thread.joinable()) {
+        //         thread.join();
+        //     }
+        // }
+
+        // Other issues, serial
+        for (int thread_id = 0; thread_id < num_threads; thread_id++) {
+            if (thread_id >= current_systems.size() || current_systems[thread_id]->atoms.size() == 0) {
                 continue;
             }
 
-            System *prev_sys;
-            System *curr_sys = current_systems[curr_thread];
+            current_systems[thread_id]->process_reax();
 
-            std::vector<std::string> frame_formulas(curr_sys->molecules.size());
-            for (size_t i = 0; i < curr_sys->molecules.size(); i++) {
-                frame_formulas[i] = curr_sys->molecules[i]->formula;
-            }
-            reax_species->import_frame_formulas(frame_formulas);
-
-            if (curr_thread == 0) {
-                update_reax_flow(last_system, curr_sys, curr_frame);
-            } else {
-                update_reax_flow(current_systems[curr_thread - 1], curr_sys, curr_frame);
+            if (if_dump_lammps_data) {
+                std::string lammps_data_file = file_path.substr(0, file_path.find_last_of(".")) + "_" +
+                                               std::to_string(current_systems[thread_id]->frame_id) + ".data";
+                current_systems[thread_id]->dump_lammps_data(lammps_data_file);
             }
 
-            std::string lammps_data_file =
-                file_path.substr(0, file_path.find_last_of(".")) + "_" + std::to_string(curr_frame) + ".data";
-            if (if_dump_lammps_data) curr_sys->dump_lammps_data(lammps_data_file);
-
-            if (curr_frame == 1) {
-                is_first_frame = true;
+            if (current_systems[thread_id]->frame_id == 1) {
                 fmt::print("Atom Types: ");
-                for (auto &pair : curr_sys->type_itos) {
+                for (auto &pair : current_systems[thread_id]->type_itos) {
                     fmt::print("{}={} ", pair.first, pair.second);
                 }
                 fmt::print("\n");
+
+                is_first_frame = true;
             } else {
                 is_first_frame = false;
             }
 
-            curr_sys->dump_bond_count(bond_count_filepath, is_first_frame);
+            current_systems[thread_id]->dump_bond_count(bond_count_filepath, is_first_frame);
 
-            fmt::print("Frame: {} ", curr_frame);
-            curr_sys->finish();
-            curr_frame++;
+            fmt::print("Frame: {} ", current_systems[thread_id]->frame_id);
+            current_systems[thread_id]->finish();
         }
     }
     reax_species->analyze_frame_formulas();
-}
-
-void Universe::update_reax_flow(System *prev_sys, System *curr_sys, const int &curr_frame) {
-    if (prev_sys == nullptr || curr_sys == nullptr) {
-        return;
-    }
-
-    for (auto &prev_mol : prev_sys->molecules) {
-        if (prev_mol == nullptr) continue;
-
-        // Ignore single atom molecule.
-        if (prev_mol->atom_ids.size() == 1) continue;
-
-        // Find the most similar molecule in current frame.
-        Molecule *best_match = nullptr;
-        float best_similarity = 0.0f;
-
-        std::vector<int> intersection;
-        std::vector<int> union_set;
-
-        // Optimization: stop searching once a similarity > 0.5 is found.
-        bool found_match = false;
-
-        for (auto &curr_mol : curr_sys->molecules) {
-            if (curr_mol == nullptr) continue;
-
-            // Ignore single atom molecule.
-            // if (curr_mol->atom_ids.size() == 1) continue;
-
-            // If the formula is the same, consider it the same molecule, skip.
-            if (prev_mol->formula == curr_mol->formula) continue;
-
-            // Quick filter: skip if the size difference is too large.
-            // if ((curr_mol->atom_ids.size() / prev_mol->atom_ids.size() >= 2) ||
-            //     (prev_mol->atom_ids.size() / curr_mol->atom_ids.size() >= 2))
-            //     continue;
-
-            // Calculate similarity: intersection / union.
-            intersection.clear();
-            union_set.clear();
-
-            std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
-                                  curr_mol->atom_ids.end(), back_inserter(intersection));
-
-            // Quick check: if intersection is empty, similarity is 0.
-            if (intersection.empty()) continue;
-
-            // Quick check: if intersection size equals prev_mol size and
-            // curr_mol size, then they are the same molecule.
-            if (intersection.size() == prev_mol->atom_ids.size() && intersection.size() == curr_mol->atom_ids.size())
-                continue;  // Same molecule, not reaction.
-
-            std::set_union(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
-                           curr_mol->atom_ids.end(), back_inserter(union_set));
-
-            float similarity = float(intersection.size()) / float(union_set.size());
-
-            // If similarity exceeds the threshold, record and stop searching.
-            if (similarity > 0.5) {
-                best_match = curr_mol;
-                best_similarity = similarity;
-                found_match = true;
-                break;  // If a good match is found, stop searching.
-            }
-
-            // If similarity exceeds the threshold, record and stop searching.
-            else if (similarity > best_similarity) {
-                best_match = curr_mol;
-                best_similarity = similarity;
-            }
-        }
-
-        // If found a match and not the same molecule (similarity between 0.5
-        // and 1.0), record the reaction.
-        if (best_match && best_similarity >= 0.2 && best_similarity < 1.0) {
-            reax_flow->add_reaction(curr_frame, prev_mol, best_match);
-        }
-    }
 }

@@ -297,8 +297,12 @@ void ReaxSpecies::show_nums() {
 }
 
 // Get current frame formulas (std::map<std::string, int>) from class Universe.
-void ReaxSpecies::import_frame_formulas(const std::vector<std::string> &formulas) {
-    all_frame_formulas.push_back(formulas);
+void ReaxSpecies::import_frame_formulas(int &frame_id, const std::vector<std::string> &formulas) {
+    if (all_frame_formulas.size() < frame_id) {
+        all_frame_formulas.resize(frame_id);
+    }
+
+    all_frame_formulas[frame_id - 1] = formulas;
 }
 
 // Analyze imported frame formulas and get standard formulas_nums after
