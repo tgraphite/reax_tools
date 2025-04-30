@@ -106,20 +106,37 @@ void Molecule::dump_mol2(const std::string &filepath) {
     fmt::print(fp, "@<TRIPOS>ATOM\n");
 
     for (int i = 0; i < mol_atoms.size(); i++) {
-        fmt::print(fp, "{} {} {} {} {} {}\n", i+1, mol_atoms[i]->type_name, mol_atoms[i]->coord[0], mol_atoms[i]->coord[1], mol_atoms[i]->coord[2], mol_atoms[i]->type_name);
+        fmt::print(fp, "{} {} {} {} {} {}\n", i + 1, mol_atoms[i]->type_name, mol_atoms[i]->coord[0],
+                   mol_atoms[i]->coord[1], mol_atoms[i]->coord[2], mol_atoms[i]->type_name);
     }
 
     int tmp_bond_order = 0;
     fmt::print(fp, "@<TRIPOS>BOND\n");
     for (int i = 0; i < mol_bonds.size(); i++) {
         if (mol_bonds[i]->order <= 1) {
-            fmt::print(fp, "{} {} {} 1\n", i+1, mol_bonds[i]->atom_i->id, mol_bonds[i]->atom_j->id);
+            fmt::print(fp, "{} {} {} 1\n", i + 1, mol_bonds[i]->atom_i->id, mol_bonds[i]->atom_j->id);
         } else {
-            fmt::print(fp, "{} {} {} {}\n", i+1, mol_bonds[i]->atom_i->id, mol_bonds[i]->atom_j->id, mol_bonds[i]->order);
+            fmt::print(fp, "{} {} {} {}\n", i + 1, mol_bonds[i]->atom_i->id, mol_bonds[i]->atom_j->id,
+                       mol_bonds[i]->order);
         }
     }
     fclose(fp);
 }
 
+bool operator>=(const Molecule &lhs, const Molecule &rhs) {
+    // If any atom in lhs not found in rhs, means rhs not contains lhs
 
-
+    for (auto &atom : lhs.mol_atoms) {
+        bool found = false;
+        for (auto &rhs_atom : rhs.mol_atoms) {
+            if (atom == rhs_atom) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return false;
+        }
+    }
+    return true;
+}

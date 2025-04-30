@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "atom.h"
@@ -28,12 +29,15 @@ class System {
 
     std::vector<Atom *> atoms;
     std::vector<Molecule *> molecules;
+    std::vector<Molecule *> rings;
     std::vector<Bond *> bonds;
 
     std::map<std::string, int> type_stoi;
     std::map<int, std::string> type_itos;
     std::map<std::pair<int, int>, float> bond_radius;
     std::map<std::pair<int, int>, float> bond_type_counts;
+
+    std::map<int, int> ring_counts;
 
     System *prev_sys = nullptr;
     ReaxFlow *reax_flow;
@@ -71,4 +75,9 @@ class System {
     void set_frame_id(int value) { frame_id = value; }
     void set_prev_sys(System *value) { prev_sys = value; }
     void set_reaxflow_threshold(float value) { reaxflow_threshold = value; }
+
+    void compute_ring_counts();
+    // Helper function to find cycles in molecules using DFS with depth limit
+    void find_rings_from_atom(Atom *current, Atom *start, int depth, std::unordered_set<Atom *> &visited,
+                              std::unordered_set<Molecule *> &current_rings, std::vector<Atom *> &current_path);
 };

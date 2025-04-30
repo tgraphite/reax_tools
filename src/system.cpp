@@ -47,13 +47,22 @@ void System::set_types(std::vector<std::string> &type_names) {
 }
 
 void System::finish() {
+    fmt::print("Atoms: {}, Bonds: {}, Mols: {}, ", atoms.size(), bonds.size(), molecules.size());
     if (has_boundaries) {
-        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: {:.2f} {:.2f} {:.2f}\n", atoms.size(), bonds.size(),
-                   molecules.size(), axis_lengths[0], axis_lengths[1], axis_lengths[2]);
+        fmt::print("PBC: {:.1f} {:.1f} {:.1f} ", axis_lengths[0], axis_lengths[1], axis_lengths[2]);
     } else {
-        fmt::print("Atoms: {}, Bonds: {}, Mols: {}, PBC: false (cost lots of time)\n", atoms.size(), bonds.size(),
-                   molecules.size());
+        fmt::print("PBC: false (time++) ");
     }
+
+    if (ring_counts.size() > 0) {
+        for (auto &ring_count : ring_counts) {
+            if (ring_count.second > 0) {
+                fmt::print(", R{}={}", ring_count.first, ring_count.second);
+            }
+        }
+    }
+
+    fmt::print("\n");
 }
 
 void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
@@ -280,6 +289,7 @@ void System::process_this() {
     search_neigh();
     build_bonds_by_radius();
     build_molecules();
+    compute_ring_counts();
 }
 
 void System::process_reax() {
@@ -340,7 +350,7 @@ void System::process_reax() {
             // Quick check: if intersection size equals prev_mol size and
             // curr_mol size, then they are the same molecule, not reaction.
             if (intersection.size() == prev_mol->atom_ids.size() && intersection.size() == curr_mol->atom_ids.size())
-                continue;  
+                continue;
 
             std::set_union(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
                            curr_mol->atom_ids.end(), back_inserter(union_set));
@@ -368,4 +378,85 @@ void System::process_reax() {
             reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
         }
     }
+}
+
+int MAX_RING_SIZE = 8;
+
+void System::compute_ring_counts() {
+    // Maximum cycle size to detect (to prevent endless loops in complex systems)
+
+    // Initialize ring counts for sizes 3 to 12
+    for (int i = 3; i <= MAX_RING_SIZE; i++) {
+        ring_counts[i] = 0;
+    }
+
+    std::unordered_set<Atom *> visited;
+    std::unordered_set<Molecule *> current_rings;
+    std::vector<Atom *> current_path;
+
+    // Tiernan's algorithm
+    for (auto &molecule : molecules) {
+        visited.clear();
+        current_rings.clear();
+        current_path.clear();
+
+        // Skip molecules with too few atoms to form rings
+        if (molecule->mol_atoms.size() < 3) continue;
+
+        for (auto &start_atom : molecule->mol_atoms) {
+            find_rings_from_atom(start_atom, start_atom, 0, visited, current_rings, current_path);
+        }
+
+        for (auto &ring : current_rings) {
+            ring_counts[ring->mol_atoms.size()]++;
+        }
+    }
+}
+
+// Recursive function to find rings from an atom. (DFS)
+void System::find_rings_from_atom(Atom *current, Atom *start, int depth, std::unordered_set<Atom *> &visited,
+                                  std::unordered_set<Molecule *> &current_rings, std::vector<Atom *> &current_path) {
+    // Move forward
+    // Add current atom to path
+    // depth start from 0 and RING_SIZE start from 1.
+    current_path.push_back(current);
+    visited.insert(current);
+    std::unordered_set<Molecule *> to_erase;
+
+    for (Atom *bonded_atom : current->bonded_atoms) {
+        // If ring closed and depth = 3-8
+        if (bonded_atom == start && depth >= 2 && depth <= MAX_RING_SIZE - 1) {
+            Molecule *ring = new Molecule(0);  // The default constructor of Molecule get arg int(id)
+            for (Atom *atom : current_path) {
+                ring->insert(atom);
+            }
+
+            if (current_rings.size() > 0) {
+                for (auto &other_ring : current_rings) {
+                    bool is_subset = true;
+                    // If ring is a proper subset of another, we drop the bigger one.
+                    for (auto &this_atom : ring->mol_atoms) {
+                        if (!other_ring->has(this_atom)) {
+                            is_subset = false;
+                            break;
+                        }
+                    }
+                    if (is_subset) to_erase.insert(other_ring);
+                }
+            }
+
+            for (auto &erase_ring : to_erase) current_rings.erase(erase_ring);
+            to_erase.clear();
+
+            current_rings.insert(ring);
+
+        } else if (visited.find(bonded_atom) == visited.end() && depth < MAX_RING_SIZE - 1) {
+            // recursive, if not visited
+            find_rings_from_atom(bonded_atom, start, depth + 1, visited, current_rings, current_path);
+        }
+    }
+
+    // Backtrack: remove current atom from path and visited set
+    current_path.pop_back();
+    visited.erase(current);
 }
