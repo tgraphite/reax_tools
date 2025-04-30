@@ -65,7 +65,7 @@ void Universe::flush() {
 }
 
 void Universe::process_traj(std::string &file_path, std::vector<std::string> &type_names, const float &rvdw_scale,
-                            const int &num_threads, const bool &if_dump_lammps_data) {
+                            const int &num_threads, const bool &if_dump_lammps_data, const float &reaxflow_threshold) {
     // TODO: current frame index management is rubbish, but works, optimize later!
     int curr_frame_id = 1;
     int max_neigh = 10;
@@ -90,6 +90,7 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
             curr_sys->set_rvdw_scale(rvdw_scale);
             curr_sys->set_reax_flow(this->reax_flow);
             curr_sys->set_reax_species(this->reax_species);
+            curr_sys->set_reaxflow_threshold(reaxflow_threshold);
 
             current_systems.push_back(curr_sys);
 
@@ -129,20 +130,20 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
 
         // Parallel process reaction issues
 
-        // threads.clear();
-        // for (int thread_id = 0; thread_id < num_threads; thread_id++) {
-        //     if (thread_id >= current_systems.size() || current_systems[thread_id]->atoms.size() == 0) {
-        //         continue;
-        //     }
+        threads.clear();
+        for (int thread_id = 0; thread_id < num_threads; thread_id++) {
+            if (thread_id >= current_systems.size() || current_systems[thread_id]->atoms.size() == 0) {
+                continue;
+            }
 
-        //     threads.emplace_back(&System::process_reax, current_systems[thread_id]);
-        // }
+            threads.emplace_back(&System::process_reax, current_systems[thread_id]);
+        }
 
-        // for (auto &thread : threads) {
-        //     if (thread.joinable()) {
-        //         thread.join();
-        //     }
-        // }
+        for (auto &thread : threads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
 
         // Other issues, serial
         for (int thread_id = 0; thread_id < num_threads; thread_id++) {
@@ -150,7 +151,7 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
                 continue;
             }
 
-            current_systems[thread_id]->process_reax();
+            // current_systems[thread_id]->process_reax();
 
             if (if_dump_lammps_data) {
                 std::string lammps_data_file = file_path.substr(0, file_path.find_last_of(".")) + "_" +

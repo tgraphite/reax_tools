@@ -1,3 +1,5 @@
+#include <mutex>
+
 #include "atom.h"
 #include "cell_list.h"
 #include "defines.h"
@@ -7,24 +9,27 @@
 #include "universe.h"
 #include "vec_algorithms.h"
 
+std::mutex reaxspecies_mutex;
+std::mutex reaxflow_mutex;
+
 System::System() {}
 
 System::~System() {
-    for (auto &atom : atoms) {
-        atom->clear();
-    }
+    // for (auto &atom : atoms) {
+    //     atom->clear();
+    // }
 
-    for (auto &atom : atoms) {
-        delete atom;
-    }
+    // for (auto &atom : atoms) {
+    //     delete atom;
+    // }
 
-    for (auto &bond : bonds) {
-        delete bond;
-    }
+    // for (auto &bond : bonds) {
+    //     delete bond;
+    // }
 
-    for (auto &molecule : molecules) {
-        delete molecule;
-    }
+    // for (auto &molecule : molecules) {
+    //     delete molecule;
+    // }
 
     atoms.clear();
     bonds.clear();
@@ -282,11 +287,17 @@ void System::process_reax() {
     for (size_t i = 0; i < molecules.size(); i++) {
         frame_formulas[i] = molecules[i]->formula;
     }
-    reax_species->import_frame_formulas(frame_id, frame_formulas);
 
+    // Lock the shared reax_species import operations.
+    {
+        std::lock_guard<std::mutex> lock(reaxspecies_mutex);
+        reax_species->import_frame_formulas(frame_id, frame_formulas);
+    }
+
+    // These computations are safe without lock.
     if (prev_sys == nullptr) return;
 
-    for (auto &prev_mol : prev_sys->molecules) {
+    for (const auto &prev_mol : prev_sys->molecules) {
         if (prev_mol == nullptr) continue;
 
         // Ignore single atom molecule.
@@ -299,10 +310,10 @@ void System::process_reax() {
         std::vector<int> intersection;
         std::vector<int> union_set;
 
-        // Optimization: stop searching once a similarity > 0.5 is found.
-        bool found_match = false;
+        // // Optimization: stop searching once a similarity > 0.5 is found.
+        // bool found_match = false;
 
-        for (auto &curr_mol : this->molecules) {
+        for (const auto &curr_mol : this->molecules) {
             if (curr_mol == nullptr) continue;
 
             // Ignore single atom molecule.
@@ -327,9 +338,9 @@ void System::process_reax() {
             if (intersection.empty()) continue;
 
             // Quick check: if intersection size equals prev_mol size and
-            // curr_mol size, then they are the same molecule.
+            // curr_mol size, then they are the same molecule, not reaction.
             if (intersection.size() == prev_mol->atom_ids.size() && intersection.size() == curr_mol->atom_ids.size())
-                continue;  // Same molecule, not reaction.
+                continue;  
 
             std::set_union(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
                            curr_mol->atom_ids.end(), back_inserter(union_set));
@@ -340,7 +351,7 @@ void System::process_reax() {
             if (similarity > 0.5) {
                 best_match = curr_mol;
                 best_similarity = similarity;
-                found_match = true;
+                // found_match = true;
                 break;  // If a good match is found, stop searching.
             }
 
@@ -351,9 +362,9 @@ void System::process_reax() {
             }
         }
 
-        // If found a match and not the same molecule (similarity between 0.5
-        // and 1.0), record the reaction.
+        // If found a match and not the same molecule (lower_limit < similarity < 1.0)
         if (best_match && best_similarity >= 0.2 && best_similarity < 1.0) {
+            std::lock_guard<std::mutex> lock(reaxflow_mutex);
             reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
         }
     }

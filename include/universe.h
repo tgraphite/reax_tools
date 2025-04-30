@@ -29,5 +29,5 @@ class Universe {
     void flush();
 
     void process_traj(std::string &file_path, std::vector<std::string> &type_names, const float &rvdw_scale,
-                      const int &num_threads, const bool &if_dump_lammps_data);
+                      const int &num_threads, const bool &if_dump_lammps_data, const float &reaxflow_threshold);
 };

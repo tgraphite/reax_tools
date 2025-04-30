@@ -22,6 +22,7 @@ class System {
     bool has_boundaries = false;
     float rvdw_scale;
     int max_neigh;
+    float reaxflow_threshold;
 
     std::vector<float> axis_lengths;
 
@@ -69,4 +70,5 @@ class System {
     void set_reax_species(ReaxSpecies *value) { reax_species = value; }
     void set_frame_id(int value) { frame_id = value; }
     void set_prev_sys(System *value) { prev_sys = value; }
+    void set_reaxflow_threshold(float value) { reaxflow_threshold = value; }
 };
