@@ -1,5 +1,8 @@
 build_target/
-build_*/
+build_linux/
+build_windows/
+x64-release/
+out/
 build/
 out/
 .vs*/
