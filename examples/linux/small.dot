@@ -18,9 +18,9 @@ digraph ReactionFlow {
  node3 -> node1 [label="1", penwidth=1];
  node4 -> node5 [label="1", penwidth=1];
  node6 -> node7 [label="1", penwidth=1];
- node5 -> node4 [label="1", penwidth=1];
  node4 -> node1 [label="1", penwidth=1];
- node1 -> node4 [label="1", penwidth=1];
  node5 -> node8 [label="1", penwidth=1];
+ node5 -> node4 [label="1", penwidth=1];
+ node1 -> node4 [label="1", penwidth=1];
  node5 -> node9 [label="1", penwidth=1];
 }

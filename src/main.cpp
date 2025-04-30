@@ -312,21 +312,32 @@ int main(int argc, char* argv[]) {
     ArgParser parser("reax_tools", "ReaxFF/ AIMD trajectory analyzer");
 
     // 添加输入类型选项
-    parser.add_argument("--traj", "-f", "Analyze trajectory file (.xyz/.lammpstrj）", "file", "", true, false, "path/to/file");
-    parser.add_argument("--species", "-s", "Analyze lammps reaxff/species file（species.out）", "file", "", false, false, "path/to/file");
+    parser.add_argument("--traj", "-f", "Analyze trajectory file (.xyz/.lammpstrj）", "file", "", true, false,
+                        "path/to/file");
+    parser.add_argument("--species", "-s", "Analyze lammps reaxff/species file（species.out）", "file", "", false,
+                        false, "path/to/file");
 
     // 轨迹分析设置
-    parser.add_argument("--types", "-t", "element types splitted in commas", "Traj analysis", "", false, false, "str,str,...(e.g. C,H,O,N...)");
-    parser.add_argument("--radius", "-r", "scaling factor of vdW radii", "Traj analysis", "1.2", false, false, "float", validate_float_positive);
-    parser.add_argument("--threads", "-nt", "number of threads", "Traj analysis", "4", false, false, "int", validate_int_positive);
+    parser.add_argument("--types", "-t", "element types splitted in commas", "Traj analysis", "", false, false,
+                        "str,str,...(e.g. C,H,O,N...)");
+    parser.add_argument("--radius", "-r", "scaling factor of vdW radii", "Traj analysis", "1.2", false, false, "float",
+                        validate_float_positive);
+    parser.add_argument("--threads", "-nt", "number of threads", "Traj analysis", "4", false, false, "int",
+                        validate_int_positive);
     parser.add_argument("--dump", "", "dump lammps data file (.data) for each frame", "Traj analysis", "", false, true);
-    parser.add_argument("--reaxflow-threshold", "--reaxflow", "similarity threshold for analyze reaction flows", "Traj analysis", "0.25", false, false, "float", validate_float_positive);
+    parser.add_argument("--reaxflow-threshold", "--reaxflow", "similarity threshold for analyze reaction flows",
+                        "Traj analysis", "0.25", false, false, "float", validate_float_positive);
 
     // 物种分析设置
-    parser.add_argument("--merge-element", "-me", "merge species groups by an element type", "Species analysis", "C", false, false, "e.g. C");
-    parser.add_argument("--merge-ranges", "-mr", "merge group range, split by commas", "Species analysis", "1,4,8,16", false, false, "e.g. 1,4,8,16");
-    parser.add_argument("--rescale-count", "-rc", "rescale group weight by actual numbers of atoms (instead of molecules)", "Species analysis", "", false, true);
-    parser.add_argument("--element-order", "--order", "set element order of outputting formulas", "Species analysis", "C,H,O,N,S,F,P", false, false, "e.g. C,H,O,N,S,F,P");
+    parser.add_argument("--merge-element", "-me", "merge species groups by an element type", "Species analysis", "C",
+                        false, false, "e.g. C");
+    parser.add_argument("--merge-ranges", "-mr", "merge group range, split by commas", "Species analysis", "1,4,8,16",
+                        false, false, "e.g. 1,4,8,16");
+    parser.add_argument("--rescale-count", "-rc",
+                        "rescale group weight by actual numbers of atoms (instead of molecules)", "Species analysis",
+                        "", false, true);
+    parser.add_argument("--element-order", "--order", "set element order of outputting formulas", "Species analysis",
+                        "C,H,O,N,S,F,P", false, false, "e.g. C,H,O,N,S,F,P");
 
     // 一般选项
     parser.add_argument("--help", "-h", "show help information", "General", "", false, true);
@@ -364,7 +375,6 @@ int main(int argc, char* argv[]) {
     bool if_dump_bond_count = true;
     int max_reactions = 50;
 
-    // 确定处理模式
     if (!traj_file.empty()) {
         mode = "traj";
     } else if (!species_file.empty()) {
@@ -374,7 +384,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // 检查必需的参数
     if (mode == "traj" && ends_with(traj_file, "lammpstrj") && type_names.empty()) {
         std::cerr << "Error: Must define element types when using lammpstrj file. (--types)" << std::endl;
         return 1;

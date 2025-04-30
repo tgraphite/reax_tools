@@ -40,3 +40,6 @@ struct Molecule {
 // Check the system already have the same molecule, thus no need to generate
 // topology again.
 bool operator==(const Molecule& lhs, const Molecule& rhs);
+
+// Which means a molecule (sub-molecule, ring) contains another.
+bool operator>=(const Molecule& lhs, const Molecule& rhs);
