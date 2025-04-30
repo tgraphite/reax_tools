@@ -1,7 +1,4 @@
-build_target/
-build_linux/
-build_windows/
-x64-release/
+build*/
 out/
 build/
 out/
