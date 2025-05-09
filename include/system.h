@@ -79,5 +79,6 @@ class System {
     void compute_ring_counts();
     // Helper function to find cycles in molecules using DFS with depth limit
     void find_rings_from_atom(Atom *current, Atom *start, int depth, std::unordered_set<Atom *> &visited,
-                              std::unordered_set<Molecule *> &current_rings, std::vector<Atom *> &current_path);
+                              std::unordered_set<std::unordered_set<Atom *> *> &current_rings,
+                              std::vector<Atom *> &current_path);
 };

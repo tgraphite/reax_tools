@@ -11,3 +11,4 @@ big.lammpstrj
 *.csv
 *.data
 *.archived
+*.so*

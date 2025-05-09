@@ -49,9 +49,9 @@ void System::set_types(std::vector<std::string> &type_names) {
 void System::finish() {
     fmt::print("Atoms: {}, Bonds: {}, Mols: {}, ", atoms.size(), bonds.size(), molecules.size());
     if (has_boundaries) {
-        fmt::print("PBC: {:.1f} {:.1f} {:.1f} ", axis_lengths[0], axis_lengths[1], axis_lengths[2]);
+        fmt::print("PBC: {:.1f} {:.1f} {:.1f}", axis_lengths[0], axis_lengths[1], axis_lengths[2]);
     } else {
-        fmt::print("PBC: false (time++) ");
+        fmt::print("PBC: false (time++)");
     }
 
     if (ring_counts.size() > 0) {
@@ -380,8 +380,6 @@ void System::process_reax() {
     }
 }
 
-int MAX_RING_SIZE = 8;
-
 void System::compute_ring_counts() {
     // Maximum cycle size to detect (to prevent endless loops in complex systems)
 
@@ -391,7 +389,7 @@ void System::compute_ring_counts() {
     }
 
     std::unordered_set<Atom *> visited;
-    std::unordered_set<Molecule *> current_rings;
+    std::unordered_set<std::unordered_set<Atom *> *> current_rings;
     std::vector<Atom *> current_path;
 
     // Tiernan's algorithm
@@ -403,52 +401,94 @@ void System::compute_ring_counts() {
         // Skip molecules with too few atoms to form rings
         if (molecule->mol_atoms.size() < 3) continue;
 
+        // Search from every atom is mandatory for polycyclics like Naphthalene
         for (auto &start_atom : molecule->mol_atoms) {
             find_rings_from_atom(start_atom, start_atom, 0, visited, current_rings, current_path);
         }
 
         for (auto &ring : current_rings) {
-            ring_counts[ring->mol_atoms.size()]++;
+            ring_counts[ring->size()]++;
+            // Free memory since we're done with this ring
+            delete ring;
         }
     }
+
+    visited.clear();
+    current_rings.clear();
+    current_path.clear();
 }
 
 // Recursive function to find rings from an atom. (DFS)
 void System::find_rings_from_atom(Atom *current, Atom *start, int depth, std::unordered_set<Atom *> &visited,
-                                  std::unordered_set<Molecule *> &current_rings, std::vector<Atom *> &current_path) {
+                                  std::unordered_set<std::unordered_set<Atom *> *> &current_rings,
+                                  std::vector<Atom *> &current_path) {
     // Move forward
     // Add current atom to path
     // depth start from 0 and RING_SIZE start from 1.
     current_path.push_back(current);
     visited.insert(current);
-    std::unordered_set<Molecule *> to_erase;
+    std::unordered_set<std::unordered_set<Atom *> *> to_erase;
+    std::unordered_set<Atom *> *this_ring;
 
     for (Atom *bonded_atom : current->bonded_atoms) {
         // If ring closed and depth = 3-8
         if (bonded_atom == start && depth >= 2 && depth <= MAX_RING_SIZE - 1) {
-            Molecule *ring = new Molecule(0);  // The default constructor of Molecule get arg int(id)
+            this_ring = new std::unordered_set<Atom *>();  // Initialize the pointer
             for (Atom *atom : current_path) {
-                ring->insert(atom);
+                this_ring->insert(atom);
             }
 
+            // Determine how to handle this new ring.
+            bool to_insert = true;
             if (current_rings.size() > 0) {
                 for (auto &other_ring : current_rings) {
-                    bool is_subset = true;
-                    // If ring is a proper subset of another, we drop the bigger one.
-                    for (auto &this_atom : ring->mol_atoms) {
-                        if (!other_ring->has(this_atom)) {
-                            is_subset = false;
+                    bool is_subset_of_other = true;
+                    bool is_subset_of_this = true;
+
+                    // When this ring has an unique atom, this ring is not a subset of the other one.
+                    for (auto &this_atom : *this_ring) {
+                        if (other_ring->find(this_atom) == other_ring->end()) {
+                            is_subset_of_other = false;
                             break;
                         }
                     }
-                    if (is_subset) to_erase.insert(other_ring);
+
+                    // Vice versa
+                    for (auto &other_atom : *other_ring) {
+                        if (this_ring->find(other_atom) == this_ring->end()) {
+                            is_subset_of_this = false;
+                            break;
+                        }
+                    }
+
+                    // If ring is a proper subset of another, we drop the bigger one.
+                    if (is_subset_of_other && !is_subset_of_this) {  // The other contains this one
+                        to_erase.insert(other_ring);
+                        // Don't change to_insert here
+                    } else if (is_subset_of_this && !is_subset_of_other) {  // This one contains the other
+                        to_insert = false;
+                        break;                                             // No need to check other rings
+                    } else if (is_subset_of_this && is_subset_of_other) {  // They are the same
+                        to_insert = false;
+                        break;  // No need to check other rings
+                    }
+                    // else: None of them is subset, may have intersection, but that is what we want.
+                    // to_insert stays true
                 }
             }
 
-            for (auto &erase_ring : to_erase) current_rings.erase(erase_ring);
+            for (auto &erase_ring : to_erase) {
+                current_rings.erase(erase_ring);
+                delete erase_ring;
+            }
             to_erase.clear();
 
-            current_rings.insert(ring);
+            if (to_insert) {
+                current_rings.insert(this_ring);
+            } else {
+                // Free memory if we're not inserting this ring
+                delete this_ring;
+            }
 
         } else if (visited.find(bonded_atom) == visited.end() && depth < MAX_RING_SIZE - 1) {
             // recursive, if not visited

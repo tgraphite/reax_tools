@@ -13,6 +13,7 @@
 #include "universe.h"
 
 // ArgParser - 类似Python的argparse库的简易C++实现
+// Cluade-3.7 写的，很啰嗦，但我懒得改了
 class ArgParser {
    private:
     struct ArgOption {
@@ -417,6 +418,5 @@ int main(int argc, char* argv[]) {
         reax_species.brief_report();
         reax_species.save_file();
     }
-
     return 0;
 }
