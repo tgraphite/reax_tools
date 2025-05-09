@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <filesystem>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -393,7 +394,16 @@ int main(int argc, char* argv[]) {
     if (mode == "traj") {
         Universe uv;
 
-        uv.process_traj(traj_file, type_names, rvdw_scale, num_threads, if_dump_lammps_data, reaxflow_threshold);
+        std::string output_dir = traj_file.substr(0, traj_file.find_last_of(".")) + "_reax_tools/";
+        if (!std::filesystem::exists(output_dir)) {
+            std::filesystem::create_directory(output_dir);
+        } else {
+            std::filesystem::remove_all(output_dir);
+            std::filesystem::create_directory(output_dir);
+        }
+
+        uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data,
+                        reaxflow_threshold);
 
         if (if_merge_by_element) {
             uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);
@@ -401,10 +411,10 @@ int main(int argc, char* argv[]) {
 
         uv.reax_species->rename_all_formulas(sort_order);
         uv.reax_species->brief_report();
-        uv.reax_species->save_file(traj_file);
+        uv.reax_species->save_file_to_dir(output_dir);
 
         uv.reax_flow->brief_report();
-        uv.reax_flow->save_graph(traj_file, max_reactions);
+        uv.reax_flow->save_graph(output_dir, max_reactions);
     }
 
     else if (mode == "species") {
@@ -416,7 +426,7 @@ int main(int argc, char* argv[]) {
 
         reax_species.rename_all_formulas(sort_order);
         reax_species.brief_report();
-        reax_species.save_file();
+        reax_species.save_file_to_current_dir();
     }
     return 0;
 }

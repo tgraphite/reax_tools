@@ -12,7 +12,7 @@
 
 ReaxFlow::Node *ReaxFlow::get_node_from_molecule(Molecule *mol) {
     for (auto &node : nodes) {
-        if (node->molecule == *mol) {
+        if (node->formula == mol->formula) {
             return node;
         }
     }
@@ -21,7 +21,7 @@ ReaxFlow::Node *ReaxFlow::get_node_from_molecule(Molecule *mol) {
 
 ReaxFlow::Edge *ReaxFlow::get_edge_from_molecules(Molecule *source, Molecule *target) {
     for (auto &edge : edges) {
-        if (edge->source_node->molecule == *source && edge->target_node->molecule == *target) {
+        if (edge->source_node->formula == source->formula && edge->target_node->formula == target->formula) {
             return edge;
         }
     }
@@ -30,6 +30,9 @@ ReaxFlow::Edge *ReaxFlow::get_edge_from_molecules(Molecule *source, Molecule *ta
 
 void ReaxFlow::add_reaction(int frame, Molecule *source_mol, Molecule *target_mol) {
     // already locked in upper calling.
+    if (source_mol == target_mol) {
+        return;
+    }
 
     // Get or create source node
     Node *current_source_node = nullptr;
@@ -93,7 +96,7 @@ void ReaxFlow::reduce_graph(int max_reactions) {
 
     // First, identify edges to keep
     for (auto &edge : edges) {
-        if (edge->reaction_count >= reaction_count_threshold) {
+        if ((edge->source_node != edge->target_node) && edge->reaction_count >= reaction_count_threshold) {
             edges_to_keep.insert(edge);
             nodes_to_keep.insert(edge->source_node);
             nodes_to_keep.insert(edge->target_node);
@@ -123,9 +126,9 @@ void ReaxFlow::reduce_graph(int max_reactions) {
 
 // Generate reaction flow report
 void ReaxFlow::brief_report() {
-    std::cout << "=== Reaction Flow Report ===" << std::endl;
-    std::cout << "Total nodes (species): " << nodes.size() << std::endl;
-    std::cout << "Total edges (reactions): " << edges.size() << std::endl;
+    fmt::print("=== Reaction Flow Report ===\n");
+    fmt::print("Total key molecules: {}\n", nodes.size());
+    fmt::print("Total reactions: {}\n", edges.size());
 
     // Sort edges by reaction count
     std::vector<std::pair<int, int>> sorted_edges;
@@ -137,33 +140,20 @@ void ReaxFlow::brief_report() {
               [](const auto &a, const auto &b) { return a.second > b.second; });
 
     // Display the top 10 most frequent reactions
-    std::cout << "\nTop reactions:" << std::endl;
+    fmt::print("Top reactions:\n");
     int count = 0;
     for (const auto &pair : sorted_edges) {
         if (count >= 10) break;
 
         const Edge *edge = edges[pair.first];
-        std::cout << fmt::format("{}: {} -> {} (count: {})", count + 1, edge->source_node->formula,
-                                 edge->target_node->formula, pair.second)
-                  << std::endl;
+        fmt::print("{}: {} -> {} (count: {})\n", count + 1, edge->source_node->formula, edge->target_node->formula,
+                   pair.second);
         count++;
     }
 }
 
 // Save reaction flow graph as DOT format for Graphviz.
-void ReaxFlow::save_graph(const std::string &raw_file_path, int &max_reactions) {
-    std::string save_basedir = raw_file_path.substr(0, raw_file_path.find_last_of(".")) + "_graph";
-
-    // Create directory if not exists
-    if (!std::filesystem::exists(save_basedir)) {
-        std::filesystem::create_directory(save_basedir);
-    } else {
-        // Delete all files in directory if exists
-        for (const auto &entry : std::filesystem::directory_iterator(save_basedir)) {
-            std::filesystem::remove(entry.path());
-        }
-    }
-
+void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions) {
     if (max_reactions > 0) {
         reduce_graph(max_reactions);
     }
@@ -180,42 +170,44 @@ void ReaxFlow::save_graph(const std::string &raw_file_path, int &max_reactions) 
         edge_id_map[edges[i]] = i;
     }
 
-    std::string save_graph_path = save_basedir + "/reaction_flow.dot";
-    std::ofstream file(save_graph_path);
+    // Draw molecules
+    for (const auto &node : nodes) {
+        std::string save_path = output_dir + "node_" + std::to_string(node_id_map[node]) + ".svg";
+        draw_molecule(node->molecule, save_path);
+    }
 
-    if (!file) {
-        std::cerr << "Error: Could not open dot file {} for writing.";
+    std::string save_graph_path = output_dir + "reaction_flow.dot";
+
+    FILE *fp = fopen(save_graph_path.c_str(), "w");
+
+    if (!fp) {
+        fmt::print(stderr, "Error: Could not open dot file {} for writing.", save_graph_path);
         return;
     }
 
     // DOT file header
-    file << "digraph ReactionFlow {\n";
-    file << "  rankdir=LR;\n";
-    file << "  node [shape=box, style=filled, fillcolor=lightblue];\n\n";
+    fmt::print(fp, "digraph ReactionFlow {{\n");
+    fmt::print(fp, "  rankdir=LR;\n");
+    fmt::print(fp, "  layout=circo;\n");
+    fmt::print(fp, "  node [shape=box, style=filled, fillcolor=cornflowerblue, height=0.5, width=1.5];\n\n");
 
     // Write nodes
     for (size_t i = 0; i < nodes.size(); i++) {
-        file << "  node" << i << " [label=\"" << nodes[i]->formula << "\"];\n";
+        fmt::print(fp, "  node{} [label=\"[{}] {}\"];\n", i, i, nodes[i]->formula);
     }
 
-    file << "\n";
+    fmt::print(fp, "\n");
 
     // Write edges
     float penwidth = 1.0f;
     for (const auto &edge : edges) {
         penwidth = std::min(5.0, 1.0 + log(edge->reaction_count));
-        file << " node" << node_id_map[edge->source_node] << " -> node" << node_id_map[edge->target_node]
-             << " [label=\"" << edge->reaction_count << "\", penwidth=" << penwidth << "];\n";
+        fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}];\n", node_id_map[edge->source_node],
+                   node_id_map[edge->target_node], edge->reaction_count, penwidth);
     }
 
-    file << "}\n";
-    file.close();
+    fmt::print(fp, "}}\n");
+    fclose(fp);
 
-    fmt::print("Reaction graph saved to {}\n", save_graph_path);
-
-    // Draw molecules
-    for (const auto &node : nodes) {
-        std::string save_path = save_basedir + "/node_" + std::to_string(node_id_map[node]) + ".svg";
-        draw_molecule(node->molecule, save_path);
-    }
+    fmt::print("\nReaction graph saved to {}\n", save_graph_path);
 }

@@ -45,7 +45,7 @@ class ReaxSpecies {
     void show_nums();
     void brief_report();
 
-    // TODO
-    void save_file();
-    void save_file(const std::string& raw_file_path);
+    void save_file(const std::string& save_path);
+    void save_file_to_dir(const std::string& output_dir);
+    void save_file_to_current_dir();
 };
