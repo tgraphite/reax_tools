@@ -15,22 +15,6 @@ std::mutex reaxflow_mutex;
 System::System() {}
 
 System::~System() {
-    // for (auto &atom : atoms) {
-    //     atom->clear();
-    // }
-
-    // for (auto &atom : atoms) {
-    //     delete atom;
-    // }
-
-    // for (auto &bond : bonds) {
-    //     delete bond;
-    // }
-
-    // for (auto &molecule : molecules) {
-    //     delete molecule;
-    // }
-
     atoms.clear();
     bonds.clear();
     molecules.clear();
@@ -314,28 +298,22 @@ void System::process_reax() {
         if (prev_mol->atom_ids.size() == 1) continue;
 
         // Find the most similar molecule in current frame.
+
+        bool molecule_unchanged = false;
         Molecule *best_match = nullptr;
         float best_similarity = 0.0f;
 
         std::vector<int> intersection;
         std::vector<int> union_set;
 
-        // // Optimization: stop searching once a similarity > 0.5 is found.
-        // bool found_match = false;
-
         for (const auto &curr_mol : this->molecules) {
-            if (curr_mol == nullptr) continue;
-
-            // Ignore single atom molecule.
             // if (curr_mol->atom_ids.size() == 1) continue;
-
-            // If the formula is the same, consider it the same molecule, skip.
-            if (prev_mol->formula == curr_mol->formula) continue;
-
-            // Quick filter: skip if the size difference is too large.
-            // if ((curr_mol->atom_ids.size() / prev_mol->atom_ids.size() >= 2) ||
-            //     (prev_mol->atom_ids.size() / curr_mol->atom_ids.size() >= 2))
-            //     continue;
+            if (curr_mol == nullptr) continue;
+            if (*prev_mol == *curr_mol) {
+                best_match = nullptr;  // The same molecule, prev mol did not react.
+                molecule_unchanged = true;
+                break;
+            }
 
             // Calculate similarity: intersection / union.
             intersection.clear();
@@ -347,43 +325,35 @@ void System::process_reax() {
             // Quick check: if intersection is empty, similarity is 0.
             if (intersection.empty()) continue;
 
-            // Quick check: if intersection size equals prev_mol size and
-            // curr_mol size, then they are the same molecule, not reaction.
-            if (intersection.size() == prev_mol->atom_ids.size() && intersection.size() == curr_mol->atom_ids.size())
-                continue;
-
             std::set_union(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
                            curr_mol->atom_ids.end(), back_inserter(union_set));
 
             float similarity = float(intersection.size()) / float(union_set.size());
-
-            // If similarity exceeds the threshold, record and stop searching.
-            if (similarity > 0.5) {
+            if (similarity >= 0.5 && similarity < 1.0) {
                 best_match = curr_mol;
                 best_similarity = similarity;
-                // found_match = true;
-                break;  // If a good match is found, stop searching.
-            }
-
-            // If similarity exceeds the threshold, record and stop searching.
-            else if (similarity > best_similarity) {
+                break;  // A good match found, no need to check more.
+            } else if (similarity > best_similarity) {
                 best_match = curr_mol;
                 best_similarity = similarity;
             }
         }
 
-        // If found a match and not the same molecule (lower_limit < similarity < 1.0)
-        if (best_match && best_similarity >= 0.2 && best_similarity < 1.0) {
-            std::lock_guard<std::mutex> lock(reaxflow_mutex);
+        // If found a decent match (lower_limit < similarity < 1.0)
+        if (best_match != nullptr && best_similarity >= 0.2) {
+            std::lock_guard<std::mutex> lock(reaxflow_mutex);  // Insertion is unsafe without lock.
             reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
+        }
+
+        if (molecule_unchanged) {
+            continue;
         }
     }
 }
 
 void System::compute_ring_counts() {
-    // Maximum cycle size to detect (to prevent endless loops in complex systems)
-
-    // Initialize ring counts for sizes 3 to 12
+    // Initialize ring counts for sizes 3 to MAX_RING_SIZE
+    // MAX_RING_SIZE in defines.h / defines.cpp
     for (int i = 3; i <= MAX_RING_SIZE; i++) {
         ring_counts[i] = 0;
     }
@@ -392,24 +362,24 @@ void System::compute_ring_counts() {
     std::unordered_set<std::unordered_set<Atom *> *> current_rings;
     std::vector<Atom *> current_path;
 
-    // Tiernan's algorithm
+    // Simple ring detection algorithm.
     for (auto &molecule : molecules) {
         visited.clear();
         current_rings.clear();
         current_path.clear();
 
-        // Skip molecules with too few atoms to form rings
+        // At least 3 atoms to form rings.
         if (molecule->mol_atoms.size() < 3) continue;
 
-        // Search from every atom is mandatory for polycyclics like Naphthalene
+        // Search from every atom is mandatory for polycyclics like Naphthalene.
+        // Actually this is not very time-consuming.
         for (auto &start_atom : molecule->mol_atoms) {
             find_rings_from_atom(start_atom, start_atom, 0, visited, current_rings, current_path);
         }
 
         for (auto &ring : current_rings) {
             ring_counts[ring->size()]++;
-            // Free memory since we're done with this ring
-            delete ring;
+            delete ring;  // Only count matters.
         }
     }
 

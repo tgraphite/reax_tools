@@ -1,0 +1,7 @@
+digraph ReactionFlow {
+  rankdir=LR;
+  layout=circo;
+  node [shape=box, style=filled, fillcolor=cornflowerblue, height=0.5, width=1.5];
+
+
+}

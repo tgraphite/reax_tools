@@ -182,11 +182,11 @@ void ReaxSpecies::merge_by_element(const std::string &target_element, const std:
         if (i < ranges.size() - 1) {
             start = ranges[i];
             end = ranges[i + 1] - 1;
-            new_formula = "grp_" + target_element + std::to_string(start) + "-" + std::to_string(end);
+            new_formula = fmt::format("grp_{}[{},{})", target_element, start, end);
         } else {
             start = ranges[i];
             end = 10000;
-            new_formula = "grp_>" + target_element + std::to_string(start);
+            new_formula = fmt::format("grp_{}[{},max)", target_element, start);
         }
 
         std::vector<std::string> formulas_to_erase;
@@ -222,12 +222,13 @@ void ReaxSpecies::merge_by_element(const std::string &target_element, const std:
         }
 
         formulas_nums[new_formula] = new_nums;
-        std::cout << "Merge " << formulas_to_erase.size() << " formulas into " << new_formula << std::endl;
+        fmt::print("Merge {} formulas into {}\n", formulas_to_erase.size(), new_formula);
 
         for (const auto &formula : formulas_to_erase) {
             formulas_nums.erase(formula);
         }
     }
+    fmt::print("\n");
     return;
 }
 
@@ -237,8 +238,9 @@ void ReaxSpecies::brief_report() {
         return;
     }
 
+    fmt::print("{}\n", "=== Species Report ===");
     std::string header = fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end", "average");
-    std::cout << header << std::endl;
+    fmt::print("{}\n", header);
 
     for (const auto &pair : formulas_nums) {
         std::string formula = pair.first;
@@ -269,9 +271,10 @@ void ReaxSpecies::brief_report() {
         mid /= f_range;
         end /= f_range;
 
-        std::string info = fmt::format("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}{:>8.2f}", formula, begin, mid, end, average);
-        std::cout << info << std::endl;
+        fmt::print("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}{:>8.2f}\n", formula, begin, mid, end, average);
     }
+
+    fmt::print("\n");
 }
 
 void ReaxSpecies::show_nums() {
@@ -333,47 +336,46 @@ void ReaxSpecies::analyze_frame_formulas() {
     }
 }
 
-void ReaxSpecies::save_file() {
-    save_path = file_path.substr(0, file_path.find_last_of(".")) + ".csv";
-
+// General function, save file to given path.
+void ReaxSpecies::save_file(const std::string &save_path) {
     FILE *file = fopen(save_path.c_str(), "w");
     if (file == NULL) {
-        fprintf(stderr, "Cannot open file %s for writing.\n", save_path.c_str());
+        fmt::print(stderr, "Cannot open file {} for writing.\n", save_path);
         return;
     }
 
     bool is_first = true;
     for (const auto &pair : formulas_nums) {
         if (is_first) {
-            fprintf(file, "%s", pair.first.c_str());
+            fmt::print(file, "{}", pair.first);
             is_first = false;
         } else {
-            fprintf(file, ",%s", pair.first.c_str());
+            fmt::print(file, ",{}", pair.first);
         }
     }
-    fprintf(file, "\n");
+    fmt::print(file, "\n");
 
     for (size_t i = 0; i < nframes; i++) {
         is_first = true;
         for (const auto &pair : formulas_nums) {
             if (is_first) {
-                fprintf(file, "%.0f", (pair.second)[i]);
+                fmt::print(file, "{}", (pair.second)[i]);
                 is_first = false;
             } else {
-                fprintf(file, ",%.0f", (pair.second)[i]);
+                fmt::print(file, ",{}", (pair.second)[i]);
             }
         }
-        fprintf(file, "\n");
+        fmt::print(file, "\n");
     }
 
     fclose(file);
-    fprintf(stdout, "Save file %s successfully.\n", save_path.c_str());
+    fmt::print(stdout, "Save species file {} successfully.\n\n", save_path);
 }
 
-// When calling from Universe, use this function to set file_path and save.
-// In that situation, the constructor did not get the raw file path, so we need
-// to set it here.
-void ReaxSpecies::save_file(const std::string &raw_file_path) {
-    this->file_path = raw_file_path;
-    save_file();
+// For traj mode, call from universe.
+void ReaxSpecies::save_file_to_dir(const std::string &output_dir) { save_file(output_dir + "species.csv"); }
+
+// For species mode, save file directly in current directory.
+void ReaxSpecies::save_file_to_current_dir() {
+    save_file(file_path.substr(0, file_path.find_last_of(".")) + "_species.csv");
 }

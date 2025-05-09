@@ -1,5 +1,6 @@
 #include "universe.h"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -64,16 +65,18 @@ void Universe::flush() {
     current_systems.clear();
 }
 
-void Universe::process_traj(std::string &file_path, std::vector<std::string> &type_names, const float &rvdw_scale,
-                            const int &num_threads, const bool &if_dump_lammps_data, const float &reaxflow_threshold) {
-    // TODO: current frame index management is rubbish, but works, optimize later!
+void Universe::process_traj(std::string &file_path, std::string &output_dir, std::vector<std::string> &type_names,
+                            const float &rvdw_scale, const int &num_threads, const bool &if_dump_lammps_data,
+                            const float &reaxflow_threshold) {
     int curr_frame_id = 1;
     int max_neigh = 10;
     float neigh_radius = 2.5 * rvdw_scale;
     bool is_first_frame = true;
 
     std::ifstream file(file_path);
-    std::string bond_count_filepath = file_path.substr(0, file_path.find_last_of(".")) + "_bond_count.csv";
+    std::string bond_count_filepath = output_dir + "bond_count.csv";
+
+    // The highest calling stack, only do this once.
 
     while (file.is_open() && !file.eof()) {
         if (curr_frame_id > 1) {
@@ -154,16 +157,17 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
             // current_systems[thread_id]->process_reax();
 
             if (if_dump_lammps_data) {
-                std::string lammps_data_file = file_path.substr(0, file_path.find_last_of(".")) + "_" +
-                                               std::to_string(current_systems[thread_id]->frame_id) + ".data";
+                std::string lammps_data_file =
+                    output_dir + "frame_" + std::to_string(current_systems[thread_id]->frame_id) + ".data";
                 current_systems[thread_id]->dump_lammps_data(lammps_data_file);
             }
 
             if (current_systems[thread_id]->frame_id == 1) {
                 fmt::print("Atom Types: ");
                 for (auto &pair : current_systems[thread_id]->type_itos) {
-                    fmt::print("{}={} ", pair.first, pair.second);
+                    fmt::print("{}: {}, ", pair.first, pair.second);
                 }
+                fmt::print("\n");
                 fmt::print("\n");
 
                 is_first_frame = true;
@@ -177,5 +181,6 @@ void Universe::process_traj(std::string &file_path, std::vector<std::string> &ty
             current_systems[thread_id]->finish();
         }
     }
+    fmt::print("\n");
     reax_species->analyze_frame_formulas();
 }

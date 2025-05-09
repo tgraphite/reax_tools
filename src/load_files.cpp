@@ -203,7 +203,7 @@ void System::load_lammpstrj(std::ifstream& file) {
 
                 static bool printed_column_info = false;
                 if (!printed_column_info) {
-                    fmt::print("Column index of lammpstrj file:id: {}, type: {}, x: {}, y: {}, z: {}\n", atom_id_column,
+                    fmt::print("Format of lammpstrj file: id: {}, type: {}, x: {}, y: {}, z: {}\n", atom_id_column,
                                atom_type_column, atom_x_column, atom_y_column, atom_z_column);
                     printed_column_info = true;
                 }

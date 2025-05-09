@@ -34,6 +34,12 @@ void draw_molecule(const Molecule& molecule, const std::string& output_path) {
     for (const auto& bond : molecule.mol_bonds) {
         int begin_idx = atom_idx_map[bond->atom_i->id];
         int end_idx = atom_idx_map[bond->atom_j->id];
+
+        // If bond already exists (rarely happens), skip
+        if (mol.getBondBetweenAtoms(begin_idx, end_idx)) {
+            continue;
+        }
+
         mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::UNSPECIFIED);
     }
 
@@ -47,7 +53,7 @@ void draw_molecule(const Molecule& molecule, const std::string& output_path) {
     RDKit::DGeomHelpers::EmbedMolecule(mol);
 
     // Create drawer with custom options
-    RDKit::MolDraw2DSVG drawer(400, 400);
+    RDKit::MolDraw2DSVG drawer(250, 250);
     RDKit::MolDraw2DUtils::prepareMolForDrawing(mol);
 
     // Configure drawer options
