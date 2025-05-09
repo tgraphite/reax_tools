@@ -6,7 +6,7 @@
 #include "defines.h"
 #include "string_tools.h"
 
-Molecule::Molecule(int _mol_id) : id(_mol_id){};
+Molecule::Molecule(int _mol_id) : id(_mol_id) {};
 
 Molecule::~Molecule() {
     mol_atoms.clear();
@@ -123,20 +123,8 @@ void Molecule::dump_mol2(const std::string &filepath) {
     fclose(fp);
 }
 
-bool operator>=(const Molecule &lhs, const Molecule &rhs) {
-    // If any atom in lhs not found in rhs, means rhs not contains lhs
+// VERY IMPORTANT: change later: compare by topology, not by formula.
+bool operator==(const Molecule &lhs, const Molecule &rhs) { return lhs.formula == rhs.formula; }
 
-    for (auto &atom : lhs.mol_atoms) {
-        bool found = false;
-        for (auto &rhs_atom : rhs.mol_atoms) {
-            if (atom == rhs_atom) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            return false;
-        }
-    }
-    return true;
-}
+// VERY IMPORTANT: change later: compare by topology, not by formula.
+bool operator!=(const Molecule &lhs, const Molecule &rhs) { return !(lhs == rhs); }

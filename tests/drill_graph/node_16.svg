@@ -1,0 +1,65 @@
+<?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='400px' height='400px' viewBox='0 0 400 400'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='400.0' height='400.0' x='0.0' y='0.0'> </rect>
+<path class='bond-0 atom-0 atom-1' d='M 61.5,241.5 L 150.1,158.1' style='fill:none;fill-rule:evenodd;stroke:#FF0000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 189.1,150.5 L 265.7,192.9' style='fill:none;fill-rule:evenodd;stroke:#FF0000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 265.7,192.9 L 342.3,235.3' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='atom-0' d='M 29.0 259.9
+Q 29.0 253.1, 32.4 249.3
+Q 35.7 245.5, 42.0 245.5
+Q 48.3 245.5, 51.7 249.3
+Q 55.0 253.1, 55.0 259.9
+Q 55.0 266.8, 51.6 270.7
+Q 48.2 274.6, 42.0 274.6
+Q 35.8 274.6, 32.4 270.7
+Q 29.0 266.8, 29.0 259.9
+M 42.0 271.4
+Q 46.3 271.4, 48.7 268.5
+Q 51.0 265.6, 51.0 259.9
+Q 51.0 254.4, 48.7 251.6
+Q 46.3 248.7, 42.0 248.7
+Q 37.7 248.7, 35.3 251.5
+Q 33.0 254.3, 33.0 259.9
+Q 33.0 265.6, 35.3 268.5
+Q 37.7 271.4, 42.0 271.4
+' fill='#FF0000'/>
+<path class='atom-1' d='M 156.6 139.8
+Q 156.6 133.0, 160.0 129.2
+Q 163.3 125.4, 169.6 125.4
+Q 175.9 125.4, 179.3 129.2
+Q 182.6 133.0, 182.6 139.8
+Q 182.6 146.7, 179.2 150.6
+Q 175.8 154.5, 169.6 154.5
+Q 163.4 154.5, 160.0 150.6
+Q 156.6 146.7, 156.6 139.8
+M 169.6 151.3
+Q 173.9 151.3, 176.3 148.4
+Q 178.6 145.5, 178.6 139.8
+Q 178.6 134.2, 176.3 131.4
+Q 173.9 128.6, 169.6 128.6
+Q 165.3 128.6, 162.9 131.4
+Q 160.6 134.2, 160.6 139.8
+Q 160.6 145.5, 162.9 148.4
+Q 165.3 151.3, 169.6 151.3
+' fill='#FF0000'/>
+<path class='atom-2' d='M 348.8 230.9
+L 352.7 230.9
+L 352.7 242.9
+L 367.1 242.9
+L 367.1 230.9
+L 371.0 230.9
+L 371.0 259.2
+L 367.1 259.2
+L 367.1 246.1
+L 352.7 246.1
+L 352.7 259.2
+L 348.8 259.2
+L 348.8 230.9
+' fill='#000000'/>
+</svg>
