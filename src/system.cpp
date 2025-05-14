@@ -143,7 +143,6 @@ void System::build_bonds_by_radius() {
             } else {
                 bond_radius[pair_ij] = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
             }
-
             bond_type_counts[pair_ij] = 0;
         }
     }
@@ -306,13 +305,15 @@ void System::process_reax() {
         std::vector<int> intersection;
         std::vector<int> union_set;
 
-        for (const auto &curr_mol : this->molecules) {
-            // if (curr_mol->atom_ids.size() == 1) continue;
-            if (curr_mol == nullptr) continue;
+        for (auto &curr_mol : this->molecules) {
+            // This should change since molecules may change atoms but not reacted, the similarity is not correct.
+
+            if (curr_mol->atom_ids.size() == 1) continue;
+            if (prev_mol == nullptr || curr_mol == nullptr) continue;
             if (*prev_mol == *curr_mol) {
-                best_match = nullptr;  // The same molecule, prev mol did not react.
-                molecule_unchanged = true;
-                break;
+                continue;  // current operator== only check the formula, so if one prev_mol == curr_mol
+                           // that does not mean prev_mol did not react. just go seek next one.
+                           // The only assertion of prev_mol did not react is that no good match found.
             }
 
             // Calculate similarity: intersection / union.
@@ -329,7 +330,8 @@ void System::process_reax() {
                            curr_mol->atom_ids.end(), back_inserter(union_set));
 
             float similarity = float(intersection.size()) / float(union_set.size());
-            if (similarity >= 0.5 && similarity < 1.0) {
+
+            if (similarity >= 0.5) {
                 best_match = curr_mol;
                 best_similarity = similarity;
                 break;  // A good match found, no need to check more.
@@ -340,7 +342,7 @@ void System::process_reax() {
         }
 
         // If found a decent match (lower_limit < similarity < 1.0)
-        if (best_match != nullptr && best_similarity >= 0.2) {
+        if (best_match != nullptr && best_similarity >= 0.01) {
             std::lock_guard<std::mutex> lock(reaxflow_mutex);  // Insertion is unsafe without lock.
             reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
         }

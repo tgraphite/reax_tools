@@ -371,7 +371,7 @@ int main(int argc, char* argv[]) {
     int num_threads = parser.get<int>("--threads");
     float rvdw_scale = parser.get<float>("--radius");
     float reaxflow_threshold = parser.get<float>("--reaxflow-threshold");
-    bool if_merge_by_element = parser.has_option("--merge-element");
+    bool if_merge_by_element = parser.has_flag("--merge-element");
     bool if_merge_rescale = parser.has_flag("--rescale-count");
     bool if_dump_lammps_data = parser.has_flag("--dump");
     bool if_dump_bond_count = true;
