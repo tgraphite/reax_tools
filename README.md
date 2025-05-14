@@ -12,7 +12,7 @@ If it's useful to you, please star it on GitHub, which is very important for me.
 
 reaction graph | species | molecule identification
 --- | --- | ---
-<img src="examples/linux/reactions.png" width="200"> |<img src="examples/linux/species.jpg" width="210"> | <img src="examples/linux/molecules.png" width="200"> |
+<img src="pictures/reaction_flow.png" width="200"> |<img src="pictures/species.jpg" width="210"> | <img src="pictures/molecules.png" width="200"> |
 
 
 ## Features
@@ -43,7 +43,7 @@ reaction graph | species | molecule identification
 --order output formulas in correct element order, split in comma (default: C,H,O,N,S,F,P...)  
 
 [EXAMPLES]  
-reax_tools -f traj.lammpstrj -t C,H,O,N,S,F -r 1.2 -nt 4 -me C -rc --dump  
+reax_tools -f traj.lammpstrj -t C,H,O,N,S,F
 reax_tools -s species.out -me C -mr 1,4,8,16 -rc  
 ```
 
@@ -106,20 +106,37 @@ Reaction flow graph saved to ../examples/polymer.dot
 -----------
 Make issues on github page for features you want.  
 
+## Direct Installation
+1. Download latest package in release page.  
+2. Decompress to /path/to/reax_tools.
+3. Set environment variables below. You can add these commands in ~/.bashrc for invoke ```reax_tools <args>``` directly.  
+
+    ```
+    export PATH=${PATH}:/path/to/reax_tools
+    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/path/to/reax_tools/lib
+
+    ```
+
 ## Build from Source Code
 ------
-You can directly download latest binary program from release page.  
+If you really want to build from source:  
 
-But if you need to build from source:  
-```
-mkdir build
-cd build
-cmake ..
-cmake --build . -j8
-```
+1. Build RDKit and Boost as shared library on your machine first.
+2. Set environment parameters in CMakeLists.txt to match libraries above.
+3. Build by cmake, see as below.
+
+    ```
+    mkdir build
+    cmake -B build
+    cmake --build build -j8
+
+    export PATH=${PATH}:/path/to/reax_tools/build
+    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/path/to/reax_tools/lib
+    # Add these commands in ~/.bashrc for invoke reax_tools <args> directly.
+    ```
 
 Or use Visual Studio / MSVC for windows.  
 
 ## License
 
-MIT license  
+MIT license. use or modify it as your wish, have fun.

@@ -12,8 +12,8 @@ digraph ReactionFlow {
   node6 [label="[6] H1O1Fe5"];
   node7 [label="[7] O4Fe14"];
   node8 [label="[8] H1O5Fe14"];
-  node9 [label="[9] H4O2"];
-  node10 [label="[10] H2O1Fe1"];
+  node9 [label="[9] H2O1Fe1"];
+  node10 [label="[10] H4O2"];
   node11 [label="[11] H1O2Fe6"];
   node12 [label="[12] H3O4Fe7"];
   node13 [label="[13] H1O1Fe1"];
@@ -24,9 +24,9 @@ digraph ReactionFlow {
   node18 [label="[18] H4O3"];
   node19 [label="[19] H8O4"];
   node20 [label="[20] H2O2"];
-  node21 [label="[21] H5O3"];
-  node22 [label="[22] H1O2"];
-  node23 [label="[23] H5O4"];
+  node21 [label="[21] H1O2"];
+  node22 [label="[22] H5O4"];
+  node23 [label="[23] H5O3"];
   node24 [label="[24] H1O1"];
   node25 [label="[25] H6O3"];
 
@@ -35,23 +35,23 @@ digraph ReactionFlow {
  node4 -> node5 [label="2", penwidth=1.6931472];
  node6 -> node2 [label="1", penwidth=1];
  node3 -> node2 [label="2", penwidth=1.6931472];
- node4 -> node2 [label="1", penwidth=1];
  node7 -> node8 [label="1", penwidth=1];
- node9 -> node5 [label="2", penwidth=1.6931472];
- node10 -> node5 [label="1", penwidth=1];
+ node4 -> node2 [label="1", penwidth=1];
+ node9 -> node5 [label="1", penwidth=1];
+ node10 -> node5 [label="2", penwidth=1.6931472];
  node11 -> node12 [label="1", penwidth=1];
  node13 -> node2 [label="2", penwidth=1.6931472];
  node14 -> node15 [label="1", penwidth=1];
  node16 -> node17 [label="1", penwidth=1];
  node18 -> node5 [label="3", penwidth=2.0986123];
- node19 -> node9 [label="1", penwidth=1];
+ node19 -> node10 [label="1", penwidth=1];
  node18 -> node20 [label="3", penwidth=2.0986123];
- node16 -> node21 [label="1", penwidth=1];
- node22 -> node23 [label="1", penwidth=1];
- node17 -> node21 [label="1", penwidth=1];
- node23 -> node22 [label="1", penwidth=1];
+ node21 -> node22 [label="1", penwidth=1];
+ node17 -> node23 [label="1", penwidth=1];
+ node16 -> node23 [label="1", penwidth=1];
+ node22 -> node21 [label="1", penwidth=1];
  node16 -> node5 [label="1", penwidth=1];
  node24 -> node2 [label="1", penwidth=1];
- node5 -> node10 [label="2", penwidth=1.6931472];
+ node5 -> node9 [label="2", penwidth=1.6931472];
  node25 -> node5 [label="1", penwidth=1];
 }
