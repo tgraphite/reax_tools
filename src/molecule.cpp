@@ -62,6 +62,7 @@ void Molecule::update_formula() {
     formula = rename_formula(tmp_formula);
 }
 
+// Draft, not used yet.
 void Molecule::calc_bond_order() {
     // Get initial valence electrons for each atom.
     for (auto &atom : mol_atoms) {

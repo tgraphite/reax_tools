@@ -10,7 +10,6 @@
 #include "vec_algorithms.h"
 
 std::mutex reaxspecies_mutex;
-std::mutex reaxflow_mutex;
 
 System::System() {}
 
@@ -52,13 +51,31 @@ void System::finish() {
 void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
     static FILE *file;
 
+    // consider ij = ji, new_map[ij] = bond_type_counts[ij] + bond_type_counts[ji]
+    // std::map<std::pair<int, int>, int> bond_type_counts
+    std::map<std::pair<int, int>, int> bond_type_counts_reduced;
+    for (const auto &ij_count : bond_type_counts) {
+        // New key.
+        auto i = ij_count.first.first;
+        auto j = ij_count.first.second;
+        auto key = std::make_pair(std::max(i, j), std::min(i, j));
+
+        auto count = ij_count.second;
+
+        if (bond_type_counts_reduced.find(key) == bond_type_counts_reduced.end()) {
+            bond_type_counts_reduced[key] = count;
+        } else {
+            bond_type_counts_reduced[key] += count;
+        }
+    }
+
     if (is_first_frame) {
         file = fopen(filepath.c_str(), "w");
-        for (auto &ij_count : bond_type_counts) {
+        for (auto &ij_count : bond_type_counts_reduced) {
             fmt::print(file, "{}-{}", type_itos[ij_count.first.first], type_itos[ij_count.first.second]);
 
             // if ij_count is not the last element.
-            if (&ij_count != &*std::prev(bond_type_counts.end())) {
+            if (&ij_count != &*std::prev(bond_type_counts_reduced.end())) {
                 fmt::print(file, ",");
             }
         }
@@ -67,11 +84,41 @@ void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
     }
 
     file = fopen(filepath.c_str(), "a");
-    for (auto &ij_count : bond_type_counts) {
+    for (auto &ij_count : bond_type_counts_reduced) {
         fmt::print(file, "{}", ij_count.second);
 
         // if ij_count is not the last element.
-        if (&ij_count != &*std::prev(bond_type_counts.end())) {
+        if (&ij_count != &*std::prev(bond_type_counts_reduced.end())) {
+            fmt::print(file, ",");
+        }
+    }
+    fmt::print(file, "\n");
+    fclose(file);
+}
+
+void System::dump_ring_count(std::string &filepath, bool &is_first_frame) {
+    static FILE *file;
+
+    if (is_first_frame) {
+        file = fopen(filepath.c_str(), "w");
+        for (auto &ring_count : ring_counts) {
+            fmt::print(file, "R{}", ring_count.first);
+
+            // if ring_count is not the last element.
+            if (&ring_count != &*std::prev(ring_counts.end())) {
+                fmt::print(file, ",");
+            }
+        }
+        fmt::print(file, "\n");
+        fclose(file);
+    }
+
+    file = fopen(filepath.c_str(), "a");
+    for (auto &ring_count : ring_counts) {
+        fmt::print(file, "{}", ring_count.second);
+
+        // if ring_count is not the last element.
+        if (&ring_count != &*std::prev(ring_counts.end())) {
             fmt::print(file, ",");
         }
     }
@@ -306,15 +353,16 @@ void System::process_reax() {
         std::vector<int> union_set;
 
         for (auto &curr_mol : this->molecules) {
-            // This should change since molecules may change atoms but not reacted, the similarity is not correct.
-
+            // Ignore single atom molecule.
             if (curr_mol->atom_ids.size() == 1) continue;
             if (prev_mol == nullptr || curr_mol == nullptr) continue;
-            if (*prev_mol == *curr_mol) {
-                continue;  // current operator== only check the formula, so if one prev_mol == curr_mol
-                           // that does not mean prev_mol did not react. just go seek next one.
-                           // The only assertion of prev_mol did not react is that no good match found.
-            }
+
+            // current operator== only check the formula, so if one prev_mol == curr_mol
+            // that does not mean prev_mol did not react. just go seek next one.
+            // The only assertion of prev_mol did not react is that no good match found.
+            if (*prev_mol == *curr_mol) continue;
+
+            // ------------------------------------------------------------
 
             // Calculate similarity: intersection / union.
             intersection.clear();
@@ -331,25 +379,31 @@ void System::process_reax() {
 
             float similarity = float(intersection.size()) / float(union_set.size());
 
-            if (similarity >= 0.5) {
-                best_match = curr_mol;
-                best_similarity = similarity;
-                break;  // A good match found, no need to check more.
-            } else if (similarity > best_similarity) {
-                best_match = curr_mol;
-                best_similarity = similarity;
+            // ------------------------------------------------------------
+
+            if (similarity >= 0.01) {
+                reax_flow->add_reaction(this->frame_id, prev_mol, curr_mol);
             }
+
+            // if (similarity >= 0.01) {
+            //     best_match = curr_mol;
+            //     best_similarity = similarity;
+            //     break;  // A good match found, no need to check more.
+            // } else if (similarity > best_similarity) {
+            //     best_match = curr_mol;
+            //     best_similarity = similarity;
+            // }
         }
 
         // If found a decent match (lower_limit < similarity < 1.0)
-        if (best_match != nullptr && best_similarity >= 0.01) {
-            std::lock_guard<std::mutex> lock(reaxflow_mutex);  // Insertion is unsafe without lock.
-            reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
-        }
+        // if (best_match != nullptr && best_similarity >= 0.01) {
+        //     std::lock_guard<std::mutex> lock(reaxflow_mutex);  // Insertion is unsafe without lock.
+        //     reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
+        // }
 
-        if (molecule_unchanged) {
-            continue;
-        }
+        // if (molecule_unchanged) {
+        //     continue;
+        // }
     }
 }
 

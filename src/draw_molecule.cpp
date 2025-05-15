@@ -20,6 +20,13 @@ void draw_molecule(const Molecule& molecule, const std::string& output_path) {
     // Create a new RDKit molecule
     RDKit::RWMol mol;
 
+    if (molecule.mol_atoms.size() > 50) {
+        fmt::print("Molecule too big, skip drawing: {}\n", molecule.formula);
+        return;
+    }
+
+    // fmt::print("Drawing molecule: {}\n", molecule.formula);
+
     // Add atoms
     std::map<int, int> atom_idx_map;  // Maps our atom id to RDKit atom index
     for (const auto& atom : molecule.mol_atoms) {

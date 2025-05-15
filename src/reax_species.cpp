@@ -373,9 +373,9 @@ void ReaxSpecies::save_file(const std::string &save_path) {
 }
 
 // For traj mode, call from universe.
-void ReaxSpecies::save_file_to_dir(const std::string &output_dir) { save_file(output_dir + "species.csv"); }
+void ReaxSpecies::save_file_to_dir(const std::string &output_dir) { save_file(output_dir + "species_count.csv"); }
 
 // For species mode, save file directly in current directory.
 void ReaxSpecies::save_file_to_current_dir() {
-    save_file(file_path.substr(0, file_path.find_last_of(".")) + "_species.csv");
+    save_file(file_path.substr(0, file_path.find_last_of(".")) + "_species_count.csv");
 }
