@@ -8,6 +8,9 @@ rdkit/
 CMakeSettings.json
 CppProperties.json
 big.lammpstrj
-*.csv
 *.data
 *.archived
+*.tar.gz
+doc/
+reax_tools/
+reax_tools_linux/

@@ -75,6 +75,7 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
 
     std::ifstream file(file_path);
     std::string bond_count_filepath = output_dir + "bond_count.csv";
+    std::string ring_count_filepath = output_dir + "ring_count.csv";
 
     // The highest calling stack, only do this once.
 
@@ -176,6 +177,7 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
             }
 
             current_systems[thread_id]->dump_bond_count(bond_count_filepath, is_first_frame);
+            current_systems[thread_id]->dump_ring_count(ring_count_filepath, is_first_frame);
 
             fmt::print("Frame: {} ", current_systems[thread_id]->frame_id);
             current_systems[thread_id]->finish();
