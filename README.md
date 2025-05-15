@@ -80,19 +80,19 @@ reax_tools是C++写的一个反应MD后分析工具，能够分析lammpstrj和xy
 
   1 | 2 | 3 (自由基)  
 ---- | ---- | ----  
-<img src=materials/molecule_1.svg> | <img src=materials/molecule_2.svg> | <img src=materials/molecule_3.svg>  
+<img src=doc/materials/molecule_1.svg> | <img src=doc/materials/molecule_2.svg> | <img src=doc/materials/molecule_3.svg>  
 
 2. 物种数量
 
-<img src=materials/species_count.png width=600>
+<img src=doc/materials/species_count.png width=600>
 
 3. 键数量
 
-<img src=materials/bond_count.png width=600>
+<img src=doc/materials/bond_count.png width=600>
 
 4. 反应的图
 
-<img src=materials/reaction_flow.png width=600>
+<img src=doc/materials/reaction_flow.png width=600>
 
 #### 提交需求和报告bug
 
