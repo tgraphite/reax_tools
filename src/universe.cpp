@@ -179,10 +179,9 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
             current_systems[thread_id]->dump_bond_count(bond_count_filepath, is_first_frame);
             current_systems[thread_id]->dump_ring_count(ring_count_filepath, is_first_frame);
 
-            fmt::print("Frame: {} ", current_systems[thread_id]->frame_id);
             current_systems[thread_id]->finish();
         }
     }
-    fmt::print("\n");
+    fmt::print("\n\n");
     reax_species->analyze_frame_formulas();
 }

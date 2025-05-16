@@ -10,222 +10,165 @@
 #include "fmt/format.h"
 #include "universe.h"
 
-ReaxFlow::Node *ReaxFlow::get_node_from_molecule(Molecule *mol) {
-    for (auto &node : nodes) {
-        if (node->formula == mol->formula) {
-            return node;
+int ReaxFlow::add_molecule(Molecule *mol) {
+    // already exists
+    for (size_t i = 0; i < nodes.size(); i++) {
+        if (nodes[i]->formula == mol->formula) {
+            return i;
         }
     }
-    return nullptr;
+    // create new
+    Molecule *new_mol = new Molecule(*mol);
+    nodes.emplace_back(new_mol);
+    return nodes.size() - 1;
 }
 
-ReaxFlow::Edge *ReaxFlow::get_edge_from_molecules(Molecule *source, Molecule *target) {
-    for (auto &edge : edges) {
-        if (edge->source_node->formula == source->formula && edge->target_node->formula == target->formula) {
+std::pair<int, int> ReaxFlow::add_reaction(int frame, Molecule *source, Molecule *target) {
+    // lock it to avoid race condition when parallel execution
+    std::lock_guard<std::mutex> lock(reaxflow_mutex);
+
+    int source_id = add_molecule(source);
+    int target_id = add_molecule(target);
+    std::pair<int, int> edge = {source_id, target_id};
+
+    // already exists
+    for (size_t i = 0; i < edges.size(); i++) {
+        if (edges[i] == edge) {
+            edge_reaction_counts[i]++;
             return edge;
         }
     }
-    return nullptr;
+    // create new
+    edges.push_back(edge);
+    edge_reaction_counts.push_back(1);
+    return edge;
 }
 
-void ReaxFlow::add_reaction(int frame, Molecule *source_mol, Molecule *target_mol) {
-    // already locked in upper calling.
-    if (source_mol == target_mol) {
-        return;
+void ReaxFlow::reduce_graph() {
+    // Reduce reversive reactions.
+    std::vector<int> edges_visited;
+    int reaction_count_diff = 0;
+    int reaction_count_to_reduce = 0;
+    size_t reverse_edge_id = 0;
+    std::pair<int, int> reverse_edge = {0, 0};
+
+    for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
+        if (std::find(edges_visited.begin(), edges_visited.end(), edge_id) != edges_visited.end()) continue;
+
+        edges_visited.push_back(edge_id);
+        reverse_edge = {edges[edge_id].second, edges[edge_id].first};
+
+        reverse_edge_id = std::find(edges.begin(), edges.end(), reverse_edge) - edges.begin();
+
+        // no reverse reaction
+        if (reverse_edge_id == edges.size()) continue;
+
+        // found reverse reaction
+        reaction_count_diff = edge_reaction_counts[edge_id] - edge_reaction_counts[reverse_edge_id];
+        if (reaction_count_diff > 0) {
+            // Keep the net forward reaction count
+            edge_reaction_counts[edge_id] = reaction_count_diff;
+            edge_reaction_counts[reverse_edge_id] = 0;
+        } else if (reaction_count_diff < 0) {
+            // Keep the net reverse reaction count
+            edge_reaction_counts[edge_id] = 0;
+            edge_reaction_counts[reverse_edge_id] = -reaction_count_diff;
+        } else {
+            // cancel each other
+            edge_reaction_counts[edge_id] = 0;
+            edge_reaction_counts[reverse_edge_id] = 0;
+        }
     }
-
-    // If the reaction (edge) already exists, increment the reaction count and return.
-    Edge *tmp_reaction = get_edge_from_molecules(source_mol, target_mol);
-
-    if (tmp_reaction) {
-        tmp_reaction->reaction_count++;
-        tmp_reaction->source_node->reaction_count++;
-        tmp_reaction->target_node->reaction_count++;
-        return;
-    }
-
-    // ------------------------------------------------------------
-    // Create new reaction.
-    Node *current_source_node = nullptr;
-    Node *current_target_node = nullptr;
-
-    // Insertion is unsafe without lock, use class lock.
-    std::lock_guard<std::mutex> lock(reaxflow_mutex);
-
-    Node *tmp_source_node = get_node_from_molecule(source_mol);
-    if (tmp_source_node) {
-        current_source_node = tmp_source_node;
-    } else {
-        // Create new node, the default reaction count is 0.
-        Node *source_node = new Node(*source_mol);  // Use copy constructor
-        source_node->formula = source_mol->formula;
-
-        nodes.push_back(source_node);
-        current_source_node = source_node;
-    }
-
-    Node *tmp_target_node = get_node_from_molecule(target_mol);
-    if (tmp_target_node) {
-        current_target_node = tmp_target_node;
-    } else {
-        // Create new node, the default reaction count is 0.
-        Node *target_node = new Node(*target_mol);  // Use copy constructor
-        target_node->formula = target_mol->formula;
-
-        nodes.push_back(target_node);
-        current_target_node = target_node;
-    }
-
-    // Create new edge, the default reaction count is 0.
-    Edge *new_edge = new Edge();
-    new_edge->source_node = current_source_node;
-    new_edge->target_node = current_target_node;
-
-    // Initial increment.
-    current_source_node->reaction_count++;
-    current_target_node->reaction_count++;
-    new_edge->reaction_count++;
-
-    edges.push_back(new_edge);
 }
 
-void ReaxFlow::reduce_graph(int max_molecules) {
-    // Only keep the top max_molecules nodes.
-    std::unordered_set<Node *> nodes_to_remove;
-    std::unordered_set<Edge *> edges_to_remove;
-
-    // Sort edges by reaction count in descending order
-
-    std::sort(nodes.begin(), nodes.end(),
-              [](const Node *a, const Node *b) { return a->reaction_count > b->reaction_count; });
-
-    // drop nodes with reaction count less than max_molecules
-    if (max_molecules < nodes.size()) {
-        for (int i = max_molecules; i < nodes.size(); i++) {
-            nodes_to_remove.insert(nodes[i]);
-        }
-    } else {
-        // keep all nodes
-        return;
-    }
-
-    // drop edges connected to nodes to remove
-    for (auto &edge : edges) {
-        if (nodes_to_remove.count(edge->source_node) || nodes_to_remove.count(edge->target_node)) {
-            edges_to_remove.insert(edge);
-        }
-    }
-
-    // save delete edges and nodes
-    for (auto it = edges.begin(); it != edges.end();) {
-        if (edges_to_remove.count(*it)) {
-            (*it)->source_node->reaction_count -= (*it)->reaction_count;
-            (*it)->target_node->reaction_count -= (*it)->reaction_count;
-            delete *it;
-            it = edges.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    for (auto it = nodes.begin(); it != nodes.end();) {
-        if (nodes_to_remove.count(*it)) {
-            delete *it;
-            it = nodes.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    edges_to_remove.clear();
-    nodes_to_remove.clear();
-
-    // Remove isolated nodes
-    // In the process above, X-A-B-C-Y, when A and C are trivial and removed, B is isolated.
-    // We need to remove B.
-    for (auto &node : nodes) {
-        if (node->reaction_count == 0) {
-            nodes_to_remove.insert(node);
-        }
-    }
-
-    for (auto it = nodes.begin(); it != nodes.end();) {
-        if (nodes_to_remove.count(*it)) {
-            delete *it;
-            it = nodes.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    nodes_to_remove.clear();
-}
-
+void ReaxFlow::brief_report() { return; }
 // Generate reaction flow report
-void ReaxFlow::brief_report() {
+// void ReaxFlow::brief_report() {
+//     fmt::print("=== Reaction Flow Report ===\n");
+//     fmt::print("Total key molecules: {}\n", nodes.size());
+//     fmt::print("Total reactions: {}\n", edges.size());
+
+//     // Sort edges by reaction count
+//     std::vector<std::pair<int, int>> sorted_edge_id_count;
+//     for (size_t i = 0; i < edges.size(); i++) {
+//         sorted_edge_id_count.push_back({i, edge_reaction_counts[i]});
+//     }
+//     std::sort(sorted_edge_id_count.begin(), sorted_edge_id_count.end(),
+//               [](const auto &a, const auto &b) { return a.second > b.second; });
+
+//     // Display the top 10 most frequent reactions
+//     fmt::print("Top reactions:\n");
+//     int count = 0;
+//     for (const auto &pair : sorted_edge_id_count) {
+//         if (count >= 10) break;
+
+//         const std::pair<int, int> edge = edges[pair.first];
+//         fmt::print("{}: {} -> {} (count: {})\n", count + 1, nodes[edge.first]->formula, nodes[edge.second]->formula,
+//                    pair.second);
+//         count++;
+//     }
+// }
+
+// Save reaction flow graph as DOT format for Graphviz.
+void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, bool draw_molecules,
+                          bool reduce_reactions) {
+    if (reduce_reactions) {
+        reduce_graph();
+    }
+
+    int edge_id = 0;
+    int source_node_id = 0;
+    int target_node_id = 0;
+
+    // get reactions priority by reaction count
+    std::vector<std::pair<int, int>> sorted_edge_id_count;
+    // Fill the vector with edge indices and their counts
+    for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
+        if (edge_reaction_counts[edge_id] > 0) {  // only consider reactions with positive counts
+            sorted_edge_id_count.push_back({edge_id, edge_reaction_counts[edge_id]});
+        }
+    }
+    // Sort by reaction count in descending order
+    std::sort(sorted_edge_id_count.begin(), sorted_edge_id_count.end(),
+              [](const auto &a, const auto &b) { return a.second > b.second; });
+
+    // if max_reactions is specified, limit the number of reactions
+    if (max_reactions > 0 && max_reactions < sorted_edge_id_count.size()) {
+        sorted_edge_id_count.resize(max_reactions);
+    }
+
+    std::set<int> nodes_to_output;
+
+    // Add selected reactions and their nodes
+    for (const auto &pair : sorted_edge_id_count) {
+        edge_id = pair.first;
+
+        source_node_id = edges[edge_id].first;
+        target_node_id = edges[edge_id].second;
+
+        nodes_to_output.insert(source_node_id);
+        nodes_to_output.insert(target_node_id);
+    }
+
+    // Display the top most frequent reactions
     fmt::print("=== Reaction Flow Report ===\n");
     fmt::print("Total key molecules: {}\n", nodes.size());
     fmt::print("Total reactions: {}\n", edges.size());
 
-    // Sort edges by reaction count
-    std::vector<std::pair<int, int>> sorted_edges;
-    for (size_t i = 0; i < edges.size(); i++) {
-        sorted_edges.push_back({i, edges[i]->reaction_count});
+    for (const auto &pair : sorted_edge_id_count) {
+        int edge_id = pair.first;
+        int reaction_count = pair.second;
+        fmt::print("{}: {} -> {} (count: {})\n", edge_id, nodes[edges[edge_id].first]->formula,
+                   nodes[edges[edge_id].second]->formula, reaction_count);
     }
-
-    std::sort(sorted_edges.begin(), sorted_edges.end(),
-              [](const auto &a, const auto &b) { return a.second > b.second; });
-
-    // Display the top 10 most frequent reactions
-    fmt::print("Top reactions:\n");
-    int count = 0;
-    for (const auto &pair : sorted_edges) {
-        if (count >= 10) break;
-
-        const Edge *edge = edges[pair.first];
-        fmt::print("{}: {} -> {} (count: {})\n", count + 1, edge->source_node->formula, edge->target_node->formula,
-                   pair.second);
-        count++;
-    }
-}
-
-// Save reaction flow graph as DOT format for Graphviz.
-void ReaxFlow::save_graph(const std::string &output_dir, int &max_molecules, bool draw_molecules) {
-    if (max_molecules > 0) {
-        reduce_graph(max_molecules);
-    }
-
-    int key_molecules_count = 5;
-    int key_reactions_count = 10;
-
-    // Sort nodes and edges by reaction count in descending order
-    // For highlighting the most important reactions and molecules.
-    std::sort(nodes.begin(), nodes.end(),
-              [](const Node *a, const Node *b) { return a->reaction_count > b->reaction_count; });
-    std::sort(edges.begin(), edges.end(),
-              [](const Edge *a, const Edge *b) { return a->reaction_count > b->reaction_count; });
-
-    // Create node and edge id maps
-    std::map<Node *, int> node_id_map;
-    std::map<Edge *, int> edge_id_map;
-
-    for (size_t i = 0; i < nodes.size(); i++) node_id_map[nodes[i]] = i;
-    for (size_t i = 0; i < edges.size(); i++) edge_id_map[edges[i]] = i;
 
     // Draw molecules
     if (draw_molecules) {
-        std::string formulas_to_draw;
-
-        for (const auto &node : nodes) {
-            formulas_to_draw += fmt::format("{} ", node->formula);
+        for (const auto &node_id : nodes_to_output) {
+            std::string save_path = output_dir + fmt::format("molecule_{}_{}.svg", node_id, nodes[node_id]->formula);
+            draw_molecule(*nodes[node_id], save_path);
         }
-
-        fmt::print("Molecules to draw: {}\n", formulas_to_draw);
-
-        for (const auto &node : nodes) {
-            std::string save_path = fmt::format("{}/molecule_{}_{}.svg", output_dir, node_id_map[node], node->formula);
-            draw_molecule(node->molecule, save_path);
-        }
+        fmt::print("\n");
     }
 
     // -------------------------------------------------------------------
@@ -248,31 +191,32 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_molecules, boo
     fmt::print(fp, "\n");
 
     // Write nodes
-    for (size_t i = 0; i < nodes.size(); i++) {
-        // Highlight the key molecules, but if there are not many molecules, just draw simple.
-        if (i < key_molecules_count && key_molecules_count < nodes.size()) {
-            fmt::print(fp, "  node{} [label=\"[{}] {}\", fillcolor=cornsilk1];\n", i, i, nodes[i]->formula);
-        } else {
-            fmt::print(fp, "  node{} [label=\"[{}] {}\"];\n", i, i, nodes[i]->formula);
-        }
+    for (const auto &node_id : nodes_to_output) {
+        fmt::print(fp, "  node{} [label=\"[{}] {}\"];\n", node_id, node_id, nodes[node_id]->formula);
     }
 
     fmt::print(fp, "\n");
 
     // Write edges
     float penwidth = 1.0f;
-    for (size_t i = 0; i < edges.size(); i++) {
-        penwidth = std::min(5.0, 2.0 + log(edges[i]->reaction_count));
+    int reaction_count = 0;
+    int max_key_reactions_count = 10;
+    int key_reactions_count = 0;
+    // Write edges based on sorted reaction counts
+    for (const auto &pair : sorted_edge_id_count) {
+        int edge_id = pair.first;
+        reaction_count = pair.second;
+        penwidth = std::min(5.0, 2.0 + log(reaction_count));
 
-        // Highlight the key reactions, but if there are not many reactions, just draw simple.
-        if (i < key_reactions_count && key_reactions_count < edges.size()) {
-            fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}, color=goldenrod];\n",
-                       node_id_map[edges[i]->source_node], node_id_map[edges[i]->target_node], edges[i]->reaction_count,
-                       penwidth);
+        if (key_reactions_count < max_key_reactions_count) {
+            fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}, color=goldenrod];\n", edges[edge_id].first,
+                       edges[edge_id].second, reaction_count, penwidth);
         } else {
-            fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}];\n", node_id_map[edges[i]->source_node],
-                       node_id_map[edges[i]->target_node], edges[i]->reaction_count, penwidth);
+            fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}];\n", edges[edge_id].first,
+                       edges[edge_id].second, reaction_count, penwidth);
         }
+
+        key_reactions_count++;
     }
 
     fmt::print(fp, "}}\n");

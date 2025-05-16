@@ -1,5 +1,6 @@
 #include "reax_species.h"
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <unordered_set>
@@ -233,71 +234,98 @@ void ReaxSpecies::merge_by_element(const std::string &target_element, const std:
 }
 
 void ReaxSpecies::brief_report() {
-    if (nframes < 40) {
-        this->show_nums();
-        return;
-    }
+    // if (nframes < 40) {
+    //     this->show_nums();
+    //     return;
+    // }
 
-    fmt::print("{}\n", "=== Species Report ===");
-    std::string header = fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end", "average");
-    fmt::print("{}\n", header);
-
+    // sort formulas_nums by nums[0] in descending order
+    std::vector<std::pair<std::string, std::vector<float>>> sorted_formulas_nums;
     for (const auto &pair : formulas_nums) {
-        std::string formula = pair.first;
-        std::vector<float> nums = pair.second;
-        size_t range = nframes / 10;
-        size_t begin_l = 0;
-        size_t mid_l = nframes * 5 / 10;
-        size_t end_l = nframes * 9 / 10;
+        sorted_formulas_nums.push_back(pair);
+    }
+    std::sort(sorted_formulas_nums.begin(), sorted_formulas_nums.end(),
+              [](const auto &a, const auto &b) { return a.second[0] > b.second[0]; });
 
-        float f_range = float(range);
-        float average = 0.0f;
-        float begin = 0.0f;
-        float mid = 0.0f;
-        float end = 0.0f;
-
-        for (size_t i = 0; i < nframes; i++) {
-            average += nums[i];
-            if ((i >= begin_l) && (i < begin_l + range))
-                begin += nums[i];
-            else if ((i >= mid_l) && (i < mid_l + range))
-                mid += nums[i];
-            else if ((i >= end_l) && (i < end_l + range))
-                end += nums[i];
-        }
-
-        average /= float(nframes);
-        begin /= f_range;
-        mid /= f_range;
-        end /= f_range;
-
-        fmt::print("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}{:>8.2f}\n", formula, begin, mid, end, average);
+    int max_species_print = 20;
+    int min_frames_print = 10;
+    if (sorted_formulas_nums.size() > max_species_print) {
+        fmt::print("Note: To avoid too much screen output, only the top {} species are printed.\n", max_species_print);
+        sorted_formulas_nums.resize(max_species_print);
     }
 
+    if (nframes < min_frames_print) {
+        fmt::print("Note: The number of frames is less than {}.\n", min_frames_print);
+        fmt::print("{}\n", "=== Species Report ===");
+        std::string header = fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end");
+        fmt::print("{}\n", header);
+        for (const auto &pair : sorted_formulas_nums) {
+            std::string formula = pair.first;
+            std::vector<float> nums = pair.second;
+            int mid_frame = nframes / 2;
+            fmt::print("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}\n", formula, nums[0], nums[mid_frame], nums[nframes - 1]);
+        }
+    } else {
+        fmt::print("{}\n", "=== Species Report ===");
+        std::string header =
+            fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end", "average");
+        fmt::print("{}\n", header);
+        for (const auto &pair : sorted_formulas_nums) {
+            std::string formula = pair.first;
+            std::vector<float> nums = pair.second;
+            size_t range = nframes / 10;
+            size_t begin_l = 0;
+            size_t mid_l = nframes * 5 / 10;
+            size_t end_l = nframes * 9 / 10;
+
+            float f_range = float(range);
+            float average = 0.0f;
+            float begin = 0.0f;
+            float mid = 0.0f;
+            float end = 0.0f;
+
+            for (size_t i = 0; i < nframes; i++) {
+                average += nums[i];
+                if ((i >= begin_l) && (i < begin_l + range))
+                    begin += nums[i];
+                else if ((i >= mid_l) && (i < mid_l + range))
+                    mid += nums[i];
+                else if ((i >= end_l) && (i < end_l + range))
+                    end += nums[i];
+            }
+
+            average /= float(nframes);
+            begin /= f_range;
+            mid /= f_range;
+            end /= f_range;
+
+            fmt::print("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}{:>8.2f}\n", formula, begin, mid, end, average);
+        }
+    }
     fmt::print("\n");
 }
 
-void ReaxSpecies::show_nums() {
-    for (const auto &pair : formulas_nums) {
-        std::cout << pair.first << " : ";
-        if (nframes > 20) {
-            for (size_t i = 0; i < 10; i++) {
-                std::cout << pair.second[i] << " ";
-            }
-            std::cout << "...";
-            for (size_t i = nframes - 10; i < nframes; i++) {
-                std::cout << pair.second[i] << " ";
-            }
-        } else {
-            for (size_t i = 0; i < nframes; i++) {
-                std::cout << pair.second[i] << " ";
-            }
-        }
-        std::cout << std::endl;
-    }
-    std::cout << std::endl;
-    return;
-}
+// void ReaxSpecies::show_nums() {
+//     for (const auto &pair : formulas_nums) {
+//         std::cout << pair.first << " : ";
+//         if (nframes > 20) {
+//             for (size_t i = 0; i < 10; i++) {
+//                 std::cout << pair.second[i] << " ";
+//             }
+//             std::cout << "...";
+//             for (size_t i = nframes - 10; i < nframes; i++) {
+//                 std::cout << pair.second[i] << " ";
+//             }
+//         } else {
+//             for (size_t i = 0; i < nframes; i++) {
+//                 std::cout << pair.second[i] << " ";
+//             }
+//         }
+//         std::cout << std::endl;
+//     }
+//     std::cout << std::endl;
+//     return;
+// }
 
 // Get current frame formulas (std::map<std::string, int>) from class Universe.
 void ReaxSpecies::import_frame_formulas(int &frame_id, const std::vector<std::string> &formulas) {

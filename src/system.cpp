@@ -1,4 +1,5 @@
 #include <mutex>
+#include <queue>
 
 #include "atom.h"
 #include "cell_list.h"
@@ -30,7 +31,7 @@ void System::set_types(std::vector<std::string> &type_names) {
 }
 
 void System::finish() {
-    fmt::print("Atoms: {}, Bonds: {}, Mols: {}, ", atoms.size(), bonds.size(), molecules.size());
+    fmt::print("\rFrame: {}, Atoms: {}, Bonds: {}, Mols: {}, ", frame_id, atoms.size(), bonds.size(), molecules.size());
     if (has_boundaries) {
         fmt::print("PBC: {:.1f} {:.1f} {:.1f}", axis_lengths[0], axis_lengths[1], axis_lengths[2]);
     } else {
@@ -45,7 +46,7 @@ void System::finish() {
         }
     }
 
-    fmt::print("\n");
+    fmt::print("                  ");  // If the previous print is too long, clear the line.
 }
 
 void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
@@ -168,7 +169,6 @@ void System::search_neigh() {
 
 void System::build_bonds_by_radius() {
     // prepare types and radius.
-
     std::map<int, float> atomic_radius;
     /// When using default atomic radius in constant.h
     for (auto &pair : type_stoi) {
@@ -200,10 +200,14 @@ void System::build_bonds_by_radius() {
     float dist_sq;
 
     for (auto &atom : atoms) {
+        // Skip X atoms and atoms that reached max valence
+        if (type_itos[atom->type_id] == "X" || atom->bonded_atoms.size() >= atom->max_valence) continue;
+
         for (auto &neigh : atom->neighs) {
-            if (neigh == atom) {
+            // Skip self, X atoms, and atoms that reached max valence
+            if (neigh == atom || type_itos[neigh->type_id] == "X") continue;
+            if (atom->bonded_atoms.size() >= atom->max_valence || neigh->bonded_atoms.size() >= neigh->max_valence)
                 continue;
-            }
 
             if (has_boundaries) {
                 dist_sq = distance_sq_pbc(atom->coord, neigh->coord, axis_lengths);
@@ -240,6 +244,43 @@ void System::build_molecules() {
             Molecule *new_mol = new Molecule(new_mol_id);
             dfs(atom, visited, new_mol);
             molecules.push_back(new_mol);
+        }
+    }
+
+    // Weighing bonds
+    // Maximize total weight of edges (bond orders)
+    // Constraint: each atom's valence can not exceeded.
+    std::vector<int> atom_valence_residual(atoms.size() + 1, 0);  // atom id starts from 1
+
+    for (auto &atom : atoms) {
+        atom_valence_residual[atom->id] = atom->max_valence - atom->bonded_atoms.size();
+    }
+
+    int current_weight_gain = 0;
+
+    for (auto &molecule : molecules) {
+        // Skip single atom molecules and molecules containing X atoms
+        if (molecule->mol_atoms.size() == 1) continue;
+
+        // Greedy algorithm.
+        while (true) {
+            current_weight_gain = 0;
+
+            for (auto &bond : molecule->mol_bonds) {
+                if (atom_valence_residual[bond->atom_i->id] > 0 && atom_valence_residual[bond->atom_j->id] > 0) {
+                    current_weight_gain += 2;
+                    bond->order++;
+                    atom_valence_residual[bond->atom_i->id]--;
+                    atom_valence_residual[bond->atom_j->id]--;
+
+                    // We do not consider 4+ bonds, they merely exist.
+                    if (bond->order >= 3) continue;
+                }
+            }
+
+            if (current_weight_gain == 0) {
+                break;
+            }
         }
     }
 
@@ -322,6 +363,21 @@ void System::process_this() {
     compute_ring_counts();
 }
 
+/**
+ * @brief Process the current system frame for ReaxFF analysis
+ *
+ * This function performs several key operations:
+ * 1. Extracts molecular formulas from the current frame
+ * 2. Imports frame formulas into the ReaxFF species database
+ * 3. Compares molecules between current and previous frames to track reactions
+ *
+ * The function uses thread-safe operations when accessing shared resources
+ * and implements a similarity-based matching algorithm to identify unchanged
+ * molecules between frames.
+ *
+ * @note This function assumes that the system has already been processed
+ *       through process_this() which builds molecules and computes ring counts
+ */
 void System::process_reax() {
     std::vector<std::string> frame_formulas(molecules.size());
     for (size_t i = 0; i < molecules.size(); i++) {
@@ -337,6 +393,7 @@ void System::process_reax() {
     // These computations are safe without lock.
     if (prev_sys == nullptr) return;
 
+    // This double loop compuation is not that time-consuming.
     for (const auto &prev_mol : prev_sys->molecules) {
         if (prev_mol == nullptr) continue;
 
@@ -350,23 +407,21 @@ void System::process_reax() {
         float best_similarity = 0.0f;
 
         std::vector<int> intersection;
-        std::vector<int> union_set;
+        float contribution = 0.0f;
+        // std::vector<int> union_set;
 
         for (auto &curr_mol : this->molecules) {
             // Ignore single atom molecule.
             if (curr_mol->atom_ids.size() == 1) continue;
             if (prev_mol == nullptr || curr_mol == nullptr) continue;
 
-            // current operator== only check the formula, so if one prev_mol == curr_mol
-            // that does not mean prev_mol did not react. just go seek next one.
-            // The only assertion of prev_mol did not react is that no good match found.
+            // Molecule operator== is for comparing formulas, maybe topology later, but never atom ids.
+            // To make sure if a molecule did not react is that the contribution is 1.0.
+            // so if one prev_mol == curr_mol that just mean they are same type, not exact who it is. Just skip.
             if (*prev_mol == *curr_mol) continue;
 
             // ------------------------------------------------------------
-
-            // Calculate similarity: intersection / union.
             intersection.clear();
-            union_set.clear();
 
             std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
                                   curr_mol->atom_ids.end(), back_inserter(intersection));
@@ -374,39 +429,51 @@ void System::process_reax() {
             // Quick check: if intersection is empty, similarity is 0.
             if (intersection.empty()) continue;
 
-            std::set_union(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
-                           curr_mol->atom_ids.end(), back_inserter(union_set));
-
-            float similarity = float(intersection.size()) / float(union_set.size());
+            contribution = float(intersection.size()) / float(prev_mol->atom_ids.size());
 
             // ------------------------------------------------------------
 
-            if (similarity >= 0.01) {
+            // contribution 0.5: curr_mol is the main successor of prev_mol ignore explosion
+            // contribution 1.0: curr_mol is the exactly who it was.
+            if (contribution > 0 && contribution < 1.0) {
                 reax_flow->add_reaction(this->frame_id, prev_mol, curr_mol);
             }
 
-            // if (similarity >= 0.01) {
-            //     best_match = curr_mol;
-            //     best_similarity = similarity;
-            //     break;  // A good match found, no need to check more.
-            // } else if (similarity > best_similarity) {
-            //     best_match = curr_mol;
-            //     best_similarity = similarity;
+            // Removed best match, just add all reactions.
+            // If found a decent match (lower_limit < similarity < 1.0)
+
+            // std::set_union(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
+            //                curr_mol->atom_ids.end(), back_inserter(union_set));
+
+            // float similarity = float(intersection.size()) / float(union_set.size());
+            // if (best_match != nullptr && best_similarity >= 0.01) {
+            //     std::lock_guard<std::mutex> lock(reaxflow_mutex);  // Insertion is unsafe without lock.
+            //     reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
+            // }
+
+            // if (molecule_unchanged) {
+            //     continue;
             // }
         }
-
-        // If found a decent match (lower_limit < similarity < 1.0)
-        // if (best_match != nullptr && best_similarity >= 0.01) {
-        //     std::lock_guard<std::mutex> lock(reaxflow_mutex);  // Insertion is unsafe without lock.
-        //     reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
-        // }
-
-        // if (molecule_unchanged) {
-        //     continue;
-        // }
     }
 }
 
+/**
+ * @brief Analyzes molecular reactions and updates the reaction flow
+ *
+ * This function processes molecules in the system to identify and record reactions
+ * between consecutive frames. It compares molecules to detect changes and potential
+ * reactions based on atom overlap and contribution metrics.
+ *
+ * The function:
+ * - Skips single-atom molecules
+ * - Compares molecules between frames using atom ID intersections
+ * - Calculates contribution as intersection size / current molecule size
+ * - Records reactions when contribution >= 0.5
+ *
+ * @note This function is part of the reaction tracking system and works in conjunction
+ * with the ReaxFlow class to maintain reaction history
+ */
 void System::compute_ring_counts() {
     // Initialize ring counts for sizes 3 to MAX_RING_SIZE
     // MAX_RING_SIZE in defines.h / defines.cpp
@@ -444,7 +511,21 @@ void System::compute_ring_counts() {
     current_path.clear();
 }
 
-// Recursive function to find rings from an atom. (DFS)
+/**
+ * @brief Computes the number of rings of different sizes in the system
+ *
+ * This function analyzes all molecules in the system to detect rings of sizes 3 to MAX_RING_SIZE.
+ * It uses a depth-first search approach to find rings starting from each atom in each molecule.
+ * The results are stored in the ring_counts array where ring_counts[i] represents the number
+ * of rings containing i atoms.
+ *
+ * The function handles:
+ * - Multiple rings in a single molecule
+ * - Polycyclic systems (e.g., naphthalene)
+ * - Proper subset relationships between rings
+ *
+ * @note This function modifies the ring_counts member variable
+ */
 void System::find_rings_from_atom(Atom *current, Atom *start, int depth, std::unordered_set<Atom *> &visited,
                                   std::unordered_set<std::unordered_set<Atom *> *> &current_rings,
                                   std::vector<Atom *> &current_path) {
