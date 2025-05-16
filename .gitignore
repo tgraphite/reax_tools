@@ -16,3 +16,4 @@ reax_tools_linux/
 tmp/
 *html*
 *doc*
+external/*
