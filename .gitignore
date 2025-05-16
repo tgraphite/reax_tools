@@ -14,6 +14,5 @@ big.lammpstrj
 reax_tools/
 reax_tools_linux/
 tmp/
-*html*
-*doc*
+*.html
 external/*
