@@ -112,10 +112,12 @@ void ReaxFlow::brief_report() { return; }
 // Save reaction flow graph as DOT format for Graphviz.
 void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, bool draw_molecules,
                           bool reduce_reactions) {
+    std::string edge_operator = "->";
+
     if (reduce_reactions) {
         reduce_graph();
+        edge_operator = "--";  // Undirected graph
     }
-
     int edge_id = 0;
     int source_node_id = 0;
     int target_node_id = 0;
@@ -158,7 +160,7 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
     for (const auto &pair : sorted_edge_id_count) {
         int edge_id = pair.first;
         int reaction_count = pair.second;
-        fmt::print("{}: {} -> {} (count: {})\n", edge_id, nodes[edges[edge_id].first]->formula,
+        fmt::print("{}: {} {} {} (count: {})\n", edge_id, nodes[edges[edge_id].first]->formula, edge_operator,
                    nodes[edges[edge_id].second]->formula, reaction_count);
     }
 
@@ -183,7 +185,11 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
     }
 
     // DOT file header
-    fmt::print(fp, "digraph ReactionFlow {{\n");
+    if (reduce_reactions) {
+        fmt::print(fp, "strict graph ReactionFlow {{\n");
+    } else {
+        fmt::print(fp, "digraph ReactionFlow {{\n");
+    }
     fmt::print(fp, "  rankdir=LR;\n");
     fmt::print(fp, "  layout=circo;\n");
     fmt::print(fp, "  node [shape=box, style=filled, fillcolor=azure2, height=0.5, width=1.5];\n");
@@ -209,10 +215,10 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
         penwidth = std::min(5.0, 2.0 + log(reaction_count));
 
         if (key_reactions_count < max_key_reactions_count) {
-            fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}, color=goldenrod];\n", edges[edge_id].first,
-                       edges[edge_id].second, reaction_count, penwidth);
+            fmt::print(fp, " node{} {} node{} [label=\"{}\", penwidth={}, color=goldenrod];\n", edges[edge_id].first,
+                       edge_operator, edges[edge_id].second, reaction_count, penwidth);
         } else {
-            fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}];\n", edges[edge_id].first,
+            fmt::print(fp, " node{} {} node{} [label=\"{}\", penwidth={}];\n", edges[edge_id].first, edge_operator,
                        edges[edge_id].second, reaction_count, penwidth);
         }
 
