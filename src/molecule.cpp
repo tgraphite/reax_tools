@@ -62,43 +62,6 @@ void Molecule::update_formula() {
     formula = rename_formula(tmp_formula);
 }
 
-// Draft, not used yet.
-void Molecule::calc_bond_order() {
-    // Get initial valence electrons for each atom.
-    for (auto &atom : mol_atoms) {
-        if (default_atom_valence_electrons.find(atom->type_name) != default_atom_valence_electrons.end()) {
-            atom->valence_electrons = default_atom_valence_electrons[atom->type_name];
-        } else {
-            atom->valence_electrons = 8;
-        }
-
-        if (atom->valence_electrons == 8) {
-            atom->valence_electrons_saturated = true;
-        }
-    }
-
-    // Continue building bonds until no more can be added, atoms have 8 valence electrons considered as saturated.
-    bool bonds_created = true;
-    while (bonds_created) {
-        bonds_created = false;
-        for (auto &bond : mol_bonds) {
-            if (!bond->atom_i->valence_electrons_saturated && !bond->atom_j->valence_electrons_saturated) {
-                bond->order++;
-                bond->atom_i->valence_electrons++;
-                bond->atom_j->valence_electrons++;
-                bonds_created = true;
-
-                if (bond->atom_i->valence_electrons >= 8) {
-                    bond->atom_i->valence_electrons_saturated = true;
-                }
-                if (bond->atom_j->valence_electrons >= 8) {
-                    bond->atom_j->valence_electrons_saturated = true;
-                }
-            }
-        }
-    }
-}
-
 void Molecule::dump_mol2(const std::string &filepath) {
     FILE *fp = fopen(filepath.c_str(), "w");
     fmt::print(fp, "@<TRIPOS>MOLECULE\n");

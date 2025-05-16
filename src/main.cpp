@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "defines.h"
+#include "fmt/core.h"
 #include "reax_species.h"
 #include "string_tools.h"
 #include "universe.h"
@@ -329,6 +330,7 @@ int main(int argc, char* argv[]) {
     parser.add_argument("--dump", "", "dump lammps data file (.data) for each frame", "Traj analysis", "", false, true);
     parser.add_argument("--reaxflow-threshold", "--reaxflow", "similarity threshold for analyze reaction flows",
                         "Traj analysis", "0.25", false, false, "float", validate_float_positive);
+    parser.add_argument("--reduce-reactions", "-rr", "reduce reverse reactions", "Traj analysis", "false", false, true);
 
     // 物种分析设置
     parser.add_argument("--merge-element", "-me", "merge species groups by an element type", "Species analysis", "C",
@@ -374,6 +376,7 @@ int main(int argc, char* argv[]) {
     bool if_merge_by_element = parser.has_flag("--merge-element");
     bool if_merge_rescale = parser.has_flag("--rescale-count");
     bool if_dump_lammps_data = parser.has_flag("--dump");
+    bool if_reduce_reactions = parser.has_flag("--reduce-reactions");
     bool if_dump_bond_count = true;
     int max_molecules = 30;
 
@@ -394,7 +397,11 @@ int main(int argc, char* argv[]) {
     if (mode == "traj") {
         Universe uv;
 
-        std::string output_dir = traj_file.substr(0, traj_file.find_last_of(".")) + "_reax_tools/";
+        std::string output_dir = traj_file.substr(0, traj_file.find_last_of(".")) + "_rtresults/";
+
+        fmt::print("=== Reax Tools Trajectory Analysis ===\n");
+        fmt::print("Input file: {}, output dir: {}\n", traj_file, output_dir);
+
         if (!std::filesystem::exists(output_dir)) {
             std::filesystem::create_directory(output_dir);
         } else {
@@ -414,7 +421,7 @@ int main(int argc, char* argv[]) {
         uv.reax_species->save_file_to_dir(output_dir);
 
         uv.reax_flow->brief_report();
-        uv.reax_flow->save_graph(output_dir, max_molecules, true);
+        uv.reax_flow->save_graph(output_dir, max_molecules, true, if_reduce_reactions);
     }
 
     else if (mode == "species") {

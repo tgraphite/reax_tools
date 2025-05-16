@@ -20,9 +20,11 @@ void draw_molecule(const Molecule& molecule, const std::string& output_path) {
     // Create a new RDKit molecule
     RDKit::RWMol mol;
 
-    if (molecule.mol_atoms.size() > 50) {
-        fmt::print("Molecule too big, skip drawing: {}\n", molecule.formula);
+    if (molecule.mol_atoms.size() > 60) {
+        fmt::print("\rTry drawing molecule but too big, skip: {}", molecule.formula);
         return;
+    } else {
+        fmt::print("\rTry drawing molecule: {}", molecule.formula);
     }
 
     // fmt::print("Drawing molecule: {}\n", molecule.formula);
@@ -47,7 +49,17 @@ void draw_molecule(const Molecule& molecule, const std::string& output_path) {
             continue;
         }
 
-        mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::UNSPECIFIED);
+        if (bond->order == 1) {
+            mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::SINGLE);
+        } else if (bond->order == 2) {
+            mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::DOUBLE);
+        } else if (bond->order == 3) {
+            mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::TRIPLE);
+        } else {
+            mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::UNSPECIFIED);
+        }
+
+        // mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::UNSPECIFIED);
     }
 
     // Skip sanitization and directly set necessary properties for drawing
@@ -76,8 +88,8 @@ void draw_molecule(const Molecule& molecule, const std::string& output_path) {
     drawer.drawOptions().circleAtoms = false;
     drawer.drawOptions().dummiesAreAttachments = false;
     drawer.drawOptions().includeMetadata = false;
-    drawer.drawOptions().prepareMolsBeforeDrawing = false;
-
+    drawer.drawOptions().prepareMolsBeforeDrawing = true;
+    drawer.drawOptions().centreMoleculesBeforeDrawing = true;
     // Draw the molecule
     drawer.drawMolecule(mol);
     drawer.finishDrawing();

@@ -12,33 +12,28 @@ class ReaxFlow {
    private:
     // Node: molecule species
     // Edge: reaction
-    struct Node {
-        Molecule molecule;
-        std::string formula;
-        int reaction_count = 0;
 
-        Node(const Molecule& mol) : molecule(mol) {}  // Copy constructor
-    };
+    std::vector<Molecule*> nodes;
+    std::vector<std::pair<int, int>> edges;
+    std::vector<int> edge_reaction_counts;
 
-    struct Edge {
-        Node* source_node;
-        Node* target_node;
-        int reaction_count = 0;
-    };
-
-    std::vector<Node*> nodes;
-    std::vector<Edge*> edges;
     std::mutex reaxflow_mutex;
 
    public:
-    void add_reaction(int frame, Molecule* source, Molecule* target);
+    // return id of the node
+    int add_molecule(Molecule* mol);
+    std::pair<int, int> add_reaction(int frame, Molecule* source, Molecule* target);
+
+    std::vector<int> get_neighbors(int node_id);
+
     void brief_report();
-    void save_graph(const std::string& raw_file_path, int& max_molecules, bool draw_molecules = false);
-    void draw_molecules(const std::string& raw_file_path);
-    void reduce_graph(int max_molecules);
+    void save_graph(const std::string& output_dir, int& max_molecules, bool draw_molecules = false,
+                    bool reduce_reactions = false);
+    void reduce_graph();
 
-    Node* get_node_from_molecule(Molecule* mol);
-    Edge* get_edge_from_molecules(Molecule* source, Molecule* target);
+    Molecule* get_node_from_id(int id);
 
-    bool has_reaction(Molecule* source, Molecule* target);
+    void remove_zero_nodes();
+    void remove_zero_edges();
+    void remove_isolated_nodes();
 };

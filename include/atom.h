@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include "defines.h"
+
 struct Atom;
 struct Bond;
 
@@ -10,8 +12,9 @@ struct Atom {
     // Initialize order. Do not move.
     int id;
     int type_id;
-    int valence_electrons;
-    bool valence_electrons_saturated = false;
+    int max_valence;
+    bool saturated = false;
+
     std::vector<float> coord;
     std::string type_name;
     std::string desc;
@@ -23,7 +26,9 @@ struct Atom {
     std::vector<Bond*> bonds;
 
     Atom(int _id, int _type_id, const std::vector<float>& _coord, std::string _type_name)
-        : id(_id), type_id(_type_id), coord(_coord), type_name(_type_name){};
+        : id(_id), type_id(_type_id), coord(_coord), type_name(_type_name) {
+        max_valence = max_valences[type_name];
+    };
     ~Atom();
 
     bool contains_neighbor(Atom* atom);
@@ -35,9 +40,9 @@ struct Atom {
 struct Bond {
     Atom* atom_i;
     Atom* atom_j;
-    int order;
+    int order = 1;
 
-    Bond(Atom* _atom_i, Atom* _atom_j) : atom_i(_atom_i), atom_j(_atom_j), order(0){};
+    Bond(Atom* _atom_i, Atom* _atom_j) : atom_i(_atom_i), atom_j(_atom_j) {};
     ~Bond();
 
     std::string info();
