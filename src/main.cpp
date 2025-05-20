@@ -373,10 +373,10 @@ int main(int argc, char* argv[]) {
     int num_threads = parser.get<int>("--threads");
     float rvdw_scale = parser.get<float>("--radius");
     float reaxflow_threshold = parser.get<float>("--reaxflow-threshold");
-    bool if_merge_by_element = parser.has_flag("--merge-element");
-    bool if_merge_rescale = parser.has_flag("--rescale-count");
+    bool if_merge_by_element = parser.has_option("--merge-element") || parser.has_option("--me");
+    bool if_merge_rescale = parser.has_flag("--rescale-count") || parser.has_flag("--rc");
     bool if_dump_lammps_data = parser.has_flag("--dump");
-    bool if_reduce_reactions = parser.has_flag("--reduce-reactions");
+    bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("--rr");
     bool if_dump_bond_count = true;
     int max_molecules = 30;
 
