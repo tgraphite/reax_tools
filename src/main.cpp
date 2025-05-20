@@ -67,10 +67,6 @@ class ArgParser {
         if (!group.empty()) {
             groups[group].push_back(name);
         }
-
-        if (!is_flag && !default_value.empty()) {
-            parsed_values[name] = default_value;
-        }
     }
 
     bool parse_args(int argc, char* argv[]) {
@@ -222,7 +218,6 @@ class ArgParser {
         if (parsed_values.find(name) == parsed_values.end()) {
             const ArgOption& option = options.at(name);
             if (option.is_flag) {
-                // 根据类型返回适当的默认值
                 return get_default_for_flag<T>();
             }
             if (!option.default_value.empty()) {
@@ -360,7 +355,7 @@ int main(int argc, char* argv[]) {
     std::string mode;
     std::string traj_file = parser.has_option("--traj") ? parser.get<std::string>("--traj") : "";
     std::string species_file = parser.has_option("--species") ? parser.get<std::string>("--species") : "";
-    std::string merge_target = parser.has_option("--merge-element") ? parser.get<std::string>("--merge-element") : "C";
+    std::string merge_target = parser.has_option("--merge-element") ? parser.get<std::string>("--merge-element") : "";
 
     std::vector<std::string> type_names;
     if (parser.has_option("--types")) {
@@ -373,10 +368,10 @@ int main(int argc, char* argv[]) {
     int num_threads = parser.get<int>("--threads");
     float rvdw_scale = parser.get<float>("--radius");
     float reaxflow_threshold = parser.get<float>("--reaxflow-threshold");
-    bool if_merge_by_element = parser.has_option("--merge-element") || parser.has_option("--me");
-    bool if_merge_rescale = parser.has_flag("--rescale-count") || parser.has_flag("--rc");
+    bool if_merge_by_element = !merge_target.empty();
+    bool if_merge_rescale = parser.has_flag("--rescale-count") || parser.has_flag("-rc");
     bool if_dump_lammps_data = parser.has_flag("--dump");
-    bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("--rr");
+    bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("-rr");
     bool if_dump_bond_count = true;
     int max_molecules = 30;
 
