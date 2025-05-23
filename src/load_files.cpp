@@ -40,34 +40,64 @@ void System::load_xyz(std::ifstream& file) {
             bonds.reserve(iatoms * 3);
             molecules.reserve(iatoms / 2);
             continue;
-        } else if (starts_with(tokens[0], "Lattice")) {
-            // Lattice="25.774014 0.0 0.0 0.0 65.670043 0.0 0.0 0.0 85.0" Origin="-0.058304 0.0 30.0"...
+        } else if (line.find("Lattice") != std::string::npos) {
+            // Parse Lattice matrix
+            std::string lattice_str = "";
+            size_t lattice_start = line.find("Lattice=\"");
+            if (lattice_start != std::string::npos) {
+                lattice_start += 9;  // Skip "Lattice=\""
+                size_t lattice_end = line.find("\"", lattice_start);
+                if (lattice_end != std::string::npos) {
+                    lattice_str = line.substr(lattice_start, lattice_end - lattice_start);
+                }
+            }
 
-            // Lattice="10.000
-            tmp_str = tokens[0];
-            lx = std::stof(split(tmp_str, "\"")[1]);
+            if (lattice_str.empty()) {
+                fmt::print("Warning: Could not find Lattice= in line\n");
+                continue;
+            }
 
-            // 10.000
-            ly = std::stof(tokens[4]);
+            std::vector<std::string> lattice_values = split_by_space(lattice_str);
+            if (lattice_values.size() != 9) {
+                fmt::print("Warning: Invalid Lattice format, expected 9 values but got {}\n", lattice_values.size());
+                continue;
+            }
 
-            // 10.000"
-            tmp_str = tokens[8];
-            lz = std::stof(split(tmp_str, "\"")[0]);
+            try {
+                lx = std::stof(lattice_values[0]);
+                ly = std::stof(lattice_values[4]);
+                lz = std::stof(lattice_values[8]);
+            } catch (const std::exception& e) {
+                fmt::print("Error parsing Lattice values: {}\n", e.what());
+                continue;
+            }
 
-            // Origin="0.000
-            tmp_str = tokens[9];
-            xlo = std::stof(split(tmp_str, "\"")[1]);
+            // Parse Origin if present
+            xlo = 0.0f;
+            ylo = 0.0f;
+            zlo = 0.0f;
 
-            // 0.000
-            ylo = std::stof(tokens[10]);
-
-            // 10.000"
-            tmp_str = tokens[11];
-            zlo = std::stof(split(tmp_str, "\"")[0]);
+            size_t origin_start = line.find("Origin=\"");
+            if (origin_start != std::string::npos) {
+                origin_start += 8;  // Skip "Origin=\""
+                size_t origin_end = line.find("\"", origin_start);
+                if (origin_end != std::string::npos) {
+                    std::string origin_str = line.substr(origin_start, origin_end - origin_start);
+                    std::vector<std::string> origin_values = split_by_space(origin_str);
+                    if (origin_values.size() == 3) {
+                        try {
+                            xlo = std::stof(origin_values[0]);
+                            ylo = std::stof(origin_values[1]);
+                            zlo = std::stof(origin_values[2]);
+                        } catch (const std::exception& e) {
+                            fmt::print("Error parsing Origin values: {}\n", e.what());
+                        }
+                    }
+                }
+            }
 
             has_boundaries = true;
             axis_lengths = {lx, ly, lz};
-
             continue;
         } else if (tokens.size() >= 4 && tokens.size() <= 5) {
             if (tokens.size() == 4) {
