@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <map>
+#include <mutex>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -35,7 +36,7 @@ class System {
     std::map<std::string, int> type_stoi;
     std::map<int, std::string> type_itos;
     std::map<std::pair<int, int>, float> bond_radius;
-    
+
     std::map<std::pair<int, int>, float> bond_type_counts;
     std::map<int, int> ring_counts;
 

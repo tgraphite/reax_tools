@@ -8,11 +8,27 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+#define NOMINMAX  // Prevent Windows from defining min/max macros
+#include <windows.h>
+#endif
+
 #include "defines.h"
 #include "fmt/core.h"
 #include "reax_species.h"
 #include "string_tools.h"
 #include "universe.h"
+
+// Function to check if program is run by double-clicking
+bool is_run_by_double_click(int argc) {
+#ifdef _WIN32
+    // If argc is 1, it means only the program name is provided (double-clicked)
+    // If argc > 1, it means additional arguments are provided (run from command line)
+    return argc == 1;
+#else
+    return false;  // Not Windows, assume not double-clicked
+#endif
+}
 
 // ArgParser - 类似Python的argparse库的简易C++实现
 // Cluade-3.7 写的，很啰嗦，但我懒得改了
@@ -306,6 +322,20 @@ bool validate_int_positive(const std::string& value) {
 }
 
 int main(int argc, char* argv[]) {
+    // Check if program is run by double-clicking
+    if (is_run_by_double_click(argc)) {
+        std::cout << "I noticed that you are running on Windows.\n"
+                  << "This program should be run from command line (cmd or PowerShell).\n"
+                  << "For example, in cmd:\n"
+                  << "D:\\softwares\\reax_tools.exe -f D:\\md\\myprogram\\traj.lammpstrj (other arguments)\n"
+                  << "Please open a command prompt and run the program with appropriate arguments.\n"
+                  << "If any questions, contact Author: QQ-Group 561184358\n"
+                  << "Press any key to exit...\n";
+
+        std::cin.get();
+        return 1;
+    }
+
     // 创建参数解析器
     ArgParser parser("reax_tools", "ReaxFF/ AIMD trajectory analyzer");
 
@@ -395,6 +425,8 @@ int main(int argc, char* argv[]) {
         std::string output_dir = traj_file.substr(0, traj_file.find_last_of(".")) + "_rtresults/";
 
         fmt::print("=== Reax Tools Trajectory Analysis ===\n");
+        fmt::print("Author: Han-xiang Chen @ MirrorSpace TechSolutions Co. Ltd.\n");
+        fmt::print("QQ-Group: 561184358\n\n");
         fmt::print("Input file: {}, output dir: {}\n", traj_file, output_dir);
 
         if (!std::filesystem::exists(output_dir)) {
@@ -420,6 +452,10 @@ int main(int argc, char* argv[]) {
     }
 
     else if (mode == "species") {
+        fmt::print("=== Reax Tools Species Analysis ===\n");
+        fmt::print("Author: Han-xiang Chen @ MirrorSpace TechSolutions Co. Ltd.\n");
+        fmt::print("QQ-Group: 561184358\n\n");
+
         ReaxSpecies reax_species(species_file);
 
         if (if_merge_by_element) {

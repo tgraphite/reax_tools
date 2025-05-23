@@ -6,7 +6,9 @@
 #include <iostream>
 #include <mutex>
 
+#ifdef ENABLE_DRAW_MOLECULE
 #include "draw_molecule.h"
+#endif
 #include "fmt/format.h"
 #include "universe.h"
 
@@ -164,6 +166,7 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
                    nodes[edges[edge_id].second]->formula, reaction_count);
     }
 
+#ifdef ENABLE_DRAW_MOLECULE
     // Draw molecules
     if (draw_molecules) {
         for (const auto &node_id : nodes_to_output) {
@@ -172,6 +175,7 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
         }
         fmt::print("\n");
     }
+#endif
 
     // -------------------------------------------------------------------
     // The main graph file.
