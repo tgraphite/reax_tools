@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -91,38 +92,42 @@ void ReaxSpecies::get_nums() {
 
 void ReaxSpecies::rename_all_formulas(const std::vector<std::string> &order) {
     // Create a temporary map to store formulas that need to be renamed.
-    std::map<std::string, std::vector<float>> to_insert;
-    std::vector<std::string> to_erase;
 
     // First step: collect all formulas that need to be renamed.
+
+    std::string new_formula;
+    std::string old_formula;
+    std::vector<float> nums(nframes);
+    std::map<std::string, std::vector<float>> new_formulas_nums;
+
+    std::map<std::string, std::string> rename_map;
+
     for (const auto &pair : formulas_nums) {
-        std::string old_formula = pair.first;
-        std::vector<float> nums = pair.second;
+        old_formula = pair.first;
+        nums = pair.second;
 
-        if (starts_with(old_formula, "grp_")) {
-            continue;
-        }
+        new_formula = rename_formula(old_formula, order);
 
-        std::string new_formula = rename_formula(old_formula, order);
-
-        if (!(new_formula == old_formula)) {
-            to_insert[new_formula] = nums;
-            to_erase.push_back(old_formula);
-        }
+        new_formulas_nums[new_formula] = nums;
     }
 
-    // Second step: delete old formulas and add new formulas.
-    for (const auto &formula : to_erase) {
-        auto it = formulas_nums.find(formula);
-        if (it != formulas_nums.end()) {
-            formulas_nums.erase(it);
-        }
-    }
+    formulas_nums.clear();
+    formulas_nums = new_formulas_nums;
 
-    // Third step: add new formulas.
-    for (const auto &pair : to_insert) {
-        formulas_nums[pair.first] = pair.second;
-    }
+    // }
+
+    // // Second step: delete old formulas and add new formulas.
+    // for (const auto &formula : to_erase) {
+    //     auto it = formulas_nums.find(formula);
+    //     if (it != formulas_nums.end()) {
+    //         formulas_nums.erase(it);
+    //     }
+    // }
+
+    // // Third step: add new formulas.
+    // for (const auto &pair : to_insert) {
+    //     formulas_nums[pair.first] = pair.second;
+    // }
 }
 
 // User accessable.
@@ -239,19 +244,22 @@ void ReaxSpecies::brief_report() {
     //     return;
     // }
 
-    // sort formulas_nums by nums[0] in descending order
-    std::vector<std::pair<std::string, std::vector<float>>> sorted_formulas_nums;
+    // sort formulas_nums by average in descending order
+    std::vector<std::pair<std::string, float>> sorted_formulas_averages;
+    float average = 0;
     for (const auto &pair : formulas_nums) {
-        sorted_formulas_nums.push_back(pair);
+        average = std::accumulate(pair.second.begin(), pair.second.end(), 0.0f) / nframes;
+        sorted_formulas_averages.push_back(std::make_pair(pair.first, average));
     }
-    std::sort(sorted_formulas_nums.begin(), sorted_formulas_nums.end(),
-              [](const auto &a, const auto &b) { return a.second[0] > b.second[0]; });
+    std::sort(sorted_formulas_averages.begin(), sorted_formulas_averages.end(),
+              [](const auto &a, const auto &b) { return a.second > b.second; });
 
+    // get formulas going to report
     int max_species_print = 20;
     int min_frames_print = 10;
-    if (sorted_formulas_nums.size() > max_species_print) {
+    if (sorted_formulas_averages.size() > max_species_print) {
         fmt::print("Note: To avoid too much screen output, only the top {} species are printed.\n", max_species_print);
-        sorted_formulas_nums.resize(max_species_print);
+        sorted_formulas_averages.resize(max_species_print);
     }
 
     if (nframes < min_frames_print) {
@@ -259,9 +267,9 @@ void ReaxSpecies::brief_report() {
         fmt::print("{}\n", "=== Species Report ===");
         std::string header = fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end");
         fmt::print("{}\n", header);
-        for (const auto &pair : sorted_formulas_nums) {
+        for (const auto &pair : sorted_formulas_averages) {
             std::string formula = pair.first;
-            std::vector<float> nums = pair.second;
+            std::vector<float> nums = formulas_nums[formula];
             int mid_frame = nframes / 2;
             fmt::print("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}\n", formula, nums[0], nums[mid_frame], nums[nframes - 1]);
         }
@@ -270,9 +278,9 @@ void ReaxSpecies::brief_report() {
         std::string header =
             fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end", "average");
         fmt::print("{}\n", header);
-        for (const auto &pair : sorted_formulas_nums) {
+        for (const auto &pair : sorted_formulas_averages) {
             std::string formula = pair.first;
-            std::vector<float> nums = pair.second;
+            std::vector<float> nums = formulas_nums[formula];
             size_t range = nframes / 10;
             size_t begin_l = 0;
             size_t mid_l = nframes * 5 / 10;

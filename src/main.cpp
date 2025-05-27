@@ -366,7 +366,7 @@ int main(int argc, char* argv[]) {
                         "rescale group weight by actual numbers of atoms (instead of molecules)", "Species analysis",
                         "", false, true);
     parser.add_argument("--element-order", "--order", "set element order of outputting formulas", "Species analysis",
-                        "C,H,O,N,S,F,P", false, false, "e.g. C,H,O,N,S,F,P");
+                        "", false, false, "e.g. C,H,O,N,S,F,P");
 
     // 一般选项
     parser.add_argument("--help", "-h", "show help information", "General", "", false, true);
@@ -393,7 +393,12 @@ int main(int argc, char* argv[]) {
     }
 
     std::vector<int> merge_range = parser.get<std::vector<int>>("--merge-ranges");
-    std::vector<std::string> sort_order = parser.get<std::vector<std::string>>("--element-order");
+    std::vector<std::string> sort_order;
+    if (parser.has_option("--element-order")) {
+        sort_order = parser.get<std::vector<std::string>>("--element-order");
+    } else {
+        sort_order = default_order;  // Use default_order when not specified
+    }
 
     int num_threads = parser.get<int>("--threads");
     float rvdw_scale = parser.get<float>("--radius");

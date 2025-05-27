@@ -6,36 +6,46 @@
 #include <string>
 #include <vector>
 
+#include "fmt/format.h"
+
 // GPT-4 generated. Chemical formula to map<element: number>
 std::map<std::string, int> parse_formula(const std::string &formula) {
     std::map<std::string, int> elements_nums;
     std::string element;
     std::string number;
+    size_t i = 0;
 
-    for (size_t i = 0; i < formula.size(); ++i) {
+    while (i < formula.size()) {
+        // Start of a new element
         if (isalpha(formula[i])) {
-            if (!element.empty() && !number.empty()) {
-                elements_nums[element] += std::stoi(number);
+            // Process previous element if exists
+            if (!element.empty()) {
+                int count = number.empty() ? 1 : std::stoi(number);
+                elements_nums[element] += count;
                 number.clear();
-            } else if (!element.empty()) {
-                elements_nums[element] += 1;  // when no number in formula (e.g.
-                                              // CO), make default = 1.
             }
 
-            element = formula[i];  // new element
+            // Start new element
+            element = formula[i];
 
-            // for symbols with two chars (e.g. Fe)
-            if (islower(formula[i + 1])) {
-                element += formula[++i];
+            // Check for two-character element (e.g., Fe, Cl)
+            if (i + 1 < formula.size() && islower(formula[i + 1])) {
+                element += formula[i + 1];
+                i++;
             }
-        } else if (isdigit(formula[i])) {
+        }
+        // Accumulate number
+        else if (isdigit(formula[i])) {
             number += formula[i];
         }
+
+        i++;
     }
 
+    // Process the last element
     if (!element.empty()) {
-        if (number.empty()) number = "1";
-        elements_nums[element] += std::stoi(number);  // the last element.
+        int count = number.empty() ? 1 : std::stoi(number);
+        elements_nums[element] += count;
     }
 
     return elements_nums;
@@ -47,14 +57,27 @@ std::string rename_formula(const std::string &formula, const std::vector<std::st
     std::map<std::string, int> elements_nums = parse_formula(formula);
     std::string result;
 
+    if (starts_with(formula, "grp_")) {
+        return formula;
+    }
+
+    // First add elements in the specified order
     for (const auto &elem : order) {
         auto it = elements_nums.find(elem);
         if (it != elements_nums.end()) {
             result += it->first;
-            if (it->second != 1)
+            if (it->second > 1) {
                 result += std::to_string(it->second);
-            else
-                result += "1";
+            }
+            elements_nums.erase(it);  // Remove processed element
+        }
+    }
+
+    // Then add any remaining elements in alphabetical order
+    for (const auto &pair : elements_nums) {
+        result += pair.first;
+        if (pair.second > 1) {
+            result += std::to_string(pair.second);
         }
     }
 

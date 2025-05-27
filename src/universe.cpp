@@ -70,7 +70,7 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
                             const float &reaxflow_threshold) {
     int curr_frame_id = 1;
     int max_neigh = 10;
-    float neigh_radius = 2.5 * rvdw_scale;
+    float neigh_radius = 2.8 * rvdw_scale;
     bool is_first_frame = true;
 
     std::ifstream file(file_path);

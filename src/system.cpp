@@ -194,6 +194,14 @@ void System::build_bonds_by_radius() {
         }
     }
 
+    // print bond_type and radius
+    // if (frame_id == 1) {
+    //     for (auto &pair : bond_type_counts) {
+    //         fmt::print("{} {} {}\n", type_itos[pair.first.first], type_itos[pair.first.second],
+    //                    bond_radius[pair.first]);
+    //     }
+    // }
+
     // compute.
     float bond_r;
     float bond_sq;

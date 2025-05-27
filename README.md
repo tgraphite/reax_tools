@@ -26,7 +26,7 @@ reax_tools是C++写的一个反应MD后分析工具，能够分析lammpstrj和xy
 
 #### 基本使用
 
-1. 从Github页面(https://github.com/tgraphite/reax_tools/releases)下载最新linux版本。(对于Windows用户，更新会更慢，使用方法一致，只不过是使用cmd/powershell而不是linux shell，环境变量请自行Google。或者使用WSL。)
+1. 从Github页面 (https://github.com/tgraphite/reax_tools/releases) 下载最新linux版本。(对于Windows用户，更新会更慢，使用方法一致，只不过是使用cmd/powershell而不是linux shell，环境变量请自行Google。或者使用WSL。)
 2. 解压，假设解压到`/your/reax_tools/path`
 3. 设置PATH和LD_LIBRARY_PATH。
     ```
@@ -57,6 +57,8 @@ reax_tools是C++写的一个反应MD后分析工具，能够分析lammpstrj和xy
     -rc 使用合并功能后对物种群的数量（权重）进行重算，输出原子数而不是分子数。默认不使用。
 
     --order <element,element,...> 输出的化学式元素顺序，例如把H2CO重写成CH2O，默认C,H,O,N,S,F,P。
+
+    -rr 对于一对互逆的反应，只保留净值。（注意：这不一定有化学意义）
     ```
 
 5. 结果输出到```name_reax_tools```新目录中，文件包括：
