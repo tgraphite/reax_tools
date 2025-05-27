@@ -15,6 +15,5 @@ reax_tools/
 reax_tools_linux/
 tmp/
 *.html
-external/*
 tests/
 lib/
