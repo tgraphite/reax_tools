@@ -1,8 +1,0 @@
-digraph ReactionFlow {
-  rankdir=LR;
-  layout=circo;
-  node [shape=box, style=filled, fillcolor=azure2, height=0.5, width=1.5];
-  edge [color=dimgray];
-
-
-}
