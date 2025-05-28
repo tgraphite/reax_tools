@@ -118,7 +118,9 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
 
     if (reduce_reactions) {
         reduce_graph();
-        edge_operator = "--";  // Undirected graph
+        // edge_operator = "--";
+        // Undirected graph
+        // Try still use diagraph, 2025.05.29
     }
     int edge_id = 0;
     int source_node_id = 0;
@@ -189,11 +191,14 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
     }
 
     // DOT file header
-    if (reduce_reactions) {
-        fmt::print(fp, "strict graph ReactionFlow {{\n");
-    } else {
-        fmt::print(fp, "digraph ReactionFlow {{\n");
-    }
+    // if (reduce_reactions) {
+    //     fmt::print(fp, "strict graph ReactionFlow {{\n");
+    // } else {
+    //
+    // }
+    // Try still use diagraph, 2025.05.29
+    fmt::print(fp, "digraph ReactionFlow {{\n");
+
     fmt::print(fp, "  rankdir=LR;\n");
     fmt::print(fp, "  layout=circo;\n");
     fmt::print(fp, "  node [shape=box, style=filled, fillcolor=azure2, height=0.5, width=1.5];\n");

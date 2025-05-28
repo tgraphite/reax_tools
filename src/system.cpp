@@ -27,6 +27,11 @@ void System::set_types(std::vector<std::string> &type_names) {
         type_id++;
         type_itos[type_id] = name;
         type_stoi[name] = type_id;
+
+        // Initialize max_valences for each type
+        if (max_valences.find(name) == max_valences.end()) {
+            max_valences[name] = 4;  // Default max valence
+        }
     }
 }
 
@@ -90,6 +95,64 @@ void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
 
         // if ij_count is not the last element.
         if (&ij_count != &*std::prev(bond_type_counts_reduced.end())) {
+            fmt::print(file, ",");
+        }
+    }
+    fmt::print(file, "\n");
+    fclose(file);
+}
+
+/**
+ * @brief dump count of atom in differenet vanlences, e.g.
+ *
+ * C(3) - C with 3 bonded atoms (like an sp2 carbon in benzene)
+ * O(2) - O with 2 bonded atoms (like H2O)
+ */
+void System::dump_atom_bonded_num_count(std::string &filepath, bool &is_first_frame) {
+    static FILE *file;
+
+    std::map<std::pair<int, int>, int> atom_bonded_num_count;  // < atom_type_id, valence >, number
+
+    int type_id;
+    std::string type_string;
+    int max_valence;
+
+    for (const auto &pair : type_itos) {
+        type_id = pair.first;
+        type_string = pair.second;
+
+        max_valence = max_valences[type_string];
+
+        for (int val = 0; val <= max_valence; val++) {
+            atom_bonded_num_count[{type_id, val}] = 0;
+        }
+    }
+
+    // Count
+    for (const auto &atom : atoms) {
+        atom_bonded_num_count[{atom->type_id, atom->bonded_atoms.size()}]++;
+    }
+
+    // Write csv header
+    std::string atom_valence_desc;
+    if (is_first_frame) {
+        file = fopen(filepath.c_str(), "w");
+        for (const auto &pair : atom_bonded_num_count) {
+            atom_valence_desc = fmt::format("{}({})", type_itos[pair.first.first], pair.first.second);
+            fmt::print(file, atom_valence_desc);
+            if (&pair != &*std::prev(atom_bonded_num_count.end())) {
+                fmt::print(file, ",");
+            }
+        }
+        fmt::print(file, "\n");
+        fclose(file);
+    }
+
+    // Write data body
+    file = fopen(filepath.c_str(), "a");
+    for (const auto &pair : atom_bonded_num_count) {
+        fmt::print(file, fmt::format("{}", pair.second));
+        if (&pair != &*std::prev(atom_bonded_num_count.end())) {
             fmt::print(file, ",");
         }
     }

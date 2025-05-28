@@ -188,11 +188,11 @@ void ReaxSpecies::merge_by_element(const std::string &target_element, const std:
         if (i < ranges.size() - 1) {
             start = ranges[i];
             end = ranges[i + 1] - 1;
-            new_formula = fmt::format("grp_{}[{},{})", target_element, start, end);
+            new_formula = fmt::format("grp_{}{}-{}", target_element, start, end - 1);
         } else {
             start = ranges[i];
             end = 10000;
-            new_formula = fmt::format("grp_{}[{},max)", target_element, start);
+            new_formula = fmt::format("grp_{}{}-max", target_element, start);
         }
 
         std::vector<std::string> formulas_to_erase;

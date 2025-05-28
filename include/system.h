@@ -38,6 +38,7 @@ class System {
     std::map<std::pair<int, int>, float> bond_radius;
 
     std::map<std::pair<int, int>, float> bond_type_counts;
+
     std::map<int, int> ring_counts;
 
     System *prev_sys = nullptr;
@@ -55,6 +56,7 @@ class System {
     void dump_lammps_data(std::string &filepath);
     void dump_bond_count(std::string &filepath, bool &is_first_frame);
     void dump_ring_count(std::string &filepath, bool &is_first_frame);
+    void dump_atom_bonded_num_count(std::string &filepath, bool &is_first_frame);
 
     void search_neigh();
     void search_neigh_naive();
