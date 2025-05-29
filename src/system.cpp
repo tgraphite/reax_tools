@@ -321,10 +321,9 @@ void System::build_molecules() {
     // Weighing bonds
     // Maximize total weight of edges (bond orders)
     // Constraint: each atom's valence can not exceeded.
-    std::vector<int> atom_valence_residual(atoms.size() + 1, 0);  // atom id starts from 1
-
+    std::map<Atom *, int> atom_valence_residual;
     for (auto &atom : atoms) {
-        atom_valence_residual[atom->id] = atom->max_valence - atom->bonded_atoms.size();
+        atom_valence_residual[atom] = atom->max_valence - atom->bonded_atoms.size();
     }
 
     int current_weight_gain = 0;
@@ -338,11 +337,11 @@ void System::build_molecules() {
             current_weight_gain = 0;
 
             for (auto &bond : molecule->mol_bonds) {
-                if (atom_valence_residual[bond->atom_i->id] > 0 && atom_valence_residual[bond->atom_j->id] > 0) {
+                if (atom_valence_residual[bond->atom_i] > 0 && atom_valence_residual[bond->atom_j] > 0) {
                     current_weight_gain += 2;
                     bond->order++;
-                    atom_valence_residual[bond->atom_i->id]--;
-                    atom_valence_residual[bond->atom_j->id]--;
+                    atom_valence_residual[bond->atom_i]--;
+                    atom_valence_residual[bond->atom_j]--;
 
                     // We do not consider 4+ bonds, they merely exist.
                     if (bond->order >= 3) continue;
@@ -354,6 +353,8 @@ void System::build_molecules() {
             }
         }
     }
+
+    atom_valence_residual.clear();
 
     for (auto &molecule : molecules) {
         molecule->update_formula();
@@ -463,6 +464,15 @@ void System::process_reax() {
 
     // These computations are safe without lock.
     if (prev_sys == nullptr) return;
+
+    static int has_warned = 5;
+    if (prev_sys->atoms.size() != atoms.size() && has_warned > 0) {
+        fmt::print("**** WARNING **** : Detected ATOM LOST, reactions may be inaccurate!\n");
+        has_warned--;
+    } else if (prev_sys->atoms.size() != atoms.size() && has_warned == 0) {
+        fmt::print("**** WARNING **** : No more warnings will be printed, you'd better know what you are doing.\n");
+        has_warned--;
+    }
 
     // This double loop compuation is not that time-consuming.
     for (const auto &prev_mol : prev_sys->molecules) {

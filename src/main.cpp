@@ -441,6 +441,11 @@ int main(int argc, char* argv[]) {
             std::filesystem::create_directory(output_dir);
         }
 
+        if (std::find(type_names.begin(), type_names.end(), "X") != type_names.end()) {
+            fmt::print("**** NOTE **** : You are using the X flag to ignore this type of atoms.\n");
+            fmt::print("**** NOTE **** : This may cause inaccuracy when X is not an elementary substance.\n");
+        }
+
         uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data,
                         reaxflow_threshold);
 

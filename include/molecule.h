@@ -41,5 +41,3 @@ struct Molecule {
 // topology again.
 bool operator==(const Molecule& lhs, const Molecule& rhs);
 
-// Which means a molecule (sub-molecule, ring) contains another.
-bool operator>=(const Molecule& lhs, const Molecule& rhs);

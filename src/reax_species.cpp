@@ -188,7 +188,7 @@ void ReaxSpecies::merge_by_element(const std::string &target_element, const std:
         if (i < ranges.size() - 1) {
             start = ranges[i];
             end = ranges[i + 1] - 1;
-            new_formula = fmt::format("grp_{}{}-{}", target_element, start, end - 1);
+            new_formula = fmt::format("grp_{}{}-{}", target_element, start, end);
         } else {
             start = ranges[i];
             end = 10000;
@@ -312,28 +312,6 @@ void ReaxSpecies::brief_report() {
     }
     fmt::print("\n");
 }
-
-// void ReaxSpecies::show_nums() {
-//     for (const auto &pair : formulas_nums) {
-//         std::cout << pair.first << " : ";
-//         if (nframes > 20) {
-//             for (size_t i = 0; i < 10; i++) {
-//                 std::cout << pair.second[i] << " ";
-//             }
-//             std::cout << "...";
-//             for (size_t i = nframes - 10; i < nframes; i++) {
-//                 std::cout << pair.second[i] << " ";
-//             }
-//         } else {
-//             for (size_t i = 0; i < nframes; i++) {
-//                 std::cout << pair.second[i] << " ";
-//             }
-//         }
-//         std::cout << std::endl;
-//     }
-//     std::cout << std::endl;
-//     return;
-// }
 
 // Get current frame formulas (std::map<std::string, int>) from class Universe.
 void ReaxSpecies::import_frame_formulas(int &frame_id, const std::vector<std::string> &formulas) {
