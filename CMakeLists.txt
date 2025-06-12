@@ -22,7 +22,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
 
 # Add compiler flags
-target_compile_options(${PROJECT_NAME} PRIVATE -O3 -march=native -mtune=native -mavx2 -mfma -g -std=c++17)
+target_compile_options(${PROJECT_NAME} PRIVATE -O3 -march=native -mtune=native -mavx2 -mfma -g -std=c++17 -static)
 
 # Add linker flags for static linking of standard libraries
 target_link_options(${PROJECT_NAME} PRIVATE -static)

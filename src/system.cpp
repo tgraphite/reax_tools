@@ -166,7 +166,7 @@ void System::dump_ring_count(std::string &filepath, bool &is_first_frame) {
     if (is_first_frame) {
         file = fopen(filepath.c_str(), "w");
         for (auto &ring_count : ring_counts) {
-            fmt::print(file, "R{}", ring_count.first);
+            fmt::print(file, "{}-membered ring", ring_count.first);
 
             // if ring_count is not the last element.
             if (&ring_count != &*std::prev(ring_counts.end())) {
@@ -479,7 +479,7 @@ void System::process_reax() {
         if (prev_mol == nullptr) continue;
 
         // Ignore single atom molecule.
-        if (prev_mol->atom_ids.size() == 1) continue;
+        // if (prev_mol->atom_ids.size() == 1) continue;
 
         // Find the most similar molecule in current frame.
 
@@ -493,7 +493,7 @@ void System::process_reax() {
 
         for (auto &curr_mol : this->molecules) {
             // Ignore single atom molecule.
-            if (curr_mol->atom_ids.size() == 1) continue;
+            // if (curr_mol->atom_ids.size() == 1) continue;
             if (prev_mol == nullptr || curr_mol == nullptr) continue;
 
             // Molecule operator== is for comparing formulas, maybe topology later, but never atom ids.
@@ -510,31 +510,14 @@ void System::process_reax() {
             // Quick check: if intersection is empty, similarity is 0.
             if (intersection.empty()) continue;
 
-            contribution = float(intersection.size()) / float(prev_mol->atom_ids.size());
+            // how many % of atoms curr_mol inherits from prev_mol
+            // contribution = float(intersection.size()) / float(prev_mol->atom_ids.size());
 
             // ------------------------------------------------------------
 
-            // contribution 0.5: curr_mol is the main successor of prev_mol ignore explosion
-            // contribution 1.0: curr_mol is the exactly who it was.
-            if (contribution > 0 && contribution < 1.0) {
-                reax_flow->add_reaction(this->frame_id, prev_mol, curr_mol);
+            if (intersection.size() > 0) {
+                reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
             }
-
-            // Removed best match, just add all reactions.
-            // If found a decent match (lower_limit < similarity < 1.0)
-
-            // std::set_union(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
-            //                curr_mol->atom_ids.end(), back_inserter(union_set));
-
-            // float similarity = float(intersection.size()) / float(union_set.size());
-            // if (best_match != nullptr && best_similarity >= 0.01) {
-            //     std::lock_guard<std::mutex> lock(reaxflow_mutex);  // Insertion is unsafe without lock.
-            //     reax_flow->add_reaction(this->frame_id, prev_mol, best_match);
-            // }
-
-            // if (molecule_unchanged) {
-            //     continue;
-            // }
         }
     }
 }

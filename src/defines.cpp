@@ -36,15 +36,6 @@ std::map<std::string, int> element_to_index = {
     {"Mt", 109}, {"Ds", 110}, {"Rg", 111}, {"Cn", 112}, {"Nh", 113}, {"Fl", 114}, {"Mc", 115}, {"Lv", 116}, {"Ts", 117},
     {"Og", 118}, {"X", 0}};
 
-std::vector<std::string> sorted_elements = {
-    "C",  "H",  "O",  "N",  "S",  "F",  "P",  "He", "Li", "Be", "B",  "Ne", "Na", "Mg", "Al", "Si", "Cl",
-    "Ar", "K",  "Ca", "Sc", "Ti", "V",  "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se",
-    "Br", "Kr", "Rb", "Sr", "Y",  "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb",
-    "Te", "I",  "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er",
-    "Tm", "Yb", "Lu", "Hf", "Ta", "W",  "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At",
-    "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U",  "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No",
-    "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og", "X"};
-
 std::map<std::string, float> default_atomic_radius = {
     {"H", 1.05f},  {"He", 1.4f},  {"Li", 1.82f}, {"Be", 2.f},   {"B", 2.f},    {"C", 1.7f},   {"N", 1.55f},
     {"O", 1.7f},   {"F", 1.35f},  {"Ne", 1.54f}, {"Na", 1.36f}, {"Mg", 1.18f}, {"Al", 2.f},   {"Si", 2.1f},
@@ -61,7 +52,7 @@ std::map<std::string, float> default_atomic_radius = {
     {"At", 2.f},   {"Rn", 2.f},   {"Fr", 2.f},   {"Ra", 2.f},   {"X", 0.0f}};
 
 std::map<std::string, int> max_valences = {
-    {"H", 1},  {"He", 0}, {"Li", 1}, {"Be", 2}, {"B", 3},  {"C", 4},  {"N", 4},  {"O", 3},  {"F", 1},  {"Ne", 0},
+    {"H", 1},  {"He", 0}, {"Li", 1}, {"Be", 2}, {"B", 3},  {"C", 4},  {"N", 4},  {"O", 2},  {"F", 1},  {"Ne", 0},
     {"Na", 1}, {"Mg", 2}, {"Al", 3}, {"Si", 4}, {"P", 6},  {"S", 6},  {"Cl", 7}, {"Ar", 0}, {"K", 1},  {"Ca", 2},
     {"Sc", 3}, {"Ti", 4}, {"V", 5},  {"Cr", 6}, {"Mn", 7}, {"Fe", 6}, {"Co", 3}, {"Ni", 2}, {"Cu", 2}, {"Zn", 2},
     {"Ga", 3}, {"Ge", 4}, {"As", 5}, {"Se", 0}, {"Br", 7}, {"Kr", 0}, {"Rb", 1}, {"Sr", 2}, {"Y", 3},  {"Zr", 4},

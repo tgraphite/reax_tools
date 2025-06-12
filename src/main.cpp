@@ -408,7 +408,7 @@ int main(int argc, char* argv[]) {
     bool if_dump_lammps_data = parser.has_flag("--dump");
     bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("-rr");
     bool if_dump_bond_count = true;
-    int max_molecules = 30;
+    int max_reactions = 60;
 
     if (!traj_file.empty()) {
         mode = "traj";
@@ -453,12 +453,11 @@ int main(int argc, char* argv[]) {
             uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);
         }
 
-        uv.reax_species->rename_all_formulas(sort_order);
         uv.reax_species->brief_report();
         uv.reax_species->save_file_to_dir(output_dir);
 
         uv.reax_flow->brief_report();
-        uv.reax_flow->save_graph(output_dir, max_molecules, true, if_reduce_reactions);
+        uv.reax_flow->save_graph(output_dir, max_reactions, true, if_reduce_reactions);
     }
 
     else if (mode == "species") {

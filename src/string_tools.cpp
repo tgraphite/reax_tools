@@ -52,7 +52,7 @@ std::map<std::string, int> parse_formula(const std::string &formula) {
 }
 
 // format formula by order.
-// default order: see sorted_elements in constants.h
+// default order: see defines.cpp
 std::string rename_formula(const std::string &formula, const std::vector<std::string> &order) {
     std::map<std::string, int> elements_nums = parse_formula(formula);
     std::string result;

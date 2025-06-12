@@ -112,22 +112,7 @@ void ReaxSpecies::rename_all_formulas(const std::vector<std::string> &order) {
     }
 
     formulas_nums.clear();
-    formulas_nums = new_formulas_nums;
-
-    // }
-
-    // // Second step: delete old formulas and add new formulas.
-    // for (const auto &formula : to_erase) {
-    //     auto it = formulas_nums.find(formula);
-    //     if (it != formulas_nums.end()) {
-    //         formulas_nums.erase(it);
-    //     }
-    // }
-
-    // // Third step: add new formulas.
-    // for (const auto &pair : to_insert) {
-    //     formulas_nums[pair.first] = pair.second;
-    // }
+    formulas_nums = std::move(new_formulas_nums);
 }
 
 // User accessable.

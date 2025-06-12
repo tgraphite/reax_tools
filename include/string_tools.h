@@ -5,11 +5,19 @@
 
 #include "defines.h"
 
+// Convert formula to element-number map.
+// e.g. C1H2 -> {{"C": 1}, {"H": 2}}
 std::map<std::string, int> parse_formula(const std::string &formula);
-std::string rename_formula(const std::string &formula, const std::vector<std::string> &order = sorted_elements);
+
+// Rename and normalize formula by element order,
+// e.g. order = C,H,O,N
+// C1O2N1H3 -> CH3NO2
+std::string rename_formula(const std::string &formula, const std::vector<std::string> &order = default_order);
+
 std::vector<std::string> split_by_space(const std::string &str);
-bool can_convert_to_int(const std::string &str);
 std::vector<std::string> split(const std::string &str, const std::string &delim);
+
+bool can_convert_to_int(const std::string &str);
 bool starts_with(const std::string &str, const std::string &prefix);
 bool ends_with(const std::string &str, const std::string &suffix);
 
