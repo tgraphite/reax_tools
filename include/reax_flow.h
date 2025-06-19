@@ -29,17 +29,17 @@ class ReaxFlow {
     std::pair<int, int> add_reaction(const int& frame, const int& atom_transfer_count, Molecule* source,
                                      Molecule* target);
 
-    std::vector<int> get_neighbors(int node_id);
-
     void brief_report();
     void write_dot_file(const std::string& output_file, const std::vector<int>& edge_indices,
                         bool write_atom_transfer_count = false, std::string layout = "circo");
+    void write_molecule_centered_csv_file(const std::string& output_file, const std::vector<int>& edge_indices,
+                                          bool write_atom_transfer = true);
+
     void save_graph(const std::string& output_dir, int& max_molecules, bool draw_molecules = false,
                     bool reduce_reactions = false);
     void reduce_graph();
 
-    void save_molecule_centered_subgraphs();
-    std::vector<int> get_molecule_centered_edges(Molecule* center_molecule, int depth = 1);
+    void save_molecule_centered_subgraphs(const std::string& output_dir, bool write_atom_transfer = true);
 
     Molecule* get_node_from_id(int id);
 

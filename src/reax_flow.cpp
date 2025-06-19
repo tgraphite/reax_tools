@@ -13,6 +13,12 @@
 #include "fmt/format.h"
 #include "universe.h"
 
+/**
+ * @brief Adds a molecule to the reaction flow system
+ * @param mol Pointer to the molecule to be added
+ * @return int The ID of the molecule in the system
+ * @note If the molecule already exists, returns its existing ID
+ */
 int ReaxFlow::add_molecule(Molecule *mol) {
     // If already exists
     // Use hash map for O(1) lookup
@@ -30,6 +36,15 @@ int ReaxFlow::add_molecule(Molecule *mol) {
     return new_id;
 }
 
+/**
+ * @brief Adds a reaction between two molecules to the system
+ * @param frame Frame number of the reaction
+ * @param atom_transfer_count Number of atoms transferred in the reaction
+ * @param source Source molecule of the reaction
+ * @param target Target molecule of the reaction
+ * @return std::pair<int, int> Pair of molecule IDs representing the reaction edge
+ * @note Thread-safe implementation with mutex lock
+ */
 std::pair<int, int> ReaxFlow::add_reaction(const int &frame, const int &atom_transfer_count, Molecule *source,
                                            Molecule *target) {
     // lock it to avoid race condition when parallel execution
@@ -56,6 +71,11 @@ std::pair<int, int> ReaxFlow::add_reaction(const int &frame, const int &atom_tra
     return edge;
 }
 
+/**
+ * @brief Reduces the reaction graph by handling reversible reactions
+ * @details Combines forward and reverse reactions, keeping only the net reaction counts
+ * and atom transfer counts. Removes zero-count reactions from the graph.
+ */
 void ReaxFlow::reduce_graph() {
     // Reduce reversive reactions.
     std::vector<int> edges_visited;
@@ -141,10 +161,20 @@ void ReaxFlow::reduce_graph() {
     edge_atom_transfer_counts = std::move(new_edge_atom_transfer_counts);
 }
 
+/**
+ * @brief Generates a brief report of the reaction flow
+ */
 void ReaxFlow::brief_report() { return; }
 
+/**
+ * @brief Writes the reaction flow graph to a DOT file
+ * @param output_file Path to the output DOT file
+ * @param edge_indices Indices of edges to include in the graph
+ * @param write_atom_transfer Whether to use atom transfer counts as edge weights
+ * @param layout Graph layout algorithm to use
+ */
 void ReaxFlow::write_dot_file(const std::string &output_file, const std::vector<int> &edge_indices,
-                              bool write_atom_transfer_count, std::string layout) {
+                              bool write_atom_transfer, std::string layout) {
     FILE *fp = fopen(output_file.c_str(), "w");
     std::set<int> node_indices;
 
@@ -168,51 +198,61 @@ void ReaxFlow::write_dot_file(const std::string &output_file, const std::vector<
 
     // Write nodes
     for (const auto &node_id : node_indices) {
-        fmt::print(fp, "  node{} [label=\"[{}] {}\"];\n", node_id, node_id, nodes[node_id]->formula);
+        fmt::print(fp, "  node{} [label=\"{}\"];\n", node_id, nodes[node_id]->formula);
     }
     fmt::print(fp, "\n");
 
     // Write edges, some of them are high-lighted because of bigger counts
     float penwidth = 1.0f;
-    int max_highlights = 10;
+    int max_highlights = edge_indices.size() / 4;
     int curr_highlights = 0;
-    int reaction_weight = 0;
+    int reaction_weights = 0;
+
+    // std::sort(sorted_edge_id_count.begin(), sorted_edge_id_count.end(),
+    //           [](const auto &a, const auto &b) { return a.second > b.second; });
+    std::vector<std::pair<int, int>> sorted_edge_id_weight;
+    for (const auto &edge_id : edge_indices) {
+        reaction_weights = edge_reaction_counts[edge_id];
+        sorted_edge_id_weight.emplace_back(std::pair(edge_id, reaction_weights));
+    }
+    std::sort(sorted_edge_id_weight.begin(), sorted_edge_id_weight.end(),
+              [](const auto &a, const auto &b) { return a.second > b.second; });
 
     // Write edges based on sorted reaction counts
-    for (const auto &edge_id : edge_indices) {
-        if (write_atom_transfer_count) {
-            reaction_weight = edge_atom_transfer_counts[edge_id];
-            penwidth = std::min(5.0, 1.0 + log(reaction_weight));
+    std::string edge_line;
+    for (const auto &id_weight : sorted_edge_id_weight) {
+        penwidth = std::min(5.0, 2.0 + log(id_weight.second));
+
+        if (write_atom_transfer) {
+            edge_line = fmt::format(" node{} -> node{} [label=\"{} : {}\", penwidth={}", edges[id_weight.first].first, edges[id_weight.first].second, id_weight.second, edge_atom_transfer_counts[id_weight.first], penwidth);
         } else {
-            reaction_weight = edge_reaction_counts[edge_id];
-            penwidth = std::min(5.0, 2.0 + log(reaction_weight));
-        }
+            edge_line = fmt::format(" node{} -> node{} [label=\"{}\", penwidth={}", edges[id_weight.first].first, edges[id_weight.first].second, id_weight.second, penwidth);
+        } 
 
         if (curr_highlights < max_highlights) {
-            fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}, color=goldenrod];\n", edges[edge_id].first,
-                       edges[edge_id].second, reaction_weight, penwidth);
-        } else {
-            fmt::print(fp, " node{} -> node{} [label=\"{}\", penwidth={}];\n", edges[edge_id].first,
-                       edges[edge_id].second, reaction_weight, penwidth);
+            edge_line += ", color=goldenrod];\n";
         }
-
+        else {
+            edge_line += "];\n";
+        }
+        fmt::print(fp, edge_line);
         curr_highlights++;
     }
 
     fmt::print(fp, "}}\n");
     fclose(fp);
-
-    fmt::print("\nReaction graph saved to {}\n", output_file);
 }
 
-// Save reaction flow graph as DOT format for Graphviz.
-void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, bool draw_molecules,
-                          bool reduce_reactions) {
+/**
+ * @brief Saves the reaction flow graph and related visualizations
+ * @param output_dir Directory to save the output files
+ * @param max_reactions Maximum number of reactions to include
+ * @param draw_molecules Whether to draw molecular structures
+ * @param reduce_reactions Whether to reduce the reaction graph
+ */
+void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, bool draw_molecules, bool reduce_reactions) {
     std::string save_path_reactions = output_dir + "reactions.dot";
     std::string save_path_reactions_full = output_dir + "reactions_full.dot";
-
-    std::string save_path_atom_transfer = output_dir + "atom_transfer.dot";
-    std::string save_path_atom_transfer_full = output_dir + "atom_transfer_full.dot";
 
     if (reduce_reactions) {
         reduce_graph();
@@ -266,8 +306,8 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
     }
 
     // Write main dot file.
-    write_dot_file(save_path_reactions, selected_edge_indices);
-    write_dot_file(save_path_atom_transfer, selected_edge_indices, true);
+    write_dot_file(save_path_reactions, selected_edge_indices, true);
+    fmt::print("Reaction graph saved to {}\n", save_path_reactions);
 
     // If
     if (selected_edge_indices.size() < edges.size()) {
@@ -276,11 +316,12 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
             all_edge_indices.push_back(tmp_id);
         }
 
-        fmt::print("Note: Reaction graph too complex, write full graph (*full.dot) and default subgraph seperately.\n");
-
-        write_dot_file(save_path_reactions_full, all_edge_indices);
-        write_dot_file(save_path_atom_transfer_full, selected_edge_indices, true);
+        write_dot_file(save_path_reactions_full, all_edge_indices, true);
+        fmt::print("Note: Graphs too complex, write full graph (*full.dot) and default subgraph seperately.\n");
     }
+
+    save_molecule_centered_subgraphs(output_dir, "reactions");
+    fmt::print("Reaction graphs centered on key moleulces saved to {}\n", output_dir);
 
 #ifdef ENABLE_DRAW_MOLECULE
     // Draw molecules
@@ -292,4 +333,132 @@ void ReaxFlow::save_graph(const std::string &output_dir, int &max_reactions, boo
         fmt::print("\n");
     }
 #endif
+}
+
+/**
+ * @brief Saves molecule-centered subgraphs of the reaction network
+ * @param output_dir Directory to save the output files
+ * @param write_atom_transfer Whether to write atom transfer counts in graph file and csv file
+ * @details Generates subgraphs centered on key molecules, showing their reactions with other molecules
+ */
+void ReaxFlow::save_molecule_centered_subgraphs(const std::string &output_dir, bool write_atom_transfer) {
+    std::map<int, int> node_degrees;
+    std::map<int, int> node_in_degrees;
+    std::map<int, int> node_out_degrees;
+
+    std::map<int, int> node_degrees_at;
+    std::map<int, int> node_in_degrees_at;
+    std::map<int, int> node_out_degrees_at;
+
+    int max_key_molecules = 20;
+    int max_molecule_size = 100;
+
+    int source_id = -1;
+    int target_id = -1;
+
+    int curr_degree;
+    int curr_degree_at;
+
+    for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
+        source_id = edges[edge_id].first;
+        target_id = edges[edge_id].second;
+
+        curr_degree = edge_reaction_counts[edge_id];
+        curr_degree_at = edge_atom_transfer_counts[edge_id];
+
+        node_degrees[source_id] += curr_degree;
+        node_degrees[target_id] += curr_degree;
+        node_in_degrees[target_id] += curr_degree;
+        node_out_degrees[source_id] += curr_degree;
+
+        node_degrees_at[source_id] += curr_degree_at;
+        node_degrees_at[target_id] += curr_degree_at;
+        node_in_degrees_at[target_id] += curr_degree_at;
+        node_out_degrees_at[source_id] += curr_degree_at;
+    }
+
+    // Sort nodes by degree in descending order
+    // Only output molecules smaller than max_molecule_size, we don't consider big polymers as a "main character"
+    std::vector<std::pair<int, int>> sort_nodes;
+    for (int node_id = 0; node_id < node_degrees.size(); node_id++) {
+        if (nodes[node_id]->atom_ids.size() > max_molecule_size) continue;
+        sort_nodes.emplace_back(std::pair(node_id, node_degrees[node_id]));
+    }
+
+    std::sort(sort_nodes.begin(), sort_nodes.end(),
+              [](const std::pair<int, int> &a, const std::pair<int, int> &b) { return a.second > b.second; });
+
+    if (sort_nodes.size() > max_key_molecules) {
+        sort_nodes.resize(max_key_molecules);
+    }
+
+    // Write molecule-centered graph dot files
+    std::string save_csv_path = output_dir + "key_molecules_reactions.csv";
+    FILE *fp_csv = fopen(save_csv_path.c_str(), "w");
+
+    std::string csv_header = "";
+    if (write_atom_transfer) {
+        csv_header =
+        "molecule,total reactions,in reaction,out reaction,total atom transfer,in atom transfer,out atom transfer,from 1,from 2,from 3,from 4,from 5,to 1,to 2,to 3,to 4,to 5,\n";
+    }
+    else {
+        csv_header =  "molecule,total reactions,in reaction,out reaction,from 1,from 2,from 3,from 4,from 5,to 1,to 2,to 3,to 4,to 5,\n";
+    }
+    fmt::print(fp_csv, csv_header);
+
+    for (const auto &pair : sort_nodes) {
+        std::vector<int> subgraph_edge_indices;
+        std::vector<std::pair<int, int>> from_nodes;
+        std::vector<std::pair<int, int>> to_nodes;
+        // Build molecule centered subgraph
+        for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
+            if (edges[edge_id].first == pair.first) {
+                to_nodes.emplace_back(std::pair(edges[edge_id].second, edge_reaction_counts[edge_id]));
+                subgraph_edge_indices.emplace_back(edge_id);
+            } else if (edges[edge_id].second == pair.first) {
+                from_nodes.emplace_back(std::pair(edges[edge_id].first, edge_reaction_counts[edge_id]));
+                subgraph_edge_indices.emplace_back(edge_id);
+            }
+        }
+
+        // Write dot file.
+        std::string curr_formula = nodes[pair.first]->formula;
+        std::string save_subgraph_path =
+            output_dir + fmt::format("reactions_centered_on_{}.dot", curr_formula);
+        write_dot_file(save_subgraph_path, subgraph_edge_indices, write_atom_transfer, "dot");
+
+        // Sort from nodes and to nodes by reaction weight;
+        std::sort(from_nodes.begin(), from_nodes.end(),
+                  [](const std::pair<int, int> &a, const std::pair<int, int> &b) { return a.second > b.second; });
+        std::sort(to_nodes.begin(), to_nodes.end(),
+                  [](const std::pair<int, int> &a, const std::pair<int, int> &b) { return a.second > b.second; });
+
+        size_t max_neigh_to_output = 5;
+        std::string from_string;
+        std::string to_string;
+        for (size_t tmp_id = 0; tmp_id < max_neigh_to_output; tmp_id++) {
+            if (tmp_id < from_nodes.size())
+                from_string += fmt::format("{},", nodes[from_nodes[tmp_id].first]->formula);
+            else
+                from_string += ",";
+        }
+        for (size_t tmp_id = 0; tmp_id < max_neigh_to_output; tmp_id++) {
+            if (tmp_id < to_nodes.size())
+                to_string += fmt::format("{},", nodes[to_nodes[tmp_id].first]->formula);
+            else
+                to_string += ",";
+        }
+
+        std::string csv_record_string = "";
+
+        if (write_atom_transfer) {
+            csv_record_string = fmt::format("{},{},{},{},{},{},{},{}{}\n", curr_formula, node_degrees[pair.first], node_in_degrees[pair.first],
+                        node_out_degrees[pair.first], node_degrees_at[pair.first], node_in_degrees_at[pair.first], node_out_degrees_at[pair.first], from_string, to_string);
+        } else {
+            csv_record_string = fmt::format("{},{},{},{},{}{}\n", curr_formula, node_degrees[pair.first], node_in_degrees[pair.first],
+                        node_out_degrees[pair.first], from_string, to_string);
+        }
+
+        fmt::print(fp_csv, csv_record_string);
+    }
 }
