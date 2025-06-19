@@ -26,6 +26,8 @@ reax_tools是C++写的一个反应MD后分析工具，能够分析lammpstrj和xy
 
 附有绘图python脚本reax_plot.py，易于全自动产生结果。 
 
+----
+
 ### 基本使用
 
 #### 1. 从Github页面 (https://github.com/tgraphite/reax_tools/releases) 下载最新版本。无后缀名的是Linux版，后缀名为exe的是Windows版。**作者推荐使用Linux版二进制程序**。
@@ -69,8 +71,9 @@ reax_tools是C++写的一个反应MD后分析工具，能够分析lammpstrj和xy
 
     -rr 对于一对互逆的反应，只保留净值。对过于繁杂的反应网络很有用。
 
+----
 
-#### 7. 图表型结果文件
+### 图表型结果文件
 reax_tools是纯计算程序，默认的数据绘图功能使用附带的reax_plot.py实现，reax_plot.py的用法如下：  
     
     reax_plot.py -d <目录名>            # 自动绘制reax_tools的各类图表型结果
@@ -81,22 +84,35 @@ reax_tools是纯计算程序，默认的数据绘图功能使用附带的reax_pl
 reax_plot对图表型数据的绘制结果：
 
 - species_count.csv
-    <img src="doc/species_count.png" width=600> 
 
-    95% | Avg | 5% 分别表示95百分位值（相对高值）、平均值、5百分位值（相对低值）
+<img src="doc/species_count.png" width=600> 
+
+95% | Avg | 5% 分别表示95百分位值（相对高值）、平均值、5百分位值（相对低值）
 
 - bond_count.csv
-    <img src="doc/bond_count.png" width=600>
+
+<img src="doc/bond_count.png" width=600>
 
 - ring_count.csv
-    <img src="doc/ring_count.png" width=600>
-    R3-R8表示3元-8元环，注意有些体系如含有金属块体的，环数可能没有意义。如果希望忽略金属块体，在初始输入时，-t中把对应元素名改为X，如此这种元素就全程都不会纳入考虑。
+
+<img src="doc/ring_count.png" width=600>
+
+R3-R8表示3元-8元环，注意有些体系如含有金属块体的，环数可能没有意义。如果希望忽略金属块体，在初始输入时，-t中把对应元素名改为X，如此这种元素就全程都不会纳入考虑。
 
 - atom_bonded_num_count.csv  
-    <img src="doc/atom_bonded_num_count.png" width=600>
-    C(3)表示连接有3个原子的碳，假如在研究煤、干酪根、聚合物等有机体系，那么近似等于sp2碳，其他如O(2)即连了2个原子的氧，H(0)即孤立氢原子。
 
-#### 8. 网络型结果文件
+<img src="doc/atom_bonded_num_count.png" width=600>
+
+C(3)表示连接有3个原子的碳，假如在研究煤、干酪根、聚合物等有机体系，那么近似等于sp2碳，其他如O(2)即连了2个原子的氧，H(0)即孤立氢原子。
+
+- compare_*.png
+
+<img src="doc/compare_species_count_NO2.png" width=600>
+
+当你有多个平行体系时，使用如```python reax_plot.py -c system1_species_count.csv ...```产生的结果，本质上就是合并同类项，输入的若干文件类型必须相同，reax_plot.py会自动识别有比较价值、并且在每个文件中都有出现的字段。
+
+#### 网络型结果文件
+
 像工作流程图一类的顶点和边构成的结构，为图论意义上的图（Graph），为了消歧义也称为网络（Network）。描述一个网络本质上只需要给出顶点的列表和边的列表，dot文件就是一种常用的记录网络的格式。
 
 输出的dot文件推荐使用graphviz可视化，graphviz可以直接用apt或yum安装(如`apt install graphviz`)，然后用`dot -Tpng reactions.dot -o reactions.png`绘制。
@@ -110,21 +126,32 @@ reax_plot对图表型数据的绘制结果：
 需要注意对于特别复杂的反应网络，dot文件过大时绘制时间可能会长达几十分钟，这时reax_tools会给出reactions.dot和reactions_full.dot两个文件，前者是后者的子网络（反应数最多的那部分），你可以只绘制前者。
 
 - reactions.dot
-    <img src="doc/reactions.png" width=600>
-    其中如5:10表示这个路径有效反应了5次，向下游转移了10个原子。最频繁的一些反应会自动用黄色高亮。
+
+<img src="doc/reactions.png" width=600>
+
+其中如5:10表示这个路径有效反应了5次，向下游转移了10个原子。最频繁的一些反应会自动用黄色高亮。
+
+额外说明：
+
+1. 模拟时往往并不会像我们预想的那样，如C4H8 -> C2H4 + C2H4这样能够完美配平，从轨迹分析而言，我们只能知道C4H8有时向C2H4转移了2个原子、有时转移了4个原子等。所以这里将反应次数和转移的总原子量都显示出来。
+
+2. 很多时候都是互逆的转化关系，如H2O <-> OH，当使用-rr选项时，其中一个数值较小的会被消除，剩下那个减去它的反应数和转移的总原子量，是否要加这个选项，根据情况自己把握。
+
+3. 题外话：如上图，初始物质C4H6N4O11可以通过4条渠道转化成终端物质NO2，其中有最为便捷的直接转化，也有通过两种中间体的渠道。可以手动计算初始物质到终端物质的**最大网络流和反应比例**，以后可能加入自动识别和计算的功能。
 
 - reactions_centered_on_*.dot
-    <img src="doc/reactions_centered_on_C4H6N2O7.png" width=600>
-    自动识别的关键分子的上下游关系，相当于一个子网络。标注方式同上。
+
+<img src="doc/reactions_centered_on_C4H6N2O7.png" width=600>
+
+自动识别的关键分子的上下游关系，相当于一个子网络。标注方式同上。
 
 此外，key_molecules_reactions.csv还会输出当前体系下关键分子的流入（流出）反应数、流入（流出）原子数、5个最大来源和5个最大去路。  
 
-#### 提交需求和报告bug
+### 提交需求和报告bug
 
-1. Github(https://github.com/tgraphite/reax_tools/releases)
-2. QQ群（561184358）
+QQ群（561184358）
 
-#### 使用许可证和题外话
+### 使用许可证和题外话
 
 MIT许可证，想用就用。  
 
