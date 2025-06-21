@@ -2,7 +2,7 @@
 
 [English document](README.md) | [中文文档](README_CN.md)
 
-您现在可以直接使用Web版进行全部分析（不含画图）: [reax_tools_web](http://cc-portal.xyz/reax_tools)
+您现在可以直接使用Web版进行全部分析: [reax_tools_web](http://cc-portal.xyz/reax_tools)
 
 ----
 

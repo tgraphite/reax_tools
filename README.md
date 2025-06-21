@@ -2,7 +2,7 @@
 
 [English document](README.md) | [中文文档](README_CN.md)
 
-You can now perform all analyses (excluding plotting) directly via the Web version: [reax_tools_web](http://cc-portal.xyz/reax_tools)
+You can now perform all analyses directly via the Web version: [reax_tools_web](http://cc-portal.xyz/reax_tools)
 
 ----
 
