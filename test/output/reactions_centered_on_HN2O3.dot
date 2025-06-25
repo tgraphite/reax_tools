@@ -1,0 +1,21 @@
+digraph ReactionFlow {
+  rankdir=LR;
+  layout=dot;
+  node [shape=box, style=filled, fillcolor=azure2, height=0.5, width=1.5];
+  edge [color=dimgray];
+
+  node0 [label="HN3O4"];
+  node3 [label="NO2"];
+  node4 [label="N3O3"];
+  node6 [label="HO"];
+  node12 [label="N3O4"];
+  node13 [label="HN3O5"];
+  node25 [label="HN2O3"];
+
+ node12 -> node25 [label="5 : 12", penwidth=3.609438, color=goldenrod];
+ node25 -> node13 [label="5 : 16", penwidth=3.609438];
+ node25 -> node0 [label="1 : 5", penwidth=2];
+ node6 -> node25 [label="1 : 2", penwidth=2];
+ node3 -> node25 [label="1 : 2", penwidth=2];
+ node25 -> node4 [label="1 : 4", penwidth=2];
+}

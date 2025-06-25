@@ -16,4 +16,6 @@ reax_tools_linux/
 tmp/
 *.html
 tests/
+web/
+
 lib/

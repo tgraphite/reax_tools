@@ -1,0 +1,39 @@
+digraph ReactionFlow {
+  rankdir=LR;
+  layout=dot;
+  node [shape=box, style=filled, fillcolor=azure2, height=0.5, width=1.5];
+  edge [color=dimgray];
+
+  node0 [label="HN3O4"];
+  node2 [label="H2O"];
+  node5 [label="HN3O3"];
+  node6 [label="HO"];
+  node8 [label="H2N3O4"];
+  node9 [label="H3N"];
+  node10 [label="H2N"];
+  node11 [label="H"];
+  node12 [label="N3O4"];
+  node14 [label="H3NO"];
+  node19 [label="HN2O"];
+  node22 [label="HNO"];
+  node26 [label="H3N3O4"];
+  node28 [label="O"];
+  node30 [label="H2N3O2"];
+  node58 [label="H2O2"];
+
+ node6 -> node2 [label="15 : 25", penwidth=4.7080503, color=goldenrod];
+ node9 -> node2 [label="10 : 10", penwidth=4.302585, color=goldenrod];
+ node11 -> node2 [label="10 : 10", penwidth=4.302585, color=goldenrod];
+ node0 -> node2 [label="5 : 6", penwidth=3.609438];
+ node8 -> node2 [label="3 : 3", penwidth=3.0986123];
+ node10 -> node2 [label="2 : 2", penwidth=2.6931472];
+ node14 -> node2 [label="1 : 2", penwidth=2];
+ node12 -> node2 [label="1 : 1", penwidth=2];
+ node26 -> node2 [label="1 : 1", penwidth=2];
+ node5 -> node2 [label="1 : 2", penwidth=2];
+ node19 -> node2 [label="1 : 1", penwidth=2];
+ node28 -> node2 [label="1 : 1", penwidth=2];
+ node30 -> node2 [label="1 : 1", penwidth=2];
+ node2 -> node22 [label="1 : 1", penwidth=2];
+ node2 -> node58 [label="1 : 2", penwidth=2];
+}
