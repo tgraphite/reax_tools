@@ -19,8 +19,7 @@ int main(int argc, char **argv) {
     parser.add_argument("--radius", "-r", "scaling factor of vdW radii", "Traj analysis", "1.2", false, false, "float");
     parser.add_argument("--threads", "-nt", "number of threads", "Traj analysis", "4", false, false, "int");
     parser.add_argument("--dump", "", "dump lammps data file (.data) for each frame", "Traj analysis", "", false, true);
-    parser.add_argument("--reaxflow-threshold", "--reaxflow", "similarity threshold for analyze reaction flows",
-                        "Traj analysis", "0.25", false, false, "float");
+
     parser.add_argument("--reduce-reactions", "-rr", "reduce reverse reactions", "Traj analysis", "false", false, true);
     parser.add_argument("--merge-element", "-me", "merge species groups by an element type", "Species analysis", "C",
                         false, false, "e.g. C");
@@ -53,15 +52,18 @@ int main(int argc, char **argv) {
     if (parser.has_option("--types")) {
         type_names = parser.get<std::vector<std::string>>("--types");
     }
-    float rvdw_scale = parser.get<float>("--radius");
+
     int num_threads = parser.get<int>("--threads");
-    float reaxflow_threshold = parser.get<float>("--reaxflow-threshold");
+    float rvdw_scale = parser.get<float>("--radius");
+
     bool if_dump_lammps_data = parser.has_flag("--dump");
     bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("-rr");
+
     std::string merge_target = parser.has_option("--merge-element") ? parser.get<std::string>("--merge-element") : "";
     std::vector<int> merge_range = parser.get<std::vector<int>>("--merge-ranges");
     bool if_merge_by_element = !merge_target.empty();
     bool if_merge_rescale = parser.has_flag("--rescale-count") || parser.has_flag("-rc");
+
     std::vector<std::string> sort_order;
     if (parser.has_option("--element-order")) {
         sort_order = parser.get<std::vector<std::string>>("--element-order");
@@ -94,8 +96,7 @@ int main(int argc, char **argv) {
         fmt::print("**** NOTE **** : This may cause inaccuracy when X is not an elementary substance.\n");
     }
 
-    uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data,
-                    reaxflow_threshold);
+    uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data);
 
     if (if_merge_by_element) {
         uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);

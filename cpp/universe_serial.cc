@@ -1,5 +1,3 @@
-#include "universe.h"
-
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -8,49 +6,39 @@
 #include <unordered_set>
 #include <vector>
 
-#include "atom.h"
 #include "defines.h"
 #include "fmt/core.h"
-#include "molecule.h"
 #include "reax_species.h"
 #include "string_tools.h"
+#include "universe.h"
 
-Universe::Universe()
-{
-}
+Universe::Universe() {}
 
-Universe::~Universe()
-{
-    if (system != nullptr)
-    {
+Universe::~Universe() {
+    if (system != nullptr) {
         delete system;
         system = nullptr;
     }
 
-    if (last_system != nullptr)
-    {
+    if (last_system != nullptr) {
         delete last_system;
         last_system = nullptr;
     }
 
-    if (reax_species != nullptr)
-    {
+    if (reax_species != nullptr) {
         delete reax_species;
         reax_species = nullptr;
     }
 
-    if (reax_flow != nullptr)
-    {
+    if (reax_flow != nullptr) {
         delete reax_flow;
         reax_flow = nullptr;
     }
 }
 
-void Universe::flush()
-{
+void Universe::flush() {
     // only for fallbacked serial.
-    if (last_system != nullptr)
-    {
+    if (last_system != nullptr) {
         delete last_system;
         last_system = nullptr;
     }
@@ -59,9 +47,7 @@ void Universe::flush()
 }
 
 void Universe::process_traj(std::string &file_path, std::string &output_dir, std::vector<std::string> &type_names,
-                            const float &rvdw_scale, const int &num_threads, const bool &if_dump_lammps_data,
-                            const float &reaxflow_threshold)
-{
+                            const float &rvdw_scale, const int &num_threads, const bool &if_dump_lammps_data) {
     int curr_frame_id = 1;
     int max_neigh = 10;
     float neigh_radius = 2.4 * rvdw_scale;
@@ -76,11 +62,8 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
     std::string atom_bonded_num_count_filepath = output_dir + "atom_bonded_num_count.csv";
 
     // The highest calling stack, only do this once.
-    while (file.is_open() && !file.eof())
-    {
-
-        if (curr_frame_id > 1)
-        {
+    while (file.is_open() && !file.eof()) {
+        if (curr_frame_id > 1) {
             flush();
         }
 
@@ -92,15 +75,13 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
         system->set_rvdw_scale(rvdw_scale);
         system->set_reax_flow(this->reax_flow);
         system->set_reax_species(this->reax_species);
-        system->set_reaxflow_threshold(reaxflow_threshold);
 
         if (ends_with(file_path, ".lammpstrj"))
             system->load_lammpstrj(file);
         else if (ends_with(file_path, ".xyz"))
             system->load_xyz(file);
 
-        if (system->atoms.size() == 0)
-        {
+        if (system->atoms.size() == 0) {
             continue;
         };
         curr_frame_id++;
@@ -109,26 +90,21 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
         system->process_this();
         system->process_reax();
 
-        if (if_dump_lammps_data)
-        {
+        if (if_dump_lammps_data) {
             std::string lammps_data_file = output_dir + "frame_" + std::to_string(system->frame_id) + ".data";
             system->dump_lammps_data(lammps_data_file);
         }
 
-        if (system->frame_id == 1)
-        {
+        if (system->frame_id == 1) {
             fmt::print("Atom Types: ");
-            for (auto &pair : system->type_itos)
-            {
+            for (auto &pair : system->type_itos) {
                 fmt::print("{}: {}, ", pair.first, pair.second);
             }
             fmt::print("\n");
             fmt::print("\n");
 
             is_first_frame = true;
-        }
-        else
-        {
+        } else {
             is_first_frame = false;
         }
 

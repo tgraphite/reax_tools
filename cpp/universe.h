@@ -1,14 +1,12 @@
 #pragma once
 #include <string>
 
-#include "molecule.h"
 #include "reax_flow.h"
 #include "reax_species.h"
 #include "system.h"
 
-class Universe
-{
-  public:
+class Universe {
+   public:
     System *last_system = nullptr;
     System *system = nullptr;
 
@@ -21,6 +19,5 @@ class Universe
     void flush();
 
     void process_traj(std::string &file_path, std::string &output_dir, std::vector<std::string> &type_names,
-                      const float &rvdw_scale, const int &num_threads, const bool &if_dump_lammps_data,
-                      const float &reaxflow_threshold);
+                      const float &rvdw_scale, const int &num_threads, const bool &if_dump_lammps_data);
 };

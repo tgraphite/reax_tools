@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "defines.h"
-#include "molecule.h"
+#include "system.h"
+
+struct Molecule;
 
 class ReaxFlow {
    private:
@@ -20,7 +22,7 @@ class ReaxFlow {
     std::vector<int> edge_atom_transfer_counts;
 
     // Hash maps for O(1) lookup
-    std::unordered_map<std::string, int> molecule_map;
+    std::unordered_map<unsigned int, int> molecule_map;
     std::mutex reaxflow_mutex;
 
    public:
@@ -42,8 +44,7 @@ class ReaxFlow {
     void reduce_graph();
 
     void save_molecule_centered_subgraphs(const std::string &output_dir, bool write_atom_transfer = true);
-    void dump_molecules(const std::string &output_dir, int max_key_molecules = 50, bool dump_mol2 = false,
-                        bool dump_pictures = true);
+    void dump_molecules(const std::string &output_dir, int max_key_molecules = 50, bool dump_pictures = true);
     void dump_smiles(const std::string &output_dir);
     void draw_molecules(const std::string &output_dir);
 

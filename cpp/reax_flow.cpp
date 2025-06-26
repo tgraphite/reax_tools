@@ -25,10 +25,10 @@ ReaxFlow::~ReaxFlow() {
  * @return int The ID of the molecule in the system
  * @note If the molecule already exists, returns its existing ID
  */
-int ReaxFlow::add_molecule(Molecule *mol) {
+inline int ReaxFlow::add_molecule(Molecule *mol) {
     // If already exists
     // Use hash map for O(1) lookup
-    auto it = molecule_map.find(mol->formula);
+    auto it = molecule_map.find(mol->hash);
     if (it != molecule_map.end()) {
         return it->second;
     }
@@ -38,7 +38,7 @@ int ReaxFlow::add_molecule(Molecule *mol) {
     Molecule *new_mol = new Molecule(*mol);
     int new_id = nodes.size();
     nodes.emplace_back(new_mol);
-    molecule_map[mol->formula] = new_id;
+    molecule_map[mol->hash] = new_id;
     return new_id;
 }
 
@@ -466,8 +466,7 @@ void ReaxFlow::save_molecule_centered_subgraphs(const std::string &output_dir, b
     fclose(fp_csv);
 }
 
-void ReaxFlow::dump_molecules(const std::string &output_dir, int max_key_molecules, bool dump_mol2,
-                              bool dump_pictures) {
+void ReaxFlow::dump_molecules(const std::string &output_dir, int max_key_molecules, bool dump_pictures) {
     // Get key molecules
     std::map<int, int> node_degrees;
     int source_id = -1;
@@ -502,16 +501,6 @@ void ReaxFlow::dump_molecules(const std::string &output_dir, int max_key_molecul
 
     if (sort_nodes.size() > max_key_molecules) {
         sort_nodes.resize(max_key_molecules);
-    }
-
-    if (dump_mol2) {
-        fmt::print("Dump {} molecules in mol2 format.\n", sort_nodes.size());
-
-        std::string file_path;
-        for (const auto &id_degree : sort_nodes) {
-            file_path = output_dir + fmt::format("molecule_{}.mol2", nodes[id_degree.first]->formula);
-            nodes[id_degree.first]->dump_mol2(file_path);
-        }
     }
 }
 

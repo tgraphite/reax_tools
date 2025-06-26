@@ -23,7 +23,6 @@ class ReaxSpecies {
 
     // For import data from class Universe.
     ReaxSpecies();
-
     ~ReaxSpecies();
 
     void get_formulas();

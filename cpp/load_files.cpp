@@ -1,12 +1,11 @@
+#include <algorithm>
+#include <iostream>
+
 #include "fmt/format.h"
 #include "string_tools.h"
 #include "universe.h"
 
-#include <algorithm>
-#include <iostream>
-
-void System::load_xyz(std::ifstream &file)
-{
+void System::load_xyz(std::ifstream &file) {
     std::string line;
     std::vector<std::string> tokens;
     int atom_id = 0;
@@ -20,72 +19,58 @@ void System::load_xyz(std::ifstream &file)
     std::string type_str;
     std::string tmp_str;
 
-    if (!file.is_open())
-    {
+    if (!file.is_open()) {
         std::cerr << "Failed to open file" << std::endl;
     }
 
-    while (getline(file, line))
-    {
+    while (getline(file, line)) {
         tokens = split_by_space(line);
 
-        if ((tokens.size() == 0) || (tokens[0] == "#"))
-        {
+        if ((tokens.size() == 0) || (tokens[0] == "#")) {
             continue;
         }
         // Skip time or energy information lines
         else if (std::find(tokens.begin(), tokens.end(), "time") != tokens.end() &&
                  std::find(tokens.begin(), tokens.end(), "=") != tokens.end() &&
-                 std::find(tokens.begin(), tokens.end(), "E") != tokens.end())
-        {
+                 std::find(tokens.begin(), tokens.end(), "E") != tokens.end()) {
             this->has_boundaries = false;
             continue;
         }
         // Atom numbers line
-        else if (tokens.size() == 1 && can_convert_to_int(tokens[0]))
-        {
-            iatoms = std::stoi(tokens[0]);
-            atoms.reserve(iatoms);
-            bonds.reserve(iatoms * 3);
-            molecules.reserve(iatoms / 2);
+        else if (tokens.size() == 1 && can_convert_to_int(tokens[0])) {
+            total_atoms = std::stoi(tokens[0]);
+            atoms.reserve(total_atoms);
+            bonds.reserve(total_atoms * 3);
+            molecules.reserve(total_atoms / 2);
             continue;
-        }
-        else if (line.find("Lattice") != std::string::npos)
-        {
+        } else if (line.find("Lattice") != std::string::npos) {
             // Parse Lattice matrix
             std::string lattice_str = "";
             size_t lattice_start = line.find("Lattice=\"");
-            if (lattice_start != std::string::npos)
-            {
-                lattice_start += 9; // Skip "Lattice=\""
+            if (lattice_start != std::string::npos) {
+                lattice_start += 9;  // Skip "Lattice=\""
                 size_t lattice_end = line.find("\"", lattice_start);
-                if (lattice_end != std::string::npos)
-                {
+                if (lattice_end != std::string::npos) {
                     lattice_str = line.substr(lattice_start, lattice_end - lattice_start);
                 }
             }
 
-            if (lattice_str.empty())
-            {
+            if (lattice_str.empty()) {
                 fmt::print("Warning: Could not find Lattice= in line\n");
                 continue;
             }
 
             std::vector<std::string> lattice_values = split_by_space(lattice_str);
-            if (lattice_values.size() != 9)
-            {
+            if (lattice_values.size() != 9) {
                 fmt::print("Warning: Invalid Lattice format, expected 9 values but got {}\n", lattice_values.size());
                 continue;
             }
 
-            try
-            {
+            try {
                 lx = std::stof(lattice_values[0]);
                 ly = std::stof(lattice_values[4]);
                 lz = std::stof(lattice_values[8]);
-            }
-            catch (const std::exception &e)
-            {
+            } catch (const std::exception &e) {
                 fmt::print("Error parsing Lattice values: {}\n", e.what());
                 continue;
             }
@@ -96,24 +81,18 @@ void System::load_xyz(std::ifstream &file)
             zlo = 0.0f;
 
             size_t origin_start = line.find("Origin=\"");
-            if (origin_start != std::string::npos)
-            {
-                origin_start += 8; // Skip "Origin=\""
+            if (origin_start != std::string::npos) {
+                origin_start += 8;  // Skip "Origin=\""
                 size_t origin_end = line.find("\"", origin_start);
-                if (origin_end != std::string::npos)
-                {
+                if (origin_end != std::string::npos) {
                     std::string origin_str = line.substr(origin_start, origin_end - origin_start);
                     std::vector<std::string> origin_values = split_by_space(origin_str);
-                    if (origin_values.size() == 3)
-                    {
-                        try
-                        {
+                    if (origin_values.size() == 3) {
+                        try {
                             xlo = std::stof(origin_values[0]);
                             ylo = std::stof(origin_values[1]);
                             zlo = std::stof(origin_values[2]);
-                        }
-                        catch (const std::exception &e)
-                        {
+                        } catch (const std::exception &e) {
                             fmt::print("Error parsing Origin values: {}\n", e.what());
                         }
                     }
@@ -123,73 +102,53 @@ void System::load_xyz(std::ifstream &file)
             has_boundaries = true;
             axis_lengths = {lx, ly, lz};
             continue;
-        }
-        else if (tokens.size() >= 4 && tokens.size() <= 5)
-        {
-            if (tokens.size() == 4)
-            {
+        } else if (tokens.size() >= 4 && tokens.size() <= 5) {
+            if (tokens.size() == 4) {
                 atom_count++;
                 atom_id = atom_count;
                 given_type = tokens[0];
                 x = std::stof(tokens[1]);
                 y = std::stof(tokens[2]);
                 z = std::stof(tokens[3]);
-            }
-            else if (tokens.size() == 5)
-            {
+            } else if (tokens.size() == 5) {
                 atom_count++;
                 atom_id = std::stoi(tokens[0]);
                 given_type = tokens[1];
                 x = std::stof(tokens[2]);
                 y = std::stof(tokens[3]);
                 z = std::stof(tokens[4]);
-            }
-            else
-            {
+            } else {
                 std::cerr << "Invalid atom line in xyz file: " << line << std::endl;
             }
 
             // In xyz file, atom may have type of int (6...) or string (C...)
-            if (!can_convert_to_int(given_type))
-            {
+            if (!can_convert_to_int(given_type)) {
                 // In case of string type, give a int type for atom.
                 // Notice that must get the types correct!
-                try
-                {
-                    if (type_stoi.find(given_type) == type_stoi.end())
-                    {
-                        type_int = type_stoi.size() + 1; // To ensure all types are count from 1.
+                try {
+                    if (type_stoi.find(given_type) == type_stoi.end()) {
+                        type_int = type_stoi.size() + 1;  // To ensure all types are count from 1.
                         type_itos[type_int] = given_type;
                         type_stoi[given_type] = type_int;
-                        itypes++;
-                    }
-                    else
-                    {
+                        total_types++;
+                    } else {
                         type_int = type_stoi[given_type];
                     }
                     type_str = given_type;
-                }
-                catch (const std::invalid_argument &e)
-                {
+                } catch (const std::invalid_argument &e) {
                     std::cerr << "Invalid element type in xyzfile: " << given_type << std::endl;
                 }
-            }
-            else
-            {
+            } else {
                 // In case of int type
-                try
-                {
+                try {
                     type_int = std::stoi(given_type);
                     type_str = type_itos[type_int];
-                }
-                catch (const std::invalid_argument &e)
-                {
+                } catch (const std::invalid_argument &e) {
                     std::cerr << "Invalid element type in xyzfile: " << given_type << std::endl;
                 }
             }
 
-            if (has_boundaries)
-            {
+            if (has_boundaries) {
                 x = x - xlo;
                 y = y - ylo;
                 z = z - zlo;
@@ -199,9 +158,7 @@ void System::load_xyz(std::ifstream &file)
                 x = x < 0 ? x + lx : x;
                 y = y < 0 ? y + ly : y;
                 z = z < 0 ? z + lz : z;
-            }
-            else
-            {
+            } else {
                 x = x - xlo;
                 y = y - ylo;
                 z = z - zlo;
@@ -210,18 +167,16 @@ void System::load_xyz(std::ifstream &file)
             Atom *atom = new Atom(atom_id, type_int, {x, y, z}, type_str);
             atoms.push_back(atom);
 
-            // When there's no atom numbers line in xyz file, iatoms = 0, and
+            // When there's no atom numbers line in xyz file, total_atoms = 0, and
             // first atom id = 1.
-            if (atom_count == iatoms)
-            {
+            if (atom_count == total_atoms) {
                 break;
             }
         }
     }
 }
 
-void System::load_lammpstrj(std::ifstream &file)
-{
+void System::load_lammpstrj(std::ifstream &file) {
     // load a frame from lammpstrj, create a system instance.
     // when finish all atoms in this frame, stop.
     std::string line;
@@ -246,43 +201,31 @@ void System::load_lammpstrj(std::ifstream &file)
     bool read_atoms = false;
     int atoms_count = 0;
 
-    if (!file.is_open())
-    {
+    if (!file.is_open()) {
         std::cerr << "Failed to open file" << std::endl;
     }
 
-    while (getline(file, line))
-    {
+    while (getline(file, line)) {
         std::vector<std::string> tokens = split_by_space(line);
-        if ((tokens.size() == 0) || (tokens[0] == "#"))
-        {
+        if ((tokens.size() == 0) || (tokens[0] == "#")) {
             continue;
-        }
-        else if (tokens[0] == "ITEM:")
-        {
-            if (tokens[1] == "TIMESTEP")
-            {
+        } else if (tokens[0] == "ITEM:") {
+            if (tokens[1] == "TIMESTEP") {
                 read_timestep = true;
             }
-            if (tokens[1] == "NUMBER")
-            {
+            if (tokens[1] == "NUMBER") {
                 read_natoms = true;
             }
-            if (tokens[1] == "BOX")
-            {
+            if (tokens[1] == "BOX") {
                 read_box = true;
             }
-            if (tokens[1] == "ATOMS")
-            {
-                if (std::find(tokens.begin(), tokens.end(), "xs") != tokens.end())
-                {
+            if (tokens[1] == "ATOMS") {
+                if (std::find(tokens.begin(), tokens.end(), "xs") != tokens.end()) {
                     is_relative_coord = true;
                     atom_x_column = std::find(tokens.begin(), tokens.end(), "xs") - tokens.begin() - 2;
                     atom_y_column = std::find(tokens.begin(), tokens.end(), "ys") - tokens.begin() - 2;
                     atom_z_column = std::find(tokens.begin(), tokens.end(), "zs") - tokens.begin() - 2;
-                }
-                else
-                {
+                } else {
                     // find index of id, type, x, y, z
                     atom_x_column = std::find(tokens.begin(), tokens.end(), "x") - tokens.begin() - 2;
                     atom_y_column = std::find(tokens.begin(), tokens.end(), "y") - tokens.begin() - 2;
@@ -292,8 +235,7 @@ void System::load_lammpstrj(std::ifstream &file)
                 atom_type_column = std::find(tokens.begin(), tokens.end(), "type") - tokens.begin() - 2;
 
                 static bool printed_column_info = false;
-                if (!printed_column_info)
-                {
+                if (!printed_column_info) {
                     fmt::print("Format of lammpstrj file: id: {}, type: {}, x: {}, y: {}, z: {}\n", atom_id_column,
                                atom_type_column, atom_x_column, atom_y_column, atom_z_column);
                     printed_column_info = true;
@@ -301,55 +243,39 @@ void System::load_lammpstrj(std::ifstream &file)
 
                 read_atoms = true;
             }
-        }
-        else if (read_timestep)
-        {
-            itimestep = std::stoi(tokens[0]);
+        } else if (read_timestep) {
             read_timestep = false;
-        }
-        else if (read_natoms)
-        {
-            iatoms = std::stoi(tokens[0]);
-            atoms.reserve(iatoms);
-            bonds.reserve(iatoms * 3);
-            molecules.reserve(iatoms / 2);
+        } else if (read_natoms) {
+            total_atoms = std::stoi(tokens[0]);
+            atoms.reserve(total_atoms);
+            bonds.reserve(total_atoms * 3);
+            molecules.reserve(total_atoms / 2);
             read_natoms = false;
-        }
-        else if (read_box)
-        {
+        } else if (read_box) {
             // For rectangular box, maybe support triclinc box later.
-            if (box_dim == 0)
-            {
+            if (box_dim == 0) {
                 xlo = std::stof(tokens[0]);
                 xhi = std::stof(tokens[1]);
                 lx = xhi - xlo;
-            }
-            else if (box_dim == 1)
-            {
+            } else if (box_dim == 1) {
                 ylo = std::stof(tokens[0]);
                 yhi = std::stof(tokens[1]);
                 ly = yhi - ylo;
-            }
-            else if (box_dim == 2)
-            {
+            } else if (box_dim == 2) {
                 zlo = std::stof(tokens[0]);
                 zhi = std::stof(tokens[1]);
                 lz = zhi - zlo;
             }
 
             box_dim++;
-            if (box_dim > 2)
-            {
+            if (box_dim > 2) {
                 bounds = {xlo, ylo, zlo, xhi, yhi, zhi};
                 this->has_boundaries = true;
                 axis_lengths = {lx, ly, lz};
                 read_box = false;
             }
-        }
-        else if (read_atoms)
-        {
-            if (!has_boundaries)
-            {
+        } else if (read_atoms) {
+            if (!has_boundaries) {
                 std::cerr << "lammstrj file must have boundaries!" << std::endl;
             }
             // Note: assume that the atom card style is "id type x y z" or "id
@@ -360,8 +286,7 @@ void System::load_lammpstrj(std::ifstream &file)
 
             // wrap and transform into {0, lx, 0, ly, 0, lz} box.
 
-            if (!is_relative_coord)
-            {
+            if (!is_relative_coord) {
                 x = std::stof(tokens[atom_x_column]) - xlo;
                 y = std::stof(tokens[atom_y_column]) - ylo;
                 z = std::stof(tokens[atom_z_column]) - zlo;
@@ -371,9 +296,7 @@ void System::load_lammpstrj(std::ifstream &file)
                 x = x < 0 ? x + lx : x;
                 y = y < 0 ? y + ly : y;
                 z = z < 0 ? z + lz : z;
-            }
-            else
-            {
+            } else {
                 x = std::stof(tokens[atom_x_column]) * lx;
                 y = std::stof(tokens[atom_y_column]) * ly;
                 z = std::stof(tokens[atom_z_column]) * lz;
@@ -384,8 +307,7 @@ void System::load_lammpstrj(std::ifstream &file)
             atoms_count++;
 
             // End reading.
-            if (atoms_count == iatoms)
-            {
+            if (atoms_count == total_atoms) {
                 break;
             }
         }

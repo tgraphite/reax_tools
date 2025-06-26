@@ -1,12 +1,12 @@
+#include <assert.h>
+
 #include <algorithm>
 #include <mutex>
 #include <queue>
 
-#include "atom.h"
 #include "cell_list.h"
 #include "defines.h"
 #include "fmt/format.h"
-#include "molecule.h"
 #include "reax_species.h"
 #include "universe.h"
 #include "vec_algorithms.h"
@@ -24,8 +24,12 @@ System::~System() {
     molecules.clear();
 }
 
+/**
+ * @brief Set atom types and initialize type-related mappings and valences.
+ * @param type_names Vector of atom type names.
+ */
 void System::set_types(std::vector<std::string> &type_names) {
-    itypes = type_names.size();
+    total_types = type_names.size();
     int type_id = 0;
     for (auto &name : type_names) {
         type_id++;
@@ -39,6 +43,9 @@ void System::set_types(std::vector<std::string> &type_names) {
     }
 }
 
+/**
+ * @brief Print system summary for the current frame, including atom, bond, molecule, and ring counts.
+ */
 void System::finish() {
     fmt::print("\rFrame: {}, Atoms: {}, Bonds: {}, Mols: {}, ", frame_id, atoms.size(), bonds.size(), molecules.size());
     if (has_boundaries) {
@@ -58,6 +65,11 @@ void System::finish() {
     fmt::print("                  ");  // If the previous print is too long, clear the line.
 }
 
+/**
+ * @brief Dump the count of each bond type to a CSV file, combining ij and ji pairs.
+ * @param filepath Output file path.
+ * @param is_first_frame Indicates if this is the first frame (controls header writing).
+ */
 void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
     static FILE *file;
 
@@ -107,10 +119,9 @@ void System::dump_bond_count(std::string &filepath, bool &is_first_frame) {
 }
 
 /**
- * @brief dump count of atom in differenet vanlences, e.g.
- *
- * C(3) - C with 3 bonded atoms (like an sp2 carbon in benzene)
- * O(2) - O with 2 bonded atoms (like H2O)
+ * @brief Dump the count of atoms with different valences to a CSV file.
+ * @param filepath Output file path.
+ * @param is_first_frame Indicates if this is the first frame (controls header writing).
  */
 void System::dump_atom_bonded_num_count(std::string &filepath, bool &is_first_frame) {
     static FILE *file;
@@ -164,6 +175,11 @@ void System::dump_atom_bonded_num_count(std::string &filepath, bool &is_first_fr
     fclose(file);
 }
 
+/**
+ * @brief Dump the count of rings of different sizes to a CSV file.
+ * @param filepath Output file path.
+ * @param is_first_frame Indicates if this is the first frame (controls header writing).
+ */
 void System::dump_ring_count(std::string &filepath, bool &is_first_frame) {
     static FILE *file;
 
@@ -194,7 +210,10 @@ void System::dump_ring_count(std::string &filepath, bool &is_first_frame) {
     fclose(file);
 }
 
-// A fallback method for systems without periodic boundaries.
+/**
+ * @brief Naive neighbor search for systems without periodic boundaries.
+ *        Populates each atom's neighbor list based on a cutoff radius.
+ */
 void System::search_neigh_naive() {
     float radius_sq = rvdw_scale * rvdw_scale * 2.5 * 2.5;
     float dist_sq;
@@ -216,8 +235,11 @@ void System::search_neigh_naive() {
     }
 }
 
+/**
+ * @brief Use cell list algorithm to search for neighbors within a cutoff radius.
+ */
 void System::search_neigh_cell_list() {
-    float radius = 3.0 * rvdw_scale;
+    float radius = 2.5 * rvdw_scale;
 
     Cell_list cell_list(atoms, radius, axis_lengths, max_neigh);
     for (auto &atom : atoms) {
@@ -225,6 +247,9 @@ void System::search_neigh_cell_list() {
     }
 }
 
+/**
+ * @brief Selects the appropriate neighbor search method based on boundary conditions.
+ */
 void System::search_neigh() {
     if (has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
         axis_lengths[2] > 0.0f) {
@@ -234,6 +259,10 @@ void System::search_neigh() {
     }
 }
 
+/**
+ * @brief Build bonds between atoms based on distance and type-dependent radii.
+ *        Ensures valence limits and updates bond/atom connectivity.
+ */
 void System::build_bonds_by_radius() {
     // prepare types and radius.
     std::map<int, float> atomic_radius;
@@ -249,40 +278,38 @@ void System::build_bonds_by_radius() {
             atomic_radius[typ_i] = default_atomic_radius.at("X");
     }
 
-    for (int type_i = 1; type_i <= itypes; type_i++) {
-        for (int type_j = 1; type_j <= itypes; type_j++) {
+    for (int type_i = 1; type_i <= total_types; type_i++) {
+        for (int type_j = 1; type_j <= total_types; type_j++) {
             std::pair<int, int> pair_ij = {type_i, type_j};
             if (type_itos[type_i] == "X" || type_itos[type_j] == "X") {
-                bond_radius[pair_ij] = 0.0f;
+                bond_radius_sq[pair_ij] = 0.0f;
             } else {
-                bond_radius[pair_ij] = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
+                bond_radius_sq[pair_ij] = 0.25f * (atomic_radius[type_i] + atomic_radius[type_j]) *
+                                          (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale * rvdw_scale;
             }
             bond_type_counts[pair_ij] = 0;
         }
     }
 
-    // print bond_type and radius
-    // if (frame_id == 1) {
-    //     for (auto &pair : bond_type_counts) {
-    //         fmt::print("{} {} {}\n", type_itos[pair.first.first], type_itos[pair.first.second],
-    //                    bond_radius[pair.first]);
-    //     }
-    // }
-
     // compute.
     float bond_r;
     float bond_sq;
     float dist_sq;
+    float relative_sq;
+
+    Atom *tmp_neigh;
+    std::vector<std::pair<Atom *, float>> candidate_id_relative_sq;
+    candidate_id_relative_sq.reserve(max_neigh);
+
+    std::pair<int, float> id_dist_sq;
+    std::pair<int, int> type_idx;
 
     for (auto &atom : atoms) {
         // Skip X atoms and atoms that reached max valence
         if (type_itos[atom->type_id] == "X" || atom->bonded_atoms.size() >= atom->max_valence) continue;
 
         for (auto &neigh : atom->neighs) {
-            // Skip self, X atoms, and atoms that reached max valence
             if (neigh == atom || type_itos[neigh->type_id] == "X") continue;
-            if (atom->bonded_atoms.size() >= atom->max_valence || neigh->bonded_atoms.size() >= neigh->max_valence)
-                continue;
 
             if (has_boundaries) {
                 dist_sq = distance_sq_pbc(atom->coord, neigh->coord, axis_lengths);
@@ -290,24 +317,44 @@ void System::build_bonds_by_radius() {
                 dist_sq = distance_sq(atom->coord, neigh->coord);
             }
 
-            std::pair<int, int> id_ij = {atom->type_id, neigh->type_id};
-            bond_r = bond_radius[id_ij];
-            bond_sq = bond_r * bond_r;
+            type_idx = {atom->type_id, neigh->type_id};
+            bond_sq = bond_radius_sq[type_idx];
 
-            if (dist_sq <= bond_sq) {
-                Bond *bond = new Bond(atom, neigh);
-                bond_type_counts[id_ij]++;
+            if (dist_sq > bond_sq) continue;
 
-                bonds.push_back(bond);
-                atom->bonds.push_back(bond);
-                neigh->bonds.push_back(bond);
-                atom->bonded_atoms.push_back(neigh);
-                neigh->bonded_atoms.push_back(atom);
+            relative_sq = dist_sq / bond_sq;
+
+            if (relative_sq < 1) {
+                id_dist_sq = {neigh->id, dist_sq};
+                candidate_id_relative_sq.emplace_back(std::pair(neigh, relative_sq));
             }
         }
+
+        std::sort(candidate_id_relative_sq.begin(), candidate_id_relative_sq.end(),
+                  [](const auto &a, const auto &b) { return a.second < b.second; });
+
+        for (size_t tmp_id = 0; tmp_id < candidate_id_relative_sq.size(); tmp_id++) {
+            if (tmp_id >= atom->max_valence) break;
+
+            tmp_neigh = candidate_id_relative_sq[tmp_id].first;
+
+            Bond *bond = new Bond(atom, tmp_neigh);
+            bond_type_counts[std::pair(atom->type_id, tmp_neigh->type_id)]++;
+
+            bonds.emplace_back(bond);
+            atom->bonds.emplace_back(bond);
+            tmp_neigh->bonds.emplace_back(bond);
+            atom->bonded_atoms.emplace_back(tmp_neigh);
+            tmp_neigh->bonded_atoms.emplace_back(atom);
+        }
+
+        candidate_id_relative_sq.clear();
     }
 }
 
+/**
+ * @brief Build molecules by grouping bonded atoms and maximizing bond orders within valence constraints.
+ */
 void System::build_molecules() {
     std::set<Atom *> visited;
     int new_mol_id = 0;
@@ -362,29 +409,40 @@ void System::build_molecules() {
 
     for (auto &molecule : molecules) {
         molecule->update_formula();
+        molecule->update_hash();
     }
 
     visited.clear();
 }
 
-void System::dfs(Atom *atom, std::set<Atom *> &visited, Molecule *cur_mol) {
+/**
+ * @brief Depth-first search to collect all atoms and bonds in a molecule starting from a given atom.
+ * @param atom Starting atom for DFS.
+ * @param visited Set of already visited atoms.
+ * @param curr_mol Molecule object being constructed.
+ */
+void System::dfs(Atom *atom, std::set<Atom *> &visited, Molecule *curr_mol) {
     visited.insert(atom);
-    cur_mol->insert(atom);
+    curr_mol->mol_atoms.insert(atom);
+    curr_mol->atom_ids.insert(atom->id);
 
     for (auto &bond : atom->bonds) {
-        cur_mol->insert(bond);
+        curr_mol->mol_bonds.insert(bond);
         // One of atom_i and atom_j is the atom itself.
         if (visited.find(bond->atom_i) == visited.end()) {
-            dfs(bond->atom_i, visited, cur_mol);
+            dfs(bond->atom_i, visited, curr_mol);
             continue;
         }
         if (visited.find(bond->atom_j) == visited.end()) {
-            dfs(bond->atom_j, visited, cur_mol);
+            dfs(bond->atom_j, visited, curr_mol);
         }
     }
 }
 
-// Dump lammps data file for test.
+/**
+ * @brief Dump the current system as a LAMMPS data file for testing.
+ * @param filepath Output file path.
+ */
 void System::dump_lammps_data(std::string &filepath) {
     FILE *file = fopen(filepath.c_str(), "w");
     if (!file) {
@@ -394,7 +452,7 @@ void System::dump_lammps_data(std::string &filepath) {
     fmt::print(file, "# LAMMPS data file written by reax_tools\n\n");
     fmt::print(file, "{} atoms\n", atoms.size());
     fmt::print(file, "{} bonds\n", bonds.size());
-    fmt::print(file, "{} atom types\n", itypes);
+    fmt::print(file, "{} atom types\n", total_types);
     fmt::print(file, "{} bond types\n\n", 1);
 
     if (has_boundaries) {
@@ -407,17 +465,6 @@ void System::dump_lammps_data(std::string &filepath) {
 
     for (auto &mol : molecules) {
         for (auto &atom : mol->mol_atoms) {
-            // Wrap atom coordinates into the simulation box
-            // float x = fmod(atom->coord[0], axis_lengths[0]);
-            // float y = fmod(atom->coord[1], axis_lengths[1]);
-            // float z = fmod(atom->coord[2], axis_lengths[2]);
-
-            // // Ensure coordinates are positive (in range [0, axis_length])
-            // if (x < 0) x += axis_lengths[0];
-            // if (y < 0) y += axis_lengths[1];
-            // if (z < 0) z += axis_lengths[2];
-
-            // charge is 0 for test, maybe modify later.
             fmt::print(file, "{} {} {} 0.0 {:>.3f} {:>.3f} {:>.3f} 0 0 0\n", atom->id, mol->id, atom->type_id,
                        atom->coord[0], atom->coord[1], atom->coord[2]);
         }
@@ -434,6 +481,9 @@ void System::dump_lammps_data(std::string &filepath) {
     fclose(file);
 }
 
+/**
+ * @brief Process the current system: neighbor search, bond building, molecule construction, and ring counting.
+ */
 void System::process_this() {
     search_neigh();
     build_bonds_by_radius();
@@ -442,19 +492,8 @@ void System::process_this() {
 }
 
 /**
- * @brief Process the current system frame for ReaxFF analysis
- *
- * This function performs several key operations:
- * 1. Extracts molecular formulas from the current frame
- * 2. Imports frame formulas into the ReaxFF species database
- * 3. Compares molecules between current and previous frames to track reactions
- *
- * The function uses thread-safe operations when accessing shared resources
- * and implements a similarity-based matching algorithm to identify unchanged
- * molecules between frames.
- *
- * @note This function assumes that the system has already been processed
- *       through process_this() which builds molecules and computes ring counts
+ * @brief Process the current system frame for ReaxFF analysis, including formula extraction and reaction tracking.
+ *        Thread-safe import of frame formulas and molecule comparison with previous frame.
  */
 void System::process_reax() {
     std::vector<std::string> frame_formulas(molecules.size());
@@ -481,46 +520,16 @@ void System::process_reax() {
         has_warned--;
     }
 
+    std::vector<int> intersection;
     // This double loop compuation is not that time-consuming.
     for (const auto &prev_mol : prev_sys->molecules) {
-        if (prev_mol == nullptr) continue;
-
-        // Ignore single atom molecule.
-        // if (prev_mol->atom_ids.size() == 1) continue;
-
-        // Find the most similar molecule in current frame.
-
-        bool molecule_unchanged = false;
-        Molecule *best_match = nullptr;
-        float best_similarity = 0.0f;
-
-        std::vector<int> intersection;
-        float contribution = 0.0f;
-        // std::vector<int> union_set;
-
         for (auto &curr_mol : this->molecules) {
-            // Ignore single atom molecule.
-            // if (curr_mol->atom_ids.size() == 1) continue;
-            if (prev_mol == nullptr || curr_mol == nullptr) continue;
-
-            // Molecule operator== is for comparing formulas, maybe topology later, but never atom ids.
-            // To make sure if a molecule did not react is that the contribution is 1.0.
-            // so if one prev_mol == curr_mol that just mean they are same type, not exact who it is. Just skip.
             if (*prev_mol == *curr_mol) continue;
 
-            // ------------------------------------------------------------
             intersection.clear();
 
             std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
                                   curr_mol->atom_ids.end(), back_inserter(intersection));
-
-            // Quick check: if intersection is empty, similarity is 0.
-            if (intersection.empty()) continue;
-
-            // how many % of atoms curr_mol inherits from prev_mol
-            // contribution = float(intersection.size()) / float(prev_mol->atom_ids.size());
-
-            // ------------------------------------------------------------
 
             if (intersection.size() > 0) {
                 reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
@@ -530,20 +539,8 @@ void System::process_reax() {
 }
 
 /**
- * @brief Analyzes molecular reactions and updates the reaction flow
- *
- * This function processes molecules in the system to identify and record reactions
- * between consecutive frames. It compares molecules to detect changes and potential
- * reactions based on atom overlap and contribution metrics.
- *
- * The function:
- * - Skips single-atom molecules
- * - Compares molecules between frames using atom ID intersections
- * - Calculates contribution as intersection size / current molecule size
- * - Records reactions when contribution >= 0.5
- *
- * @note This function is part of the reaction tracking system and works in conjunction
- * with the ReaxFlow class to maintain reaction history
+ * @brief Analyze molecular reactions and update the reaction flow by comparing molecules between frames.
+ *        Records reactions based on atom overlap and contribution metrics.
  */
 void System::compute_ring_counts() {
     // Initialize ring counts for sizes 3 to MAX_RING_SIZE
@@ -583,19 +580,8 @@ void System::compute_ring_counts() {
 }
 
 /**
- * @brief Computes the number of rings of different sizes in the system
- *
- * This function analyzes all molecules in the system to detect rings of sizes 3 to MAX_RING_SIZE.
- * It uses a depth-first search approach to find rings starting from each atom in each molecule.
- * The results are stored in the ring_counts array where ring_counts[i] represents the number
- * of rings containing i atoms.
- *
- * The function handles:
- * - Multiple rings in a single molecule
- * - Polycyclic systems (e.g., naphthalene)
- * - Proper subset relationships between rings
- *
- * @note This function modifies the ring_counts member variable
+ * @brief Computes the number of rings of different sizes in the system using DFS-based ring detection.
+ *        Updates the ring_counts member variable.
  */
 void System::find_rings_from_atom(Atom *current, Atom *start, int depth, std::unordered_set<Atom *> &visited,
                                   std::unordered_set<std::unordered_set<Atom *> *> &current_rings,

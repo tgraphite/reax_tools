@@ -5,7 +5,7 @@
 #include <cmath>
 #include <vector>
 
-#include "atom.h"
+#include "system.h"
 #include "vec_algorithms.h"
 
 Cell_list::~Cell_list() { cells.clear(); }
@@ -44,7 +44,7 @@ Cell_list::Cell_list(std::vector<Atom*> atoms, const float& radius, const std::v
     }
 }
 
-std::vector<int> Cell_list::get_cell_index_xyz(Atom* atom) {
+inline std::vector<int> Cell_list::get_cell_index_xyz(Atom* atom) {
     int cell_idx_x = floor(atom->coord[0] / cell_lx);
     int cell_idx_y = floor(atom->coord[1] / cell_ly);
     int cell_idx_z = floor(atom->coord[2] / cell_lz);
@@ -52,7 +52,7 @@ std::vector<int> Cell_list::get_cell_index_xyz(Atom* atom) {
     return {cell_idx_x, cell_idx_y, cell_idx_z};
 }
 
-std::vector<int> Cell_list::get_neighbor_cell_indices_number(Atom* atom) {
+inline std::vector<int> Cell_list::get_neighbor_cell_indices_number(Atom* atom) {
     std::vector<int> cell_idx_xyz = get_cell_index_xyz(atom);
     std::vector<int> neighbor_cell_indices;
     for (int move_x = -1; move_x <= 1; move_x++) {
@@ -84,7 +84,7 @@ std::vector<int> Cell_list::get_neighbor_cell_indices_number(Atom* atom) {
 }
 
 void Cell_list::search_neighbors(Atom* atom) {
-    float distance_sq = 0.0;
+    float distance_sq = 0.0f;
     std::vector<int> neighbor_cell_indices = get_neighbor_cell_indices_number(atom);
     for (int neighbor_cell_index : neighbor_cell_indices) {
         for (Atom* candidate_neighbor : cells[neighbor_cell_index]) {

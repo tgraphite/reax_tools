@@ -1,6 +1,6 @@
 #include <vector>
 
-#include "atom.h"
+#include "system.h"
 
 class Cell_list {
    public:
