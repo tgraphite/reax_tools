@@ -217,7 +217,7 @@ void System::search_neigh_naive() {
 }
 
 void System::search_neigh_cell_list() {
-    float radius = 2.5 * rvdw_scale;
+    float radius = 3.0 * rvdw_scale;
 
     Cell_list cell_list(atoms, radius, axis_lengths, max_neigh);
     for (auto &atom : atoms) {

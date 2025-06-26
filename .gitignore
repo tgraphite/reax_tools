@@ -17,5 +17,5 @@ tmp/
 *.html
 tests/
 web/
-
+test/
 lib/

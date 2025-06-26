@@ -84,7 +84,7 @@ std::vector<int> Cell_list::get_neighbor_cell_indices_number(Atom* atom) {
 }
 
 void Cell_list::search_neighbors(Atom* atom) {
-    float distance_sq = 10.0;
+    float distance_sq = 0.0;
     std::vector<int> neighbor_cell_indices = get_neighbor_cell_indices_number(atom);
     for (int neighbor_cell_index : neighbor_cell_indices) {
         for (Atom* candidate_neighbor : cells[neighbor_cell_index]) {
