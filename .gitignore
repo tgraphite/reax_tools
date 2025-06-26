@@ -1,6 +1,7 @@
 test/
 web/
 .vscode/
+disabled/
 
 .clang-format
 build*.sh
