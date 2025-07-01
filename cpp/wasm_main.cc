@@ -13,18 +13,18 @@
 // Copy ArgParser definition from main.cpp (or include main.cpp if possible)
 // For brevity, assume ArgParser is available here
 
-extern "C" int cpp_main(int argc, const char **argv) {
+extern "C" int cpp_main(int argc, const char** argv) {
     // Convert const char** to char** for ArgParser compatibility
     std::vector<std::string> args_str;
-    args_str.reserve(argc);  // 预分配，防止扩容导致指针失效
-    std::vector<char *> args;
+    args_str.reserve(argc); // 预分配，防止扩容导致指针失效
+    std::vector<char*> args;
     for (int i = 0; i < argc; ++i) {
         args_str.emplace_back(argv[i]);
         args.push_back(args_str.back().data());
     }
 
     // Only support -f/--traj mode, ignore -s/--species
-    ArgParser parser("reax_tools_web", "ReaxFF Trajectory Analyzer (Web Interface))");
+    ArgParser parser("reax_tools", "Reactive MD Trajectory Analyzer (Web Interface))");
     parser.add_argument("--traj", "-f", "Analyze trajectory file (.xyz/.lammpstrj)", "file", "", true, false,
                         "path/to/file");
     parser.add_argument("--types", "-t", "element types splitted in commas", "Traj analysis", "", false, false,
@@ -42,6 +42,11 @@ extern "C" int cpp_main(int argc, const char **argv) {
                         "", false, true);
     parser.add_argument("--element-order", "--order", "set element order of outputting formulas", "Species analysis",
                         "", false, false, "e.g. C,H,O,N,S,F,P");
+    parser.add_argument("--type-radius", "-tr", "set atomic radius for element, e.g. -tr N:1.5", "Traj analysis", "",
+                        false, false, "Element:Radius");
+    parser.add_argument("--threads", "-nt", "number of threads", "Performance", "4", false, false, "int");
+    parser.add_argument("--max-reactions", "", "set max reactions in default network", "Network output options", "60",
+                        false, false);
 
     if (!parser.parse_args(argc, args.data())) {
         return 1;
@@ -64,7 +69,8 @@ extern "C" int cpp_main(int argc, const char **argv) {
         type_names = parser.get<std::vector<std::string>>("--types");
     }
     float rvdw_scale = parser.get<float>("--radius");
-    int num_threads = 4;
+    int num_threads = parser.get<int>("--threads");
+    int max_reactions = parser.get<int>("--max-reactions");
 
     bool if_dump_lammps_data = parser.has_flag("--dump");
     bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("-rr");
@@ -74,12 +80,25 @@ extern "C" int cpp_main(int argc, const char **argv) {
     bool if_merge_rescale = parser.has_flag("--rescale-count") || parser.has_flag("-rc");
     std::vector<std::string> sort_order;
 
+    if (parser.has_option("--type-radius")) {
+        std::vector<std::string> type_radius_list = parser.get<std::vector<std::string>>("--type-radius");
+        for (const auto& tr : type_radius_list) {
+            auto pos = tr.find(':');
+            if (pos != std::string::npos) {
+                std::string elem = tr.substr(0, pos);
+                float radius = std::stof(tr.substr(pos + 1));
+                default_atomic_radius[elem] = radius; // update global map
+            } else {
+                std::cerr << "Invalid --type-radius format: " << tr << std::endl;
+            }
+        }
+    }
+
     if (parser.has_option("--element-order")) {
         sort_order = parser.get<std::vector<std::string>>("--element-order");
     } else {
         sort_order = default_order;
     }
-    int max_reactions = 60;
 
     if (ends_with(traj_file, "lammpstrj") && type_names.empty()) {
         std::cerr << "Error: Must define element types when using lammpstrj file. (--types)" << std::endl;
@@ -95,7 +114,7 @@ extern "C" int cpp_main(int argc, const char **argv) {
     if (!std::filesystem::exists(output_dir)) {
         std::filesystem::create_directory(output_dir);
     } else {
-        for (const auto &entry : std::filesystem::directory_iterator(output_dir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(output_dir)) {
             std::filesystem::remove_all(entry);
         }
     }

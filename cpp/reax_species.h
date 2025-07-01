@@ -7,7 +7,7 @@
 #include "defines.h"
 
 class ReaxSpecies {
-   private:
+  private:
     std::string file_path;
     std::string save_path;
     std::ifstream file;
@@ -17,7 +17,7 @@ class ReaxSpecies {
     std::vector<std::vector<std::string>> all_frame_formulas;
     int nframes = 0;
 
-   public:
+  public:
     // When read from Lammps reax/c/bonds file.
     ReaxSpecies(const std::string& file_path);
 

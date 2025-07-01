@@ -46,15 +46,14 @@ void Universe::flush() {
     system = nullptr;
 }
 
-void Universe::process_traj(std::string &file_path, std::string &output_dir, std::vector<std::string> &type_names,
-                            const float &rvdw_scale, const int &num_threads, const bool &if_dump_lammps_data) {
+/**
+ * Fallback to serial in wasm. num_threads is ignored.
+ */
+void Universe::process_traj(std::string& file_path, std::string& output_dir, std::vector<std::string>& type_names,
+                            const float& rvdw_scale, const int& num_threads, const bool& if_dump_lammps_data) {
     int curr_frame_id = 1;
     int max_neigh = 10;
-    float neigh_radius = 2.4 * rvdw_scale;
     bool is_first_frame = true;
-
-    // Fallback to serial in wasm.
-    int thread_id = 0;
 
     std::ifstream file(file_path);
     std::string bond_count_filepath = output_dir + "bond_count.csv";
@@ -80,6 +79,10 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
             system->load_lammpstrj(file);
         else if (ends_with(file_path, ".xyz"))
             system->load_xyz(file);
+        else {
+            std::cerr << "Using unsupported format, check your file and suffix!";
+            exit(1);
+        }
 
         if (system->atoms.size() == 0) {
             continue;
@@ -97,7 +100,7 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
 
         if (system->frame_id == 1) {
             fmt::print("Atom Types: ");
-            for (auto &pair : system->type_itos) {
+            for (auto& pair : system->type_itos) {
                 fmt::print("{}: {}, ", pair.first, pair.second);
             }
             fmt::print("\n");

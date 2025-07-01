@@ -21,7 +21,7 @@
 // Main SMILES generator, RDKit-style
 std::string rdkit_smiles(const Molecule& mol) {
     RDKit::RWMol rdkit_mol;
-    std::map<int, int> atom_idx_map;  // Maps our atom id to RDKit atom index
+    std::map<int, int> atom_idx_map; // Maps our atom id to RDKit atom index
     for (const auto& atom : mol.mol_atoms) {
         int atomic_num = element_to_index[atom->type_name];
 
@@ -55,8 +55,8 @@ std::string rdkit_smiles(const Molecule& mol) {
 
     // Skip sanitization and directly set necessary properties for drawing
     for (auto atom : rdkit_mol.atoms()) {
-        atom->setNoImplicit(true);  // Prevent implicit H addition
-        atom->setNumExplicitHs(0);  // Set explicit H count to 0
+        atom->setNoImplicit(true); // Prevent implicit H addition
+        atom->setNumExplicitHs(0); // Set explicit H count to 0
     }
 
     std::string smiles = RDKit::MolToSmiles(rdkit_mol);
@@ -66,11 +66,12 @@ std::string rdkit_smiles(const Molecule& mol) {
 // Main SMILES generator, RDKit-style
 void rdkit_draw_molecule(const Molecule& mol, std::string output_dir) {
     // Too big, don't draw, just use formula in downstream visualization tool.
-    if (mol.mol_atoms.size() > 60) return;
+    if (mol.mol_atoms.size() > 60)
+        return;
 
     try {
         RDKit::RWMol rdkit_mol;
-        std::map<int, int> atom_idx_map;  // Maps our atom id to RDKit atom index
+        std::map<int, int> atom_idx_map; // Maps our atom id to RDKit atom index
         for (const auto& atom : mol.mol_atoms) {
             int atomic_num = element_to_index[atom->type_name];
 
@@ -104,8 +105,8 @@ void rdkit_draw_molecule(const Molecule& mol, std::string output_dir) {
 
         // Skip sanitization and directly set necessary properties for drawing
         for (auto atom : rdkit_mol.atoms()) {
-            atom->setNoImplicit(true);  // Prevent implicit H addition
-            atom->setNumExplicitHs(0);  // Set explicit H count to 0
+            atom->setNoImplicit(true); // Prevent implicit H addition
+            atom->setNumExplicitHs(0); // Set explicit H count to 0
         }
 
         RDKit::DGeomHelpers::EmbedMolecule(rdkit_mol);

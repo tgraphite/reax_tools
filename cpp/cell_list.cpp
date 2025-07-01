@@ -63,7 +63,7 @@ inline std::vector<int> Cell_list::get_neighbor_cell_indices_number(Atom* atom) 
     int cell_idx_z = floor(atom->coord[2] / cell_lz);
 
     std::vector<int> neighbor_cell_indices;
-    neighbor_cell_indices.reserve(27);  // 3x3x3 neighbors
+    neighbor_cell_indices.reserve(27); // 3x3x3 neighbors
 
     for (int dx = -1; dx <= 1; ++dx) {
         int x = WRAP_COORD(cell_idx_x + dx, cell_nx);

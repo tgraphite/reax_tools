@@ -11,17 +11,17 @@
 #include <vector>
 
 class ArgParser {
-   private:
+  private:
     struct ArgOption {
-        std::string name;                                    // 选项名
-        std::string short_name;                              // 短选项名
-        std::string description;                             // 描述
-        std::string default_value;                           // 默认值
-        bool required;                                       // 是否必需
-        bool is_flag;                                        // 是否为标志（无需参数值）
-        std::string group;                                   // 分组
-        std::string value_type;                              // 值类型描述
-        std::function<bool(const std::string &)> validator;  // 值验证函数
+        std::string name;                                  // 选项名
+        std::string short_name;                            // 短选项名
+        std::string description;                           // 描述
+        std::string default_value;                         // 默认值
+        bool required;                                     // 是否必需
+        bool is_flag;                                      // 是否为标志（无需参数值）
+        std::string group;                                 // 分组
+        std::string value_type;                            // 值类型描述
+        std::function<bool(const std::string&)> validator; // 值验证函数
     };
 
     std::string program_name;
@@ -32,16 +32,16 @@ class ArgParser {
     std::map<std::string, std::vector<std::string>> groups;
     std::string example_usage;
 
-   public:
-    ArgParser(const std::string &name, const std::string &description)
+  public:
+    ArgParser(const std::string& name, const std::string& description)
         : program_name(name), program_description(description) {}
 
-    void add_example(const std::string &example) { example_usage = example; }
+    void add_example(const std::string& example) { example_usage = example; }
 
-    void add_argument(const std::string &name, const std::string &short_name, const std::string &description,
-                      const std::string &group = "General", const std::string &default_value = "",
-                      bool required = false, bool is_flag = false, const std::string &value_type = "",
-                      std::function<bool(const std::string &)> validator = nullptr) {
+    void add_argument(const std::string& name, const std::string& short_name, const std::string& description,
+                      const std::string& group = "General", const std::string& default_value = "",
+                      bool required = false, bool is_flag = false, const std::string& value_type = "",
+                      std::function<bool(const std::string&)> validator = nullptr) {
         ArgOption option;
         option.name = name;
         option.short_name = short_name;
@@ -63,7 +63,7 @@ class ArgParser {
         }
     }
 
-    bool parse_args(int argc, char *argv[]) {
+    bool parse_args(int argc, char* argv[]) {
         if (argc <= 1) {
             print_help();
             return false;
@@ -88,7 +88,7 @@ class ArgParser {
                     return false;
                 }
 
-                const ArgOption &option = options[option_name];
+                const ArgOption& option = options[option_name];
 
                 if (option.is_flag) {
                     parsed_values[option.name] = "true";
@@ -117,9 +117,10 @@ class ArgParser {
         }
 
         // 检查必需参数
-        for (const auto &pair : options) {
-            const ArgOption &option = pair.second;
-            if (option.name != pair.first) continue;
+        for (const auto& pair : options) {
+            const ArgOption& option = pair.second;
+            if (option.name != pair.first)
+                continue;
             if (option.required &&
                 (parsed_values.find(option.name) == parsed_values.end() || parsed_values[option.name].empty())) {
                 std::cerr << "Error: Mandatory arguments missing! " << option.name << std::endl;
@@ -139,13 +140,14 @@ class ArgParser {
         std::cout << "Usages: " << program_name << " [options]" << std::endl << std::endl;
 
         // 按分组打印选项
-        for (const auto &group_pair : groups) {
+        for (const auto& group_pair : groups) {
             std::cout << group_pair.first << ":" << std::endl;
 
-            for (const auto &option_name : group_pair.second) {
-                const ArgOption &option = options.at(option_name);
+            for (const auto& option_name : group_pair.second) {
+                const ArgOption& option = options.at(option_name);
 
-                if (option.name != option_name) continue;
+                if (option.name != option_name)
+                    continue;
 
                 std::stringstream option_str;
                 if (!option.short_name.empty()) {
@@ -193,7 +195,8 @@ class ArgParser {
                         std::cout << desc.substr(pos, len) << std::endl;
 
                         pos += len;
-                        if (pos < desc.length() && desc[pos] == ' ') pos++;
+                        if (pos < desc.length() && desc[pos] == ' ')
+                            pos++;
                         first_line = false;
                     }
                 }
@@ -208,10 +211,9 @@ class ArgParser {
         }
     }
 
-    template <typename T>
-    T get(const std::string &name) const {
+    template <typename T> T get(const std::string& name) const {
         if (parsed_values.find(name) == parsed_values.end()) {
-            const ArgOption &option = options.at(name);
+            const ArgOption& option = options.at(name);
             if (option.is_flag) {
                 return get_default_for_flag<T>();
             }
@@ -225,20 +227,18 @@ class ArgParser {
     }
 
     // 为标志类型选项提供适当的默认值
-    template <typename T>
-    T get_default_for_flag() const {
-        return T();  // 默认构造
+    template <typename T> T get_default_for_flag() const {
+        return T(); // 默认构造
     }
 
-    bool has_flag(const std::string &name) const {
+    bool has_flag(const std::string& name) const {
         return parsed_values.find(name) != parsed_values.end() && parsed_values.at(name) == "true";
     }
-    bool has_option(const std::string &name) const { return parsed_values.find(name) != parsed_values.end(); }
-    const std::vector<std::string> &get_positional_args() const { return positional_args; }
+    bool has_option(const std::string& name) const { return parsed_values.find(name) != parsed_values.end(); }
+    const std::vector<std::string>& get_positional_args() const { return positional_args; }
 
-   private:
-    template <typename T>
-    T convert(const std::string &value) const {
+  private:
+    template <typename T> T convert(const std::string& value) const {
         std::istringstream ss(value);
         T result;
         ss >> result;
@@ -247,42 +247,31 @@ class ArgParser {
 };
 
 // 外部定义模板特化
-template <>
-inline bool ArgParser::get_default_for_flag<bool>() const {
-    return false;
-}
+template <> inline bool ArgParser::get_default_for_flag<bool>() const { return false; }
 
-template <>
-inline std::string ArgParser::get_default_for_flag<std::string>() const {
-    return "false";
-}
+template <> inline std::string ArgParser::get_default_for_flag<std::string>() const { return "false"; }
 
-template <>
-inline std::string ArgParser::convert<std::string>(const std::string &value) const {
-    return value;
-}
+template <> inline std::string ArgParser::convert<std::string>(const std::string& value) const { return value; }
 
-template <>
-inline bool ArgParser::convert<bool>(const std::string &value) const {
+template <> inline bool ArgParser::convert<bool>(const std::string& value) const {
     return value == "true" || value == "1" || value == "yes";
 }
 
 template <>
-inline std::vector<std::string> ArgParser::convert<std::vector<std::string>>(const std::string &value) const {
+inline std::vector<std::string> ArgParser::convert<std::vector<std::string>>(const std::string& value) const {
     return split(value, ",");
 }
 
-template <>
-inline std::vector<int> ArgParser::convert<std::vector<int>>(const std::string &value) const {
+template <> inline std::vector<int> ArgParser::convert<std::vector<int>>(const std::string& value) const {
     std::vector<std::string> parts = split(value, ",");
     std::vector<int> result;
-    for (const auto &part : parts) {
+    for (const auto& part : parts) {
         result.push_back(std::stoi(part));
     }
     return result;
 }
 
-bool validate_float_positive(const std::string &value) {
+bool validate_float_positive(const std::string& value) {
     try {
         float val = std::stof(value);
         return val > 0;
@@ -291,7 +280,7 @@ bool validate_float_positive(const std::string &value) {
     }
 }
 
-bool validate_int_positive(const std::string &value) {
+bool validate_int_positive(const std::string& value) {
     try {
         int val = std::stoi(value);
         return val > 0;

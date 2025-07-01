@@ -35,9 +35,12 @@ reax_tools是C++写的一个反应MD后分析工具，能够分析lammpstrj和xy
 ### 基本使用
 
 #### 1. 从Github页面 (https://github.com/tgraphite/reax_tools/releases) 下载最新版本。无后缀名的是Linux版，后缀名为exe的是Windows版。**作者推荐使用Linux版二进制程序**。
-#### 2. 解压，假设解压到`/your/reax_tools/path`
-#### 3. 设置PATH和LD_LIBRARY_PATH。
-    export PATH=${PATH}:/your/reax_tools/path
+#### 2. 解压，假设解压到`/your/path`
+#### 3. 设置PATH和LD_LIBRARY_PATH。可以添加到用户的.bashrc中，并重启终端或source ~/.bashrc以便下次使用。
+    export PATH=/your/path:${PATH}
+    export LD_LIBRARY_PATH=/your/path/lib:${PATH}
+
+说明：PATH设置了系统从哪里找到名为reax_tools的程序，LD_LIBRARY_PATH设置了程序如何寻找它的依赖库，务必正确设置方能使用。
 
 #### 4. 最简使用
     reax_tools -f <.xyz/.lammpstrj file> -t <element1,element2...> 
@@ -57,23 +60,27 @@ reax_tools是C++写的一个反应MD后分析工具，能够分析lammpstrj和xy
 
 #### 6. 全部选项
 
-    -s <lammps species file> 替代-f，不是读取轨迹，只是清洗lammps reaxff/species的输出。（旧reax_species.py的功能）
+    -f <.xyz/.lammpstrj file>   设置输入文件
     
-    -r <vdw scaling factor> vdW半径的缩放因子，默认1.2（与OVITO一致）。一般而言1.2左右通用。调小这个值会使得判断更严格，容易判断出更小的分子、分子碎片，反之亦然。具体看体系尝试。
+    -r <vdw scaling factor>     vdW半径的缩放因子，默认1.2（与OVITO一致）。一般而言1.2左右通用。调小这个值会使得判断更严格，容易判断出更小的分子、分子碎片，反之亦然。具体看体系尝试。
 
-    --dump 每一帧输出加了bond的lammps data文件，方便用OVITO或者VMD读取绘图。默认不使用。
+    -tr <element:raidius>       设置特定元素的vdW半径，可以使用多次，例如-tr N:1.5 -tr H:1。与-r效果叠加。默认值：见defines.cpp。
 
-    -nt 线程数，增大不一定会变快，因为有部分算法无法并行。默认4。
+    --dump                      每一帧输出加了bond的lammps data文件，方便用OVITO或者VMD读取绘图。默认不使用。
 
-    -me <element> 按照某种元素的含量合并物种群，例如合并成C1-C4、C5-C8等。默认不使用，如果只设置了-mr而忘记设置-me，默认为C。
+    -nt <number>                线程数，增大不一定会变快，因为有部分算法无法并行。默认4。
 
-    -mr <mranges,range,range...> 上一个选项对应的合并的上下界，左闭右开区间，默认1,4,8,16。
+    -me <element>               按照某种元素的含量合并物种群，例如合并成C1-C4、C5-C8等。默认不使用，如果只设置了-mr而忘记设置-me，默认为C。
 
-    -rc 使用合并功能后对物种群的数量（权重）进行重算，输出原子数而不是分子数。默认不使用。
+    -mr <range,range...>        上一个选项对应的合并的上下界，左闭右开区间，默认1,4,8,16。
+
+    -rc                         使用合并功能后对物质含量（权重）进行重算，输出原子数而不是分子数。默认不使用。
 
     --order <element,element,...> 输出的化学式元素顺序，例如把H2CO重写成CH2O，默认C,H,O,N,S,F,P。
 
-    -rr 对于一对互逆的反应，只保留净值。对过于繁杂的反应网络很有用。
+    -rr                         对于一对互逆的反应，只保留净值。对过于繁杂的反应网络很有用。
+
+    --max-reactions <number>    设置reactions.dot默认输出的反应数，默认60。无论如何，如果有更多反应，reactions_full.dot会保存所有。
 
 ----
 

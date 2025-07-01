@@ -12,7 +12,7 @@
 #include "vec_algorithms.h"
 
 // For read data from Lammps species file.
-ReaxSpecies::ReaxSpecies(const std::string &file_path) : file_path(file_path) {
+ReaxSpecies::ReaxSpecies(const std::string& file_path) : file_path(file_path) {
     file.open(file_path);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << file_path << std::endl << "Exit." << std::endl;
@@ -27,7 +27,8 @@ ReaxSpecies::ReaxSpecies(const std::string &file_path) : file_path(file_path) {
 ReaxSpecies::ReaxSpecies() {}
 
 ReaxSpecies::~ReaxSpecies() {
-    if (file.is_open()) file.close();
+    if (file.is_open())
+        file.close();
 }
 
 void ReaxSpecies::get_formulas() {
@@ -52,7 +53,7 @@ void ReaxSpecies::get_formulas() {
     file.seekg(0);
 
     formulas = std::vector<std::string>(formulas_set.begin(), formulas_set.end());
-    for (const std::string &formula : formulas) {
+    for (const std::string& formula : formulas) {
         formulas_nums[formula] = std::vector<float>(nframes, 0.0);
     }
     return;
@@ -90,7 +91,7 @@ void ReaxSpecies::get_nums() {
     }
 }
 
-void ReaxSpecies::rename_all_formulas(const std::vector<std::string> &order) {
+void ReaxSpecies::rename_all_formulas(const std::vector<std::string>& order) {
     // Create a temporary map to store formulas that need to be renamed.
 
     // First step: collect all formulas that need to be renamed.
@@ -102,7 +103,7 @@ void ReaxSpecies::rename_all_formulas(const std::vector<std::string> &order) {
 
     std::map<std::string, std::string> rename_map;
 
-    for (const auto &pair : formulas_nums) {
+    for (const auto& pair : formulas_nums) {
         old_formula = pair.first;
         nums = pair.second;
 
@@ -116,14 +117,14 @@ void ReaxSpecies::rename_all_formulas(const std::vector<std::string> &order) {
 }
 
 // User accessable.
-void ReaxSpecies::merge_formulas(const std::vector<std::string> &formulas, const std::string &new_formula) {
+void ReaxSpecies::merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula) {
     std::vector<float> new_nums(nframes, 0.0);
-    for (const std::string &formula : formulas) {
+    for (const std::string& formula : formulas) {
         std::vector<float> num = formulas_nums[formula];
         new_nums = add_vectors(new_nums, num);
     }
 
-    for (const std::string &formula : formulas) {
+    for (const std::string& formula : formulas) {
         formulas_nums.erase(formula);
     }
 
@@ -132,7 +133,7 @@ void ReaxSpecies::merge_formulas(const std::vector<std::string> &formulas, const
 }
 
 // User accessable.
-void ReaxSpecies::scale_formula(const std::string &formula, const float &k) {
+void ReaxSpecies::scale_formula(const std::string& formula, const float& k) {
     std::vector<float> new_nums(nframes, 0.0);
     new_nums = vector_scale(formulas_nums[formula], k);
     formulas_nums[formula] = new_nums;
@@ -140,17 +141,17 @@ void ReaxSpecies::scale_formula(const std::string &formula, const float &k) {
 }
 
 // User accessable.
-void ReaxSpecies::rescale_all_by_element(const std::string &target_element) {
-    for (auto &pair : formulas_nums) {
+void ReaxSpecies::rescale_all_by_element(const std::string& target_element) {
+    for (auto& pair : formulas_nums) {
         std::string formula = pair.first;
-        std::vector<float> &old_nums = pair.second;
+        std::vector<float>& old_nums = pair.second;
         std::map<std::string, int> elements_weights = parse_formula(formula);
 
         if (starts_with(formula, "group_")) {
             continue;
         }
 
-        for (auto &elem_weight : elements_weights) {
+        for (auto& elem_weight : elements_weights) {
             std::string elem = elem_weight.first;
             float weight = float(elem_weight.second);
 
@@ -164,7 +165,7 @@ void ReaxSpecies::rescale_all_by_element(const std::string &target_element) {
 }
 
 // User accessable.
-void ReaxSpecies::merge_by_element(const std::string &target_element, const std::vector<int> &ranges, bool rescale) {
+void ReaxSpecies::merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool rescale) {
     for (size_t i = 0; i < ranges.size(); i++) {
         int start;
         int end;
@@ -183,9 +184,9 @@ void ReaxSpecies::merge_by_element(const std::string &target_element, const std:
         std::vector<std::string> formulas_to_erase;
         std::vector<float> new_nums(nframes, 0.0);
 
-        for (auto &pair : formulas_nums) {
+        for (auto& pair : formulas_nums) {
             std::string old_formula = pair.first;
-            std::vector<float> &old_nums = pair.second;
+            std::vector<float>& old_nums = pair.second;
 
             if (starts_with(old_formula, "grp_")) {
                 continue;
@@ -193,7 +194,7 @@ void ReaxSpecies::merge_by_element(const std::string &target_element, const std:
 
             std::map<std::string, int> elements_weights = parse_formula(old_formula);
 
-            for (auto &elem_weight : elements_weights) {
+            for (auto& elem_weight : elements_weights) {
                 std::string elem = elem_weight.first;
                 float weight = float(elem_weight.second);
 
@@ -215,7 +216,7 @@ void ReaxSpecies::merge_by_element(const std::string &target_element, const std:
         formulas_nums[new_formula] = new_nums;
         fmt::print("Merge {} formulas into {}\n", formulas_to_erase.size(), new_formula);
 
-        for (const auto &formula : formulas_to_erase) {
+        for (const auto& formula : formulas_to_erase) {
             formulas_nums.erase(formula);
         }
     }
@@ -232,12 +233,12 @@ void ReaxSpecies::brief_report() {
     // sort formulas_nums by average in descending order
     std::vector<std::pair<std::string, float>> sorted_formulas_averages;
     float average = 0;
-    for (const auto &pair : formulas_nums) {
+    for (const auto& pair : formulas_nums) {
         average = std::accumulate(pair.second.begin(), pair.second.end(), 0.0f) / nframes;
         sorted_formulas_averages.push_back(std::make_pair(pair.first, average));
     }
     std::sort(sorted_formulas_averages.begin(), sorted_formulas_averages.end(),
-              [](const auto &a, const auto &b) { return a.second > b.second; });
+              [](const auto& a, const auto& b) { return a.second > b.second; });
 
     // get formulas going to report
     int max_species_print = 20;
@@ -252,7 +253,7 @@ void ReaxSpecies::brief_report() {
         fmt::print("{}\n", "=== Species Report ===");
         std::string header = fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end");
         fmt::print("{}\n", header);
-        for (const auto &pair : sorted_formulas_averages) {
+        for (const auto& pair : sorted_formulas_averages) {
             std::string formula = pair.first;
             std::vector<float> nums = formulas_nums[formula];
             int mid_frame = nframes / 2;
@@ -263,7 +264,7 @@ void ReaxSpecies::brief_report() {
         std::string header =
             fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end", "average");
         fmt::print("{}\n", header);
-        for (const auto &pair : sorted_formulas_averages) {
+        for (const auto& pair : sorted_formulas_averages) {
             std::string formula = pair.first;
             std::vector<float> nums = formulas_nums[formula];
             size_t range = nframes / 10;
@@ -299,7 +300,7 @@ void ReaxSpecies::brief_report() {
 }
 
 // Get current frame formulas (std::map<std::string, int>) from class Universe.
-void ReaxSpecies::import_frame_formulas(int &frame_id, const std::vector<std::string> &formulas) {
+void ReaxSpecies::import_frame_formulas(int& frame_id, const std::vector<std::string>& formulas) {
     if (all_frame_formulas.size() < frame_id) {
         all_frame_formulas.resize(frame_id);
     }
@@ -314,8 +315,8 @@ void ReaxSpecies::analyze_frame_formulas() {
     std::unordered_set<std::string> all_formulas_set;
     nframes = all_frame_formulas.size();
 
-    for (auto &frame_formulas_set : all_frame_formulas) {
-        for (auto &formula : frame_formulas_set) {
+    for (auto& frame_formulas_set : all_frame_formulas) {
+        for (auto& formula : frame_formulas_set) {
             // If this formula not in all_formulas_set, append, otherwise skip.
             all_formulas_set.insert(formula);
         }
@@ -324,27 +325,27 @@ void ReaxSpecies::analyze_frame_formulas() {
     // Initialize formulas_nums for all formulas appeared in class Universe.
     // formulas_nums: map<string, vector<float>>
     formulas_nums.clear();
-    for (const std::string &formula : all_formulas_set) {
+    for (const std::string& formula : all_formulas_set) {
         formulas_nums[formula] = std::vector<float>(nframes, 0.0);
     }
 
     for (size_t i = 0; i < nframes; i++) {
-        for (auto &formula : all_frame_formulas[i]) {
+        for (auto& formula : all_frame_formulas[i]) {
             formulas_nums[formula][i] += 1.0f;
         }
     }
 }
 
 // General function, save file to given path.
-void ReaxSpecies::save_file(const std::string &save_path) {
-    FILE *file = fopen(save_path.c_str(), "w");
+void ReaxSpecies::save_file(const std::string& save_path) {
+    FILE* file = fopen(save_path.c_str(), "w");
     if (file == NULL) {
         fmt::print(stderr, "Cannot open file {} for writing.\n", save_path);
         return;
     }
 
     bool is_first = true;
-    for (const auto &pair : formulas_nums) {
+    for (const auto& pair : formulas_nums) {
         if (is_first) {
             fmt::print(file, "{}", pair.first);
             is_first = false;
@@ -356,7 +357,7 @@ void ReaxSpecies::save_file(const std::string &save_path) {
 
     for (size_t i = 0; i < nframes; i++) {
         is_first = true;
-        for (const auto &pair : formulas_nums) {
+        for (const auto& pair : formulas_nums) {
             if (is_first) {
                 fmt::print(file, "{}", (pair.second)[i]);
                 is_first = false;
@@ -372,7 +373,7 @@ void ReaxSpecies::save_file(const std::string &save_path) {
 }
 
 // For traj mode, call from universe.
-void ReaxSpecies::save_file_to_dir(const std::string &output_dir) { save_file(output_dir + "species_count.csv"); }
+void ReaxSpecies::save_file_to_dir(const std::string& output_dir) { save_file(output_dir + "species_count.csv"); }
 
 // For species mode, save file directly in current directory.
 void ReaxSpecies::save_file_to_current_dir() {

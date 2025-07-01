@@ -10,41 +10,54 @@
 #include "string_tools.h"
 #include "universe.h"
 
-int main(int argc, char **argv) {
-    ArgParser parser("reax_tools_local", "ReaxFF Trajectory Analyzer (Local Test)");
-    parser.add_argument("--traj", "-f", "Analyze trajectory file (.xyz/.lammpstrj)", "file", "", true, false,
-                        "path/to/file");
-    parser.add_argument("--types", "-t", "element types splitted in commas", "Traj analysis", "", false, false,
-                        "str,str,...(e.g. C,H,O,N...)");
-    parser.add_argument("--radius", "-r", "scaling factor of vdW radii", "Traj analysis", "1.2", false, false, "float");
-    parser.add_argument("--threads", "-nt", "number of threads", "Traj analysis", "4", false, false, "int");
-    parser.add_argument("--dump", "", "dump lammps data file (.data) for each frame", "Traj analysis", "", false, true);
+int main(int argc, char** argv) {
+    ArgParser parser("reax_tools", "Reactive MD Trajectory Analyzer (Local machine)");
 
-    parser.add_argument("--reduce-reactions", "-rr", "reduce reverse reactions", "Traj analysis", "false", false, true);
-    parser.add_argument("--merge-element", "-me", "merge species groups by an element type", "Species analysis", "C",
-                        false, false, "e.g. C");
-    parser.add_argument("--merge-ranges", "-mr", "merge group range, split by commas", "Species analysis", "1,4,8,16",
-                        false, false, "e.g. 1,4,8,16");
+    //  parser.add_argument(const std::string& name,
+    //                      const std::string& short_name,
+    //                      const std::string& description,
+    //                      const std::string& group = "General",
+    //                      const std::string& default_value = "",
+    //                      bool required = false,
+    //                      bool is_flag = false,
+    //                      const std::string& value_type = "",
+    //                      std::function<bool(const std::string&)> validator = nullptr)
+
+    parser.add_argument("--traj", "-f", "Analyze trajectory file (.xyz/.lammpstrj)", "Input file", "", true, false,
+                        "path/to/file");
+    parser.add_argument("--types", "-t", "element types splitted in commas", "Key input parameters", "", false, false,
+                        "str,str,...(e.g. C,H,O,N...)");
+    parser.add_argument("--radius", "-r", "scaling factor of vdW radii", "Key input parameters", "1.2", false, false,
+                        "float");
+    parser.add_argument("--type-radius", "-tr", "set atomic radius for element, e.g. -tr N:1.5", "Key input parameters",
+                        "", false, false, "Element:Radius");
+
+    parser.add_argument("--threads", "-nt", "number of threads", "Performance", "4", false, false, "int");
+
+    parser.add_argument("--dump", "", "dump lammps data file (.data) for each frame", "Misc", "", false, true);
+    parser.add_argument("--reduce-reactions", "-rr", "reduce reverse reactions", "Network output options", "false",
+                        false, true);
+    parser.add_argument("--max-reactions", "", "set max reactions in default network", "Network output options", "60",
+                        false, false);
+
+    parser.add_argument("--merge-element", "-me", "merge species groups by an element type", "Species output options",
+                        "C", false, false, "e.g. C");
+    parser.add_argument("--merge-ranges", "-mr", "merge group range, split by commas", "Species output options",
+                        "1,4,8,16", false, false, "e.g. 1,4,8,16");
     parser.add_argument("--rescale-count", "-rc",
-                        "rescale group weight by actual numbers of atoms (instead of molecules)", "Species analysis",
-                        "", false, true);
-    parser.add_argument("--element-order", "--order", "set element order of outputting formulas", "Species analysis",
-                        "", false, false, "e.g. C,H,O,N,S,F,P");
+                        "rescale group weight by actual numbers of atoms (instead of molecules)",
+                        "Species output options", "", false, true);
+    parser.add_argument("--element-order", "--order", "set element order of outputting formulas",
+                        "Species output options", "", false, false, "e.g. C,H,O,N,S,F,P");
 
     if (!parser.parse_args(argc, argv)) {
+        std::cerr << "Error: Failed to parse arguments. Check your input." << std::endl;
         return 1;
     }
 
-    std::string traj_file = parser.has_option("--traj") ? parser.get<std::string>("--traj") : "";
-
-    std::cout << "traj_file: [" << traj_file << "]" << std::endl;
+    std::string traj_file = parser.get<std::string>("--traj");
     if (!std::filesystem::exists(traj_file)) {
         std::cerr << "Error: File does not exist: " << traj_file << std::endl;
-        return 1;
-    }
-
-    if (traj_file.empty()) {
-        std::cerr << "Error: Must define input file (-f or --traj)" << std::endl;
         return 1;
     }
 
@@ -58,6 +71,7 @@ int main(int argc, char **argv) {
 
     bool if_dump_lammps_data = parser.has_flag("--dump");
     bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("-rr");
+    int max_reactions = parser.get<int>("--max-reactions");
 
     std::string merge_target = parser.has_option("--merge-element") ? parser.get<std::string>("--merge-element") : "";
     std::vector<int> merge_range = parser.get<std::vector<int>>("--merge-ranges");
@@ -70,7 +84,6 @@ int main(int argc, char **argv) {
     } else {
         sort_order = default_order;
     }
-    int max_reactions = 60;
 
     if (ends_with(traj_file, "lammpstrj") && type_names.empty()) {
         std::cerr << "Error: Must define element types when using lammpstrj file. (--types)" << std::endl;
@@ -86,7 +99,7 @@ int main(int argc, char **argv) {
     if (!std::filesystem::exists(output_dir)) {
         std::filesystem::create_directory(output_dir);
     } else {
-        for (const auto &entry : std::filesystem::directory_iterator(output_dir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(output_dir)) {
             std::filesystem::remove_all(entry);
         }
     }
@@ -94,6 +107,20 @@ int main(int argc, char **argv) {
     if (std::find(type_names.begin(), type_names.end(), "X") != type_names.end()) {
         fmt::print("**** NOTE **** : You are using the X flag to ignore this type of atoms.\n");
         fmt::print("**** NOTE **** : This may cause inaccuracy when X is not an elementary substance.\n");
+    }
+
+    if (parser.has_option("--type-radius")) {
+        std::vector<std::string> type_radius_list = parser.get<std::vector<std::string>>("--type-radius");
+        for (const auto& tr : type_radius_list) {
+            auto pos = tr.find(':');
+            if (pos != std::string::npos) {
+                std::string elem = tr.substr(0, pos);
+                float radius = std::stof(tr.substr(pos + 1));
+                default_atomic_radius[elem] = radius; // update global map
+            } else {
+                std::cerr << "Invalid --type-radius format: " << tr << std::endl;
+            }
+        }
     }
 
     uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data);

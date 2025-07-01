@@ -5,7 +5,7 @@
 #include "string_tools.h"
 #include "universe.h"
 
-void System::load_xyz(std::ifstream &file) {
+void System::load_xyz(std::ifstream& file) {
     std::string line;
     std::vector<std::string> tokens;
     int atom_id = 0;
@@ -48,7 +48,7 @@ void System::load_xyz(std::ifstream &file) {
             std::string lattice_str = "";
             size_t lattice_start = line.find("Lattice=\"");
             if (lattice_start != std::string::npos) {
-                lattice_start += 9;  // Skip "Lattice=\""
+                lattice_start += 9; // Skip "Lattice=\""
                 size_t lattice_end = line.find("\"", lattice_start);
                 if (lattice_end != std::string::npos) {
                     lattice_str = line.substr(lattice_start, lattice_end - lattice_start);
@@ -70,7 +70,7 @@ void System::load_xyz(std::ifstream &file) {
                 lx = std::stof(lattice_values[0]);
                 ly = std::stof(lattice_values[4]);
                 lz = std::stof(lattice_values[8]);
-            } catch (const std::exception &e) {
+            } catch (const std::exception& e) {
                 fmt::print("Error parsing Lattice values: {}\n", e.what());
                 continue;
             }
@@ -82,7 +82,7 @@ void System::load_xyz(std::ifstream &file) {
 
             size_t origin_start = line.find("Origin=\"");
             if (origin_start != std::string::npos) {
-                origin_start += 8;  // Skip "Origin=\""
+                origin_start += 8; // Skip "Origin=\""
                 size_t origin_end = line.find("\"", origin_start);
                 if (origin_end != std::string::npos) {
                     std::string origin_str = line.substr(origin_start, origin_end - origin_start);
@@ -92,7 +92,7 @@ void System::load_xyz(std::ifstream &file) {
                             xlo = std::stof(origin_values[0]);
                             ylo = std::stof(origin_values[1]);
                             zlo = std::stof(origin_values[2]);
-                        } catch (const std::exception &e) {
+                        } catch (const std::exception& e) {
                             fmt::print("Error parsing Origin values: {}\n", e.what());
                         }
                     }
@@ -127,7 +127,7 @@ void System::load_xyz(std::ifstream &file) {
                 // Notice that must get the types correct!
                 try {
                     if (type_stoi.find(given_type) == type_stoi.end()) {
-                        type_int = type_stoi.size() + 1;  // To ensure all types are count from 1.
+                        type_int = type_stoi.size() + 1; // To ensure all types are count from 1.
                         type_itos[type_int] = given_type;
                         type_stoi[given_type] = type_int;
                         total_types++;
@@ -135,7 +135,7 @@ void System::load_xyz(std::ifstream &file) {
                         type_int = type_stoi[given_type];
                     }
                     type_str = given_type;
-                } catch (const std::invalid_argument &e) {
+                } catch (const std::invalid_argument& e) {
                     std::cerr << "Invalid element type in xyzfile: " << given_type << std::endl;
                 }
             } else {
@@ -143,7 +143,7 @@ void System::load_xyz(std::ifstream &file) {
                 try {
                     type_int = std::stoi(given_type);
                     type_str = type_itos[type_int];
-                } catch (const std::invalid_argument &e) {
+                } catch (const std::invalid_argument& e) {
                     std::cerr << "Invalid element type in xyzfile: " << given_type << std::endl;
                 }
             }
@@ -164,7 +164,7 @@ void System::load_xyz(std::ifstream &file) {
                 z = z - zlo;
             }
 
-            Atom *atom = new Atom(atom_id, type_int, {x, y, z}, type_str);
+            Atom* atom = new Atom(atom_id, type_int, {x, y, z}, type_str);
             atoms.push_back(atom);
 
             // When there's no atom numbers line in xyz file, total_atoms = 0, and
@@ -176,7 +176,7 @@ void System::load_xyz(std::ifstream &file) {
     }
 }
 
-void System::load_lammpstrj(std::ifstream &file) {
+void System::load_lammpstrj(std::ifstream& file) {
     // load a frame from lammpstrj, create a system instance.
     // when finish all atoms in this frame, stop.
     std::string line;
@@ -302,7 +302,7 @@ void System::load_lammpstrj(std::ifstream &file) {
                 z = std::stof(tokens[atom_z_column]) * lz;
             }
 
-            Atom *atom = new Atom(id, type_i, {x, y, z}, type_s);
+            Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);
             atoms.push_back(atom);
             atoms_count++;
 

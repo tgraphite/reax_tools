@@ -36,10 +36,11 @@ Includes a Python plotting script `reax_plot.py` for automated visualization.
 
 #### 1. Download the latest version from GitHub: [https://github.com/tgraphite/reax_tools/releases](https://github.com/tgraphite/reax_tools/releases). Files without extensions are for Linux; `.exe` files are for Windows. **The author recommends using the Linux binary**.  
 
-#### 2. Extract the files, e.g., to `/your/reax_tools/path`  
+#### 2. Extract the files, e.g., to `/your/path`  
 
 #### 3. Set `PATH` and `LD_LIBRARY_PATH`:  
-    export PATH=${PATH}:/your/reax_tools/path
+    export PATH=${PATH}:/your/path
+    export LD_LIBRARY_PATH=/your/path/lib:${LD_LIBRARY_PATH}
 
 #### 4. Minimal usage:  
     reax_tools -f <.xyz/.lammpstrj file> -t <element1,element2...> 
@@ -63,13 +64,15 @@ Recommended input formats:
 > Most initial failures stem from file format issues. For non-unique mappings (e.g., type 1-5 = C,H,H,O,N), import into OVITO, assign unique "Particle Type" names, then export as XYZ to merge elements.  
 
 #### 6. Full options  
-    -s <lammps species file>  # Replaces -f; cleans LAMMPS ReaxFF/species output (legacy reax_species.py functionality)
+    -f <.xyz/.lammpstrj file> # Set input file.
 
-    -r <vdw scaling factor>   # vdW radius scaling factor (default: 1.2, matches OVITO). Adjust for sensitivity: lower values fragment molecules more aggressively.
+    -r <vdw scaling factor>   # Set vdW radius scaling factor (default: 1.2, matches OVITO). Adjust for sensitivity: lower values fragment molecules more aggressively.
+    
+    -tr <element:radius>      # Set vdw raidius for specfic type to override default values, can use multiple times, can combine with -r. e.g. -tr N:1.5 -tr H:1.0 Defaults: see defines.cpp
 
     --dump                    # Output bond-annotated LAMMPS data files per frame for OVITO/VMD visualization (disabled by default)
 
-    -nt <threads>             # Thread count (default: 4). Higher values may not accelerate all algorithms.
+    -nt <threads>             # Number of threads (default: 4). Higher values may not accelerate all algorithms. (always disabled in Web version)
 
     -me <element>             # Merge species groups by element content (e.g., C1-C4, C5-C8). Default: none. If -mr is set without -me, defaults to C.
 
@@ -80,6 +83,8 @@ Recommended input formats:
     --order <elements>        # Element order in output formulas (e.g., H2CO → CH2O). Default: C,H,O,N,S,F,P.
 
     -rr                       # Retain net reaction flux for reversible pairs. Useful for oversaturated networks.
+
+    --max-reactions           # Set max reactions written in default reactions.dot file, full reactions will still be saved in reactions_full.dot if there are more.
 
 ----
 

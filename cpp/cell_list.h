@@ -3,7 +3,7 @@
 #include "system.h"
 
 class Cell_list {
-   public:
+  public:
     std::vector<std::vector<Atom*>> cells;
     std::vector<float> axis_lengths;
 
