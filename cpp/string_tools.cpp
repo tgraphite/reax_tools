@@ -93,7 +93,7 @@ std::vector<std::string> split_by_space(const std::string &str) {
     tokens.reserve(20);
 
     while (iss >> token) {
-        tokens.push_back(token);
+        tokens.push_back(std::move(token));
     }
 
     return tokens;

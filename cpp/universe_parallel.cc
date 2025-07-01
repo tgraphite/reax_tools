@@ -137,7 +137,15 @@ void Universe::process_traj(std::string &file_path, std::string &output_dir, std
                 for (auto &pair : curr_system->type_itos) {
                     fmt::print("{}: {}, ", pair.first, pair.second);
                 }
+
                 fmt::print("\n");
+
+                fmt::print("Bond radius: ");
+                for (auto &pair : curr_system->bond_radius_sq) {
+                    fmt::print("{}-{} {:.3f}, ", curr_system->type_itos[pair.first.first],
+                               curr_system->type_itos[pair.first.second], std::sqrt(pair.second));
+                }
+
                 fmt::print("\n");
 
                 is_first_frame = true;

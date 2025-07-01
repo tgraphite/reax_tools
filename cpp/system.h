@@ -32,9 +32,9 @@ struct Atom {
 
     // clear them manually, otherwise atoms will cycle reference each other and
     // the all system will not be released.
-    std::vector<Atom *> neighs;
-    std::vector<Atom *> bonded_atoms;
-    std::vector<Bond *> bonds;
+    std::unordered_set<Atom *> neighs;
+    std::unordered_set<Atom *> bonded_atoms;
+    std::unordered_set<Bond *> bonds;
 
     Atom(int _id, int _type_id, const std::vector<float> &_coord, std::string _type_name)
         : id(_id), type_id(_type_id), coord(_coord), type_name(_type_name) {
@@ -44,19 +44,6 @@ struct Atom {
         neighs.clear();
         bonded_atoms.clear();
         bonds.clear();
-    };
-
-    inline bool contains_neighbor(Atom *atom) {
-        if (neighs.size() == 0) {
-            return false;
-        }
-
-        for (Atom *neigh : neighs) {
-            if (neigh == atom) {
-                return true;
-            }
-        }
-        return false;
     };
 
     inline std::string info() {
@@ -190,6 +177,7 @@ class System {
 
     int max_neigh;
     float rvdw_scale;
+    float neigh_radius = 0.0f;
     unsigned int hash;
 
     std::vector<float> axis_lengths;
@@ -201,8 +189,8 @@ class System {
     std::map<std::string, int> type_stoi;
     std::map<int, std::string> type_itos;
     std::map<std::pair<int, int>, float> bond_radius_sq;
-
     std::map<std::pair<int, int>, float> bond_type_counts;
+
     std::map<int, int> ring_counts;
 
     System *prev_sys = nullptr;

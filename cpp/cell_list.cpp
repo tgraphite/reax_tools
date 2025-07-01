@@ -1,10 +1,9 @@
 #include "cell_list.h"
 
-#include <fmt/core.h>
-
 #include <cmath>
 #include <vector>
 
+#include "fmt/format.h"
 #include "system.h"
 #include "vec_algorithms.h"
 
@@ -19,10 +18,15 @@ Cell_list::Cell_list(std::vector<Atom*> atoms, const float& radius, const std::v
     this->cell_nx = floor(axis_lengths[0] / radius);
     this->cell_ny = floor(axis_lengths[1] / radius);
     this->cell_nz = floor(axis_lengths[2] / radius);
+    this->cell_nyz = cell_ny * cell_nz;
 
     this->cell_lx = axis_lengths[0] / cell_nx;
     this->cell_ly = axis_lengths[1] / cell_ny;
     this->cell_lz = axis_lengths[2] / cell_nz;
+
+    this->inv_cell_lx = 1.0f / cell_lx;
+    this->inv_cell_ly = 1.0f / cell_ly;
+    this->inv_cell_lz = 1.0f / cell_lz;
 
     int cell_idx_x, cell_idx_y, cell_idx_z;
 
@@ -52,31 +56,22 @@ inline std::vector<int> Cell_list::get_cell_index_xyz(Atom* atom) {
     return {cell_idx_x, cell_idx_y, cell_idx_z};
 }
 
+#define WRAP_COORD(val, max) ((val) < 0 ? (max) - 1 : (val) >= (max) ? 0 : (val))
 inline std::vector<int> Cell_list::get_neighbor_cell_indices_number(Atom* atom) {
-    std::vector<int> cell_idx_xyz = get_cell_index_xyz(atom);
+    int cell_idx_x = floor(atom->coord[0] / cell_lx);
+    int cell_idx_y = floor(atom->coord[1] / cell_ly);
+    int cell_idx_z = floor(atom->coord[2] / cell_lz);
+
     std::vector<int> neighbor_cell_indices;
-    for (int move_x = -1; move_x <= 1; move_x++) {
-        int new_x = cell_idx_xyz[0] + move_x;
-        if (new_x < 0) {
-            new_x = cell_nx - 1;
-        } else if (new_x >= cell_nx) {
-            new_x = 0;
-        }
-        for (int move_y = -1; move_y <= 1; move_y++) {
-            int new_y = cell_idx_xyz[1] + move_y;
-            if (new_y < 0) {
-                new_y = cell_ny - 1;
-            } else if (new_y >= cell_ny) {
-                new_y = 0;
-            }
-            for (int move_z = -1; move_z <= 1; move_z++) {
-                int new_z = cell_idx_xyz[2] + move_z;
-                if (new_z < 0) {
-                    new_z = cell_nz - 1;
-                } else if (new_z >= cell_nz) {
-                    new_z = 0;
-                }
-                neighbor_cell_indices.push_back(new_x * cell_ny * cell_nz + new_y * cell_nz + new_z);
+    neighbor_cell_indices.reserve(27);  // 3x3x3 neighbors
+
+    for (int dx = -1; dx <= 1; ++dx) {
+        int x = WRAP_COORD(cell_idx_x + dx, cell_nx);
+        for (int dy = -1; dy <= 1; ++dy) {
+            int y = WRAP_COORD(cell_idx_y + dy, cell_ny);
+            for (int dz = -1; dz <= 1; ++dz) {
+                int z = WRAP_COORD(cell_idx_z + dz, cell_nz);
+                neighbor_cell_indices.push_back(x * cell_nyz + y * cell_nz + z);
             }
         }
     }
@@ -86,20 +81,17 @@ inline std::vector<int> Cell_list::get_neighbor_cell_indices_number(Atom* atom) 
 void Cell_list::search_neighbors(Atom* atom) {
     float distance_sq = 0.0f;
     std::vector<int> neighbor_cell_indices = get_neighbor_cell_indices_number(atom);
+
     for (int neighbor_cell_index : neighbor_cell_indices) {
         for (Atom* candidate_neighbor : cells[neighbor_cell_index]) {
             if (atom->neighs.size() >= max_neigh) {
                 break;
             }
 
-            if (atom->contains_neighbor(candidate_neighbor) || candidate_neighbor->contains_neighbor(atom)) {
-                continue;
-            }
-
             if (candidate_neighbor != atom) {
                 distance_sq = distance_sq_pbc(atom->coord, candidate_neighbor->coord, axis_lengths);
                 if (distance_sq < radius_sq) {
-                    atom->neighs.push_back(candidate_neighbor);
+                    atom->neighs.insert(candidate_neighbor);
                 }
             }
         }

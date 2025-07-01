@@ -215,7 +215,7 @@ void System::dump_ring_count(std::string &filepath, bool &is_first_frame) {
  *        Populates each atom's neighbor list based on a cutoff radius.
  */
 void System::search_neigh_naive() {
-    float radius_sq = neigh_radius * neigh_radius;
+    float radius_sq = rvdw_scale * rvdw_scale * 2.5 * 2.5;
     float dist_sq;
     // Naive search for test
 
@@ -226,7 +226,7 @@ void System::search_neigh_naive() {
 
             dist_sq = distance_sq(curr_atom->coord, other_atom->coord);
             if (dist_sq <= radius_sq) {
-                curr_atom->neighs.insert(other_atom);
+                curr_atom->neighs.push_back(other_atom);
             }
             if (curr_atom->neighs.size() >= max_neigh) {
                 continue;
@@ -239,7 +239,9 @@ void System::search_neigh_naive() {
  * @brief Use cell list algorithm to search for neighbors within a cutoff radius.
  */
 void System::search_neigh_cell_list() {
-    Cell_list cell_list(atoms, neigh_radius, axis_lengths, max_neigh);
+    float radius = 2.5 * rvdw_scale;
+
+    Cell_list cell_list(atoms, radius, axis_lengths, max_neigh);
     for (auto &atom : atoms) {
         cell_list.search_neighbors(atom);
     }
@@ -263,6 +265,31 @@ void System::search_neigh() {
  */
 void System::build_bonds_by_radius() {
     // prepare types and radius.
+    std::map<int, float> atomic_radius;
+    /// When using default atomic radius in constant.h
+    for (auto &pair : type_stoi) {
+        std::string typ_s = pair.first;
+        int typ_i = pair.second;
+
+        // pair.first: string type, pair.second: int type
+        if (default_atomic_radius.find(typ_s) != default_atomic_radius.end())
+            atomic_radius[typ_i] = default_atomic_radius.at(typ_s);
+        else
+            atomic_radius[typ_i] = default_atomic_radius.at("X");
+    }
+
+    for (int type_i = 1; type_i <= total_types; type_i++) {
+        for (int type_j = 1; type_j <= total_types; type_j++) {
+            std::pair<int, int> pair_ij = {type_i, type_j};
+            if (type_itos[type_i] == "X" || type_itos[type_j] == "X") {
+                bond_radius_sq[pair_ij] = 0.0f;
+            } else {
+                bond_radius_sq[pair_ij] = 0.25f * (atomic_radius[type_i] + atomic_radius[type_j]) *
+                                          (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale * rvdw_scale;
+            }
+            bond_type_counts[pair_ij] = 0;
+        }
+    }
 
     // compute.
     float bond_r;
@@ -311,16 +338,14 @@ void System::build_bonds_by_radius() {
 
             tmp_neigh = candidate_id_relative_sq[tmp_id].first;
 
-            if (atom->bonded_atoms.find(tmp_neigh) != atom->bonded_atoms.end()) continue;
-
             Bond *bond = new Bond(atom, tmp_neigh);
             bond_type_counts[std::pair(atom->type_id, tmp_neigh->type_id)]++;
 
             bonds.emplace_back(bond);
-            atom->bonds.insert(bond);
-            tmp_neigh->bonds.insert(bond);
-            atom->bonded_atoms.insert(tmp_neigh);
-            tmp_neigh->bonded_atoms.insert(atom);
+            atom->bonds.emplace_back(bond);
+            tmp_neigh->bonds.emplace_back(bond);
+            atom->bonded_atoms.emplace_back(tmp_neigh);
+            tmp_neigh->bonded_atoms.emplace_back(atom);
         }
 
         candidate_id_relative_sq.clear();
@@ -460,40 +485,6 @@ void System::dump_lammps_data(std::string &filepath) {
  * @brief Process the current system: neighbor search, bond building, molecule construction, and ring counting.
  */
 void System::process_this() {
-    // define bond radius for each type.
-
-    std::map<int, float> atomic_radius;
-    float bond_radius = 0.0f;
-
-    for (auto &pair : type_stoi) {
-        std::string typ_s = pair.first;
-        int typ_i = pair.second;
-
-        // pair.first: string type, pair.second: int type
-        if (default_atomic_radius.find(typ_s) != default_atomic_radius.end())
-            atomic_radius[typ_i] = default_atomic_radius.at(typ_s);
-        else
-            atomic_radius[typ_i] = default_atomic_radius.at("X");
-    }
-
-    for (int type_i = 1; type_i <= total_types; type_i++) {
-        for (int type_j = 1; type_j <= total_types; type_j++) {
-            std::pair<int, int> pair_ij = {type_i, type_j};
-            if (type_itos[type_i] == "X" || type_itos[type_j] == "X") {
-                bond_radius = 0.0f;
-            } else {
-                bond_radius = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
-            }
-            if (bond_radius > neigh_radius) {
-                neigh_radius = bond_radius;
-            }
-            bond_radius_sq[pair_ij] = bond_radius * bond_radius;
-            bond_type_counts[pair_ij] = 0;
-        }
-    }
-
-    // neigh_radius = 2.5 * rvdw_scale;
-
     search_neigh();
     build_bonds_by_radius();
     build_molecules();

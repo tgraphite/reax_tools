@@ -9,8 +9,9 @@ class Cell_list {
 
     float radius, radius_sq;
     float cell_lx, cell_ly, cell_lz;
+    float inv_cell_lx, inv_cell_ly, inv_cell_lz;
 
-    int cell_nx, cell_ny, cell_nz;
+    int cell_nx, cell_ny, cell_nz, cell_nyz;
     int max_neigh;
 
     Cell_list(std::vector<Atom*> atoms, const float& radius, const std::vector<float> axis_lengths,
