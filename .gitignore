@@ -1,0 +1,10 @@
+test/
+web/
+.vscode/
+disabled/
+
+.clang-format
+build*.sh
+*.xyz
+*.lammpstrj
+build/
