@@ -166,6 +166,7 @@ void System::load_xyz(std::ifstream& file) {
 
             Atom* atom = new Atom(atom_id, type_int, {x, y, z}, type_str);
             atoms.push_back(atom);
+            id_atom_map[atom_id] = atom;
 
             // When there's no atom numbers line in xyz file, total_atoms = 0, and
             // first atom id = 1.
@@ -304,6 +305,7 @@ void System::load_lammpstrj(std::ifstream& file) {
 
             Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);
             atoms.push_back(atom);
+            id_atom_map[id] = atom;
             atoms_count++;
 
             // End reading.

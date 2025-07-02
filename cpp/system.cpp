@@ -13,6 +13,15 @@
 
 std::mutex reaxspecies_mutex;
 
+// Hash function for std::pair<int, int>
+struct pair_hash {
+    std::size_t operator()(const std::pair<int, int>& p) const noexcept {
+        // Combine the two integers into a single hash value
+        // This is a common way to combine two hash values
+        return std::hash<int>()(p.first) ^ (std::hash<int>()(p.second) << 1);
+    }
+};
+
 System::System() {}
 
 System::~System() {
@@ -302,7 +311,7 @@ void System::build_bonds_by_radius() {
 
             relative_sq = dist_sq / bond_sq;
 
-            if (relative_sq < 1) {
+            if (relative_sq < 1.0f) {
                 id_dist_sq = {neigh->id, dist_sq};
                 candidate_id_relative_sq.emplace_back(std::pair(neigh, relative_sq));
             }
@@ -312,12 +321,15 @@ void System::build_bonds_by_radius() {
                   [](const auto& a, const auto& b) { return a.second < b.second; });
 
         for (size_t tmp_id = 0; tmp_id < candidate_id_relative_sq.size(); tmp_id++) {
-            if (tmp_id >= atom->max_valence)
+            if (atom->bonded_atoms.size() >= atom->max_valence)
                 break;
 
             tmp_neigh = candidate_id_relative_sq[tmp_id].first;
 
             if (atom->bonded_atoms.find(tmp_neigh) != atom->bonded_atoms.end())
+                continue;
+
+            if (tmp_neigh->bonded_atoms.size() >= tmp_neigh->max_valence)
                 continue;
 
             Bond* bond = new Bond(atom, tmp_neigh);
@@ -392,8 +404,8 @@ void System::build_molecules() {
     atom_valence_residual.clear();
 
     for (auto& molecule : molecules) {
-        molecule->update_formula();
-        molecule->update_hash();
+        molecule->update_topology();
+        id_mol_map[molecule->id] = molecule;
     }
 
     visited.clear();
@@ -513,7 +525,7 @@ void System::process_this() {
  * @brief Process the current system frame for ReaxFF analysis, including formula extraction and reaction tracking.
  *        Thread-safe import of frame formulas and molecule comparison with previous frame.
  */
-void System::process_reax() {
+void System::process_reax_species() {
     std::vector<std::string> frame_formulas(molecules.size());
     for (size_t i = 0; i < molecules.size(); i++) {
         frame_formulas[i] = molecules[i]->formula;
@@ -524,7 +536,29 @@ void System::process_reax() {
         std::lock_guard<std::mutex> lock(reaxspecies_mutex);
         reax_species->import_frame_formulas(frame_id, frame_formulas);
     }
+}
 
+inline Atom* System::get_atom_by_id(const int& atom_id) {
+    // Use id_atom_map to find the atom by its id. Return nullptr if not found.
+    auto it = id_atom_map.find(atom_id);
+    if (it != id_atom_map.end()) {
+        return it->second;
+    } else {
+        return nullptr;
+    }
+}
+
+inline Molecule* System::get_molecule_by_id(const int& mol_id) {
+    // Use id_atom_map to find the atom by its id. Return nullptr if not found.
+    auto it = id_mol_map.find(mol_id);
+    if (it != id_mol_map.end()) {
+        return it->second;
+    } else {
+        return nullptr;
+    }
+}
+
+void System::process_reax_flow() {
     // These computations are safe without lock.
     if (prev_sys == nullptr) // The first frame.
         return;
@@ -539,22 +573,60 @@ void System::process_reax() {
     }
 
     std::vector<int> intersection;
-    // This double loop compuation is not that time-consuming.
-    for (const auto& prev_mol : prev_sys->molecules) {
-        for (auto& curr_mol : this->molecules) {
-            if (*prev_mol == *curr_mol)
-                continue;
+    std::unordered_set<std::pair<int, int>, pair_hash> reaction_mol_id_pairs;
+    std::pair<int, int> mol_id_pair = {0, 0};
+    Atom* prev_atom = nullptr;
+    Molecule* prev_mol = nullptr;
+    Molecule* curr_mol = nullptr;
 
-            intersection.clear();
+    for (const auto& curr_atom : this->atoms) {
+        prev_atom = prev_sys->get_atom_by_id(curr_atom->id);
+        if (!prev_atom)
+            continue;
 
-            std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
-                                  curr_mol->atom_ids.end(), back_inserter(intersection));
+        prev_mol = prev_atom->belong_molecule;
+        curr_mol = curr_atom->belong_molecule;
 
-            if (intersection.size() > 0) {
-                reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
+        if (prev_mol == nullptr || curr_mol == nullptr)
+            continue;
+
+        if (prev_mol->hash != curr_mol->hash) {
+            mol_id_pair = {prev_mol->id, curr_mol->id};
+            if (reaction_mol_id_pairs.find(mol_id_pair) == reaction_mol_id_pairs.end()) {
+                reaction_mol_id_pairs.insert(mol_id_pair);
             }
         }
     }
+
+    for (const auto& pair : reaction_mol_id_pairs) {
+        intersection.clear();
+
+        prev_mol = prev_sys->get_molecule_by_id(pair.first);
+        curr_mol = this->get_molecule_by_id(pair.second);
+
+        std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
+                              curr_mol->atom_ids.end(), back_inserter(intersection));
+
+        if (intersection.size() > 0) {
+            reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
+        }
+    }
+
+    // for (const auto& prev_mol : prev_sys->molecules) {
+    //     for (auto& curr_mol : this->molecules) {
+    //         if (*prev_mol == *curr_mol)
+    //             continue;
+
+    // intersection.clear();
+
+    // std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
+    //                       curr_mol->atom_ids.end(), back_inserter(intersection));
+
+    // if (intersection.size() > 0) {
+    //     reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
+    // }
+    //     }
+    // }
 }
 
 /**

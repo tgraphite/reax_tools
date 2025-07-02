@@ -50,7 +50,8 @@ void Universe::flush() {
  * Fallback to serial in wasm. num_threads is ignored.
  */
 void Universe::process_traj(std::string& file_path, std::string& output_dir, std::vector<std::string>& type_names,
-                            const float& rvdw_scale, const int& num_threads, const bool& if_dump_lammps_data) {
+                            const float& rvdw_scale, const int& num_threads, const bool& if_dump_lammps_data,
+                            const bool& if_no_reax_flow) {
     int curr_frame_id = 1;
     int max_neigh = 10;
     bool is_first_frame = true;
@@ -91,7 +92,8 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
 
         system->set_prev_sys(last_system);
         system->process_this();
-        system->process_reax();
+        system->process_reax_species();
+        system->process_reax_flow();
 
         if (if_dump_lammps_data) {
             std::string lammps_data_file = output_dir + "frame_" + std::to_string(system->frame_id) + ".data";

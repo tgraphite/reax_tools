@@ -61,7 +61,8 @@ template <typename T, typename Func> void parallel_for_each(std::vector<T*>& obj
 }
 
 void Universe::process_traj(std::string& file_path, std::string& output_dir, std::vector<std::string>& type_names,
-                            const float& rvdw_scale, const int& num_threads, const bool& if_dump_lammps_data) {
+                            const float& rvdw_scale, const int& num_threads, const bool& if_dump_lammps_data,
+                            const bool& if_no_reax_flow) {
     int max_neigh = 10;
     int curr_frame_id = 1;
     bool is_first_frame = true;
@@ -122,7 +123,10 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
             else
                 curr_system->set_prev_sys(frameid_system[frame_id - 1]);
         }
-        parallel_for_each<System>(systems_to_process, &System::process_reax);
+        parallel_for_each<System>(systems_to_process, &System::process_reax_species);
+        if (!if_no_reax_flow) {
+            parallel_for_each<System>(systems_to_process, &System::process_reax_flow);
+        }
 
         for (auto& curr_system : systems_to_process) {
             if (curr_system->prev_sys) // prev_sys of the first frame is nullptr

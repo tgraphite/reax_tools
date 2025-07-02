@@ -1,3 +1,4 @@
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -11,6 +12,9 @@
 #include "universe.h"
 
 int main(int argc, char** argv) {
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     ArgParser parser("reax_tools", "Reactive MD Trajectory Analyzer (Local machine)");
 
     //  parser.add_argument(const std::string& name,
@@ -35,6 +39,7 @@ int main(int argc, char** argv) {
     parser.add_argument("--threads", "-nt", "number of threads", "Performance", "4", false, false, "int");
 
     parser.add_argument("--dump", "", "dump lammps data file (.data) for each frame", "Misc", "", false, true);
+    parser.add_argument("--no-reactions", "", "disable reaction analysis", "Network output options", "", false, true);
     parser.add_argument("--reduce-reactions", "-rr", "reduce reverse reactions", "Network output options", "false",
                         false, true);
     parser.add_argument("--max-reactions", "", "set max reactions in default network", "Network output options", "60",
@@ -70,6 +75,7 @@ int main(int argc, char** argv) {
     float rvdw_scale = parser.get<float>("--radius");
 
     bool if_dump_lammps_data = parser.has_flag("--dump");
+    bool if_no_reax_flow = parser.has_flag("--no-reactions");
     bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("-rr");
     int max_reactions = parser.get<int>("--max-reactions");
 
@@ -123,7 +129,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data);
+    uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data, if_no_reax_flow);
 
     if (if_merge_by_element) {
         uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);
@@ -135,6 +141,10 @@ int main(int argc, char** argv) {
     uv.reax_flow->save_graph(output_dir, max_reactions, true, if_reduce_reactions);
     uv.reax_flow->dump_smiles(output_dir);
     uv.reax_flow->draw_molecules(output_dir);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();
+    fmt::print("Total elapsed time: {:.3f} seconds\n", elapsed_sec);
 
     return 0;
 }

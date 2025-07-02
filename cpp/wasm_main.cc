@@ -1,3 +1,4 @@
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -14,6 +15,8 @@
 // For brevity, assume ArgParser is available here
 
 extern "C" int cpp_main(int argc, const char** argv) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     // Convert const char** to char** for ArgParser compatibility
     std::vector<std::string> args_str;
     args_str.reserve(argc); // 预分配，防止扩容导致指针失效
@@ -33,6 +36,7 @@ extern "C" int cpp_main(int argc, const char** argv) {
     parser.add_argument("--dump", "", "dump lammps data file (.data) for each frame", "Traj analysis", "", false, true);
 
     parser.add_argument("--reduce-reactions", "-rr", "reduce reverse reactions", "Traj analysis", "false", false, true);
+    parser.add_argument("--no-reactions", "", "disable reaction analysis", "Network output options", "", false, true);
     parser.add_argument("--merge-element", "-me", "merge species groups by an element type", "Species analysis", "C",
                         false, false, "e.g. C");
     parser.add_argument("--merge-ranges", "-mr", "merge group range, split by commas", "Species analysis", "1,4,8,16",
@@ -73,6 +77,7 @@ extern "C" int cpp_main(int argc, const char** argv) {
     int max_reactions = parser.get<int>("--max-reactions");
 
     bool if_dump_lammps_data = parser.has_flag("--dump");
+    bool if_no_reax_flow = parser.has_flag("--no-reactions");
     bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("-rr");
     std::string merge_target = parser.has_option("--merge-element") ? parser.get<std::string>("--merge-element") : "";
     std::vector<int> merge_range = parser.get<std::vector<int>>("--merge-ranges");
@@ -124,7 +129,7 @@ extern "C" int cpp_main(int argc, const char** argv) {
         fmt::print("**** NOTE **** : This may cause inaccuracy when X is not an elementary substance.\n");
     }
 
-    uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data);
+    uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data, if_no_reax_flow);
 
     if (if_merge_by_element) {
         uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);
@@ -135,6 +140,10 @@ extern "C" int cpp_main(int argc, const char** argv) {
     uv.reax_flow->brief_report();
     uv.reax_flow->save_graph(output_dir, max_reactions, true, if_reduce_reactions);
     // uv.reax_flow->dump_smiles(output_dir);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();
+    fmt::print("Total elapsed time: {:.3f} seconds\n", elapsed_sec);
 
     return 0;
 }

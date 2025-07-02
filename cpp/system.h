@@ -26,6 +26,8 @@ struct Atom {
     int max_valence;
     bool saturated = false;
 
+    Molecule* belong_molecule = nullptr;
+
     std::vector<float> coord;
     std::string type_name;
     std::string desc;
@@ -44,6 +46,7 @@ struct Atom {
         neighs.clear();
         bonded_atoms.clear();
         bonds.clear();
+        belong_molecule = nullptr;
     };
 
     inline std::string info() {
@@ -52,6 +55,12 @@ struct Atom {
     };
 };
 
+// Make hash of id as atom hash for build unordered_set
+namespace std {
+template <> struct hash<Atom> {
+    std::size_t operator()(const Atom& atom) const noexcept { return std::hash<int>()(atom.id); }
+};
+} // namespace std
 inline bool operator==(const Atom& lhs, const Atom& rhs) { return lhs.id == rhs.id; }
 
 struct Bond {
@@ -125,42 +134,44 @@ struct Molecule {
 
     inline std::string info() {
         if (formula.empty())
-            update_formula();
+            update_topology();
         return fmt::format("Mol: {} Atoms:{} Bonds:{}\n", formula, mol_atoms.size(), mol_bonds.size());
     };
 
-    inline void update_formula() {
-        std::string tmp_formula;
-
+    inline void update_topology() {
+        // Formula
+        std::string mol_formula;
         for (auto& mol_atom : mol_atoms) {
-            types_nums[mol_atom->type_name]++; // If key of map not exist, create
-                                               // key-value and value++, If exists,
-                                               // value++.
+            types_nums[mol_atom->type_name]++;
         }
 
         for (auto& pair : types_nums) {
-            tmp_formula += fmt::format("{}{}", pair.first, pair.second);
+            mol_formula += fmt::format("{}{}", pair.first, pair.second);
         }
+        formula = rename_formula(mol_formula);
 
-        formula = rename_formula(tmp_formula);
-    };
-
-    inline void update_hash() {
-        unsigned int atom_hash = 1;
-        unsigned int mol_hash = 1;
-
-        // draft mol hash is build by atom environments, like C(C,H,H) + C(C, C, H) + ...
-        // do not depend on the order of atom readed.
-        // not absolutely unique, not absolutely represent topology, but fast and very rarely make collision.
+        // Hash
+        unsigned int mol_hash = 0;
         for (const auto& atom : mol_atoms) {
-            atom_hash = bigger_prime_numbers[atom->type_id];
-            for (const auto& bonded : atom->bonded_atoms) {
-                atom_hash *= prime_numbers[bonded->type_id];
-            }
-            mol_hash += atom_hash;
-        }
+            unsigned int atom_hash = bigger_prime_numbers[atom->type_id];
+            unsigned int bonded_hash = 0;
 
+            for (const auto& bonded : atom->bonded_atoms) {
+                bonded_hash ^= prime_numbers[bonded->type_id]; // XOR is commutative
+            }
+            // Combine atom and its bonded environment, order independent
+            atom_hash ^= bonded_hash;
+            mol_hash += atom_hash; // Addition is commutative
+        }
+        // Final mixing for better distribution
+        mol_hash ^= (mol_hash >> 16);
+        mol_hash *= 0x85ebca6b;
+        mol_hash ^= (mol_hash >> 13);
         hash = mol_hash;
+
+        for (auto& atom : mol_atoms) {
+            atom->belong_molecule = this;
+        }
     };
 };
 
@@ -186,6 +197,9 @@ class System {
     std::vector<Molecule*> molecules;
     std::vector<Molecule*> rings;
     std::vector<Bond*> bonds;
+
+    std::unordered_map<int, Atom*> id_atom_map;
+    std::unordered_map<int, Molecule*> id_mol_map;
 
     std::map<std::string, int> type_stoi;
     std::map<int, std::string> type_itos;
@@ -220,7 +234,8 @@ class System {
     void dfs(Atom* atom, std::set<Atom*>& visited, Molecule* curr_mol);
 
     void process_this();
-    void process_reax();
+    void process_reax_species();
+    void process_reax_flow();
 
     void set_rvdw_scale(float value) { rvdw_scale = value; }
     void set_max_neigh(int value) { max_neigh = value; }
@@ -233,4 +248,7 @@ class System {
     void find_rings_from_atom(Atom* current, Atom* start, int depth, std::unordered_set<Atom*>& visited,
                               std::unordered_set<std::unordered_set<Atom*>*>& current_rings,
                               std::vector<Atom*>& current_path);
+
+    Atom* get_atom_by_id(const int& atom_id);
+    Molecule* get_molecule_by_id(const int& mol_id);
 };
