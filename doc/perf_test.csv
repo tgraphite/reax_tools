@@ -1,0 +1,6 @@
+system,2.5K,10K,50K,160K,1M
+number of atoms,2592,10368,51840,165888,995328
+number of frames,40,40,40,40,40
+file size,2.7MB,13MB,76MB,246MB,1.6GB
+time on local machine (nt=4),1.260,2.534,9.413,24.496,147.629
+time on web interface,1.165,6.248,32.890,443.142,-

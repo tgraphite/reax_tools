@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./styles.css">
+    <title>ReaxTools Web</title>
+</head>
+
+<body>
+    <h2>常见问题和错误排查提示</h2>
+    <a href="./index.html">返回工具主页</a>
+    <div class="container">
+        <h3>1. Cannot enlarge memory ...</h3>
+        <p>1.1 轨迹过大（如超过数百MB或1GB的情况）<br>Web版是基于浏览器创造隔离环境运行程序，内存和其他计算资源受到浏览器限制。关闭其他标签页，或缩短轨迹（如4000帧均匀抽400帧）。</p>
+        <p>1.2 其他问题间接导致的错误，通常是格式问题、文件命名问题（如没有前缀名/后缀名、后缀名错误等）。</p>
+        <p>1.3 使用<a href="https://github.com/tgraphite/reax_tools/releases">离线版</a>，离线版性能远强于Web版，并且没有资源限制，但离线版不会自动作图。
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>2. 结果内容为空，输出提示中type为空（type 1: , type 2: ,...）</h3>
+        <p>没有指定数字类型对应的元素符号，使用附加参数如-t C,H,O,N指定。或者转为xyz (extended)格式，详见格式说明。</p>
+    </div>
+
+    <div class="container">
+        <h3>3. 结果不符合预期，形成过多破碎的分子、或过于稠密的大分子。</h3>
+        <p>调整-r参数，详见参数说明。</p>
+    </div>
+
+    <div class="container">
+        <h3>4. 反应网络结果过于繁杂或过于少。</h3>
+        <p>4.1 -rr选项会抵消互逆反应的其中一支，详见参数说明，使用-rr选项后视图能够更加清晰。</p>
+        <p>4.2 当反应网络不能全部显示时，会自动分拆为reactions.dot和reactions_full.dot两个文件，作图区显示的前者是后者的高流量部分。另存为所有文件并离线查看和绘制后者。</p>
+    </div>
+
+</body>
+
+</html>

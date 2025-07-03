@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./styles.css">
+    <title>ReaxTools Web</title>
+</head>
+
+<body>
+    <h2>ReaxTools Web附加参数说明</h2>
+    <a href="./index.html">返回工具主页</a>
+
+    <div class="container">
+        <h3>-t [元素符号,元素符号...]</h3>
+        <p>值类型：英文逗号分隔的字符串，默认值：无<br>
+            当使用lammpstrj文件或无元素符号标记的xyz文件时，定义type 1,2,3...对应的元素符号。<br>
+            务必注意：1.英文逗号，2.参数内无空格。<br>
+            正确：-t C,H,O,N<br>
+            错误：-t C，H，O，N (中文逗号)<br>
+            错误：-t C H O N（应使用且仅使用英文逗号）<br>
+            错误：-t C, H, O, N（多余的空格）<br>
+            错误：-t C,H,O（实际有4个type而缺少）<br>
+            <b>其他类似格式的参数同样注意</b>。<br>
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>-r [vdW半径缩放因子]</h3>
+        <p>值类型：浮点数，默认值：1.2<br>
+            van der Waals半径判据的缩放因子。默认值1.2与OVITO create bonds一致，适合一般有机物和无机物体系。<br>
+            调小这个值会使得判断更严格，容易判断出更小的分子、分子碎片，反之亦然。具体看体系尝试。<br>
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>-tr [元素符号:半径]</h3>
+        <p>值类型：字符串和浮点数，默认值：见defines.cpp<br>
+            设置特定元素的vdW半径，可以使用多次，例如-tr N:1.5 -tr H:1。<br>
+            <b>与-r效果叠加。</b><br>
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>-me [元素符号]</h3>
+        <p>值类型：字符串，默认值：不使用<br>
+            对物质含量统计，进行按元素含量的归纳。需要与-mr共同使用。<br>
+            例如，-me C -mr 1,4,8,16会将所有含C的物质归纳到C1-C3、C4-C7、C8-C15、C16+四个组。<br>
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>-mr [范围值,范围值,范围值...]</h3>
+        <p>值类型：英文逗号分隔的整数，默认值：不使用<br>
+            元素含量的归纳的范围，左闭右开区间。需要与-me共同使用。<br>
+            例如，-me C -mr 1,4,8,16会将所有含C的物质归纳到C1-C3、C4-C7、C8-C15、C16+四个组。<br>
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>-rc</h3>
+        <p>值类型：无，默认值：不使用<br>
+            进行元素含量归纳后，对物质组的输出数量进行重算，输出该种元素的原子数而不是分子数。<br>
+            例如，开启-rc后，C16+平均含量由10.5变为250。<br>
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>--order [元素符号,元素符号...]</h3>
+        <p>值类型：英文逗号分隔的字符串，默认值：有机物相关元素优先（C,H,O,N,S,F,P），其余按原子量。<br>
+            重命名化学式，按照给定的顺序。<br>
+            例如，定义顺序为H,N,O，则HO3N变为HNO3。<br>
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>-rr</h3>
+        <p>值类型：无，默认值：不使用。<br>
+            反应网络中，对于互逆的反应，抵消其中一个或两个。<br>
+            例如，H2O ⇌ OH，其中H2O → OH = 50, OH → H2O = 40，开启-rr后，仅保留H2O → OH = 10。<br>
+        </p>
+    </div>
+
+    <div class="container">
+        <h3>--max-reactions [数量]</h3>
+        <p>值类型：整数，默认值：60。<br>
+            reactions.dot默认输出的反应数，也是网页版默认绘制的反应数。<br>
+            无论如何，如果有更多反应，reactions_full.dot会保存所有。<br>
+        </p>
+    </div>
+
+</body>
