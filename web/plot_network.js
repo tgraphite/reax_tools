@@ -1,5 +1,135 @@
-// Network graph (DOT) rendering utilities for ReaxTools Web
-// Only code related to DOT/Graphviz network visualization is here
+// ===== Utility Functions =====
+/**
+ * Get the minimum and maximum value from a numeric array.
+ * @param {number[]} seriesData - Array of numbers.
+ * @returns {{minValue: number, maxValue: number}}
+ */
+function getMinMaxValues(seriesData) {
+    let minValue = 0;
+    let maxValue = 0;
+    let value = 0;
+    for (let i = 0; i < seriesData.length; i++) {
+        value = seriesData[i];
+        if (value < minValue) minValue = value;
+        if (value > maxValue) maxValue = value;
+    }
+    if (maxValue == minValue)
+        throw new Error("function getMinMaxValues: result min == max.");
+    return { minValue, maxValue };
+}
+
+function linearScale(value, minValue, maxValue) {
+    if (maxValue <= minValue)
+        throw new Error("function linearScale: max <= min.")
+
+    return (value - minValue) / (maxValue - minValue)
+}
+
+function log2Scale(value, minValue, maxValue) {
+    if (minValue <= 0 || maxValue <= 0) {
+        console.log("min %d max %d", minValue, maxValue);
+        throw new Error("function log2Scale: min or max <= 0.");
+    }
+
+    let scaled = (Math.log2(value) - Math.log2(minValue)) / (Math.log2(maxValue) - Math.log2(minValue));
+    return Math.max(0, Math.min(1, scaled));
+}
+
+/**
+ * Convert hex color to RGB array.
+ * @param {string} hex - Hex color string.
+ * @returns {number[]}
+ */
+function hexToRgb(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+    const num = parseInt(hex, 16);
+    return [num >> 16 & 255, num >> 8 & 255, num & 255];
+}
+
+/**
+ * Convert RGB array to hex color string.
+ * @param {number[]} rgb - Array of [r, g, b].
+ * @returns {string}
+ */
+function rgbToHex([r, g, b]) {
+    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Interpolate color for node balance.
+ * @param {number} balance - 
+ * @param {number} minbalance - 
+ * @param {number} maxbalance -
+ * @param {string} lowColor - Hex color for low.
+ * @param {string} midColor - Hex color for mid.
+ * @param {string} highColor - Hex color for high.
+ * @returns {string}
+ */
+function getBalanceColor(balance, minBalance, maxBalance, lowColor, midColor, highColor) {
+    const scale = (maxBalance - minBalance) / 8 || 10;  
+    let scaled = 0.5 + Math.atan(balance / scale) / Math.PI;
+
+    let colorA, colorB, t;
+    if (scaled <= 0.5) {
+        colorA = hexToRgb(lowColor);
+        colorB = hexToRgb(midColor);
+        t = scaled / 0.5;
+    } else {
+        colorA = hexToRgb(midColor);
+        colorB = hexToRgb(highColor);
+        t = (scaled - 0.5) / 0.5;
+    }
+    const rgb = colorA.map((a, i) => Math.round(a * (1 - t) + colorB[i] * t));
+    return rgbToHex(rgb);
+}
+
+/**
+ * Interpolate color for edge weight.
+ * @param {number} weight - Edge weight.
+ * @param {number} minEdgeWeight - Minimum edge weight.
+ * @param {number} maxEdgeWeight - Maximum edge weight.
+ * @param {string} lowColor - Hex color for low.
+ * @param {string} highColor - Hex color for high.
+ * @returns {string}
+ */
+function getEdgeColor(weight, minEdgeWeight, maxEdgeWeight, lowColor, highColor) {
+    let scaled = log2Scale(weight, minEdgeWeight, maxEdgeWeight);
+    const rgbA = hexToRgb(lowColor);
+    const rgbB = hexToRgb(highColor);
+    const rgb = rgbA.map((a, i) => Math.round(a * (1 - scaled) + rgbB[i] * scaled));
+    return rgbToHex(rgb);
+}
+
+/**
+ * Interpolate width for edge weight.
+ * @param {number} weight - Edge weight.
+ * @param {number} minEdgeWeight - Minimum edge weight.
+ * @param {number} maxEdgeWeight - Maximum edge weight.
+ * @param {number} lowWidth - Width for low.
+ * @param {number} highWidth - Width for high.
+ * @returns {number}
+ */
+function getEdgeWidth(weight, minEdgeWeight, maxEdgeWeight, lowWidth, highWidth) {
+    let scaled = log2Scale(weight, minEdgeWeight, maxEdgeWeight)
+    const width = (highWidth - lowWidth) * scaled + lowWidth;
+    return width;
+}
+
+/**
+ * Interpolate size for node degree.
+ * @param {number} weight - Node degree.
+ * @param {number} minNodeDegree - Minimum node degree.
+ * @param {number} maxNodeDegree - Maximum node degree.
+ * @param {number} lowSize - Size for low.
+ * @param {number} highSize - Size for high.
+ * @returns {number}
+ */
+function getNodeSize(degree, minNodeDegree, maxNodeDegree, lowSize, highSize) {
+    let scaled = log2Scale(degree, minNodeDegree, maxNodeDegree);
+    const size = (highSize - lowSize) * scaled + lowSize;
+    return size;
+}
 
 // ===== Color configuration for easy theme adjustment =====
 const COLORS = {
@@ -11,8 +141,8 @@ const COLORS = {
     balanceLow: '#FF4F0F',    // reactant
     balanceMid: '#06923E',    // intermediate
     balanceHigh: '#3674B5',   // product
-    edgeLow: '#EEEEEE',        // min edge weight color
-    edgeHigh: '#333333',       // max edge weight color
+    edgeLow: '#EFEFE0',        // min edge weight color
+    edgeHigh: '#819A91',       // max edge weight color
     nodeSelected: '#ff9800',   // selected node color
     edgeSelected: '#e53935',   // selected edge color
     edgeDefault: '#E6E6E6'
@@ -24,28 +154,17 @@ const SIZES = {
     borderRadius: 5,           // px
     borderWidth: 2,            // px
     edgeWidthScale: 1.5,       // edge width scale factor
-    edgeMinWidth: 6,           // px, min edge width
+    edgeMinWidth: 4,           // px, min edge width
+    edgeMaxWidth: 12,           // px, max edge width
     edgeLabelSize: 18,         // px
     nodeMinSize: 12,           // px, min node size
-    nodeMaxSize: 36,           // px, max node size
-    nodeLabelFontSize: 24,     // px, node label font size
+    nodeMaxSize: 30,           // px, max node size
+    nodeLabelFontSize: 20,     // px, node label font size
 };
 
 // 兼容 sigma.js UMD 导出
 if (typeof window.sigma === 'undefined' && typeof window.Sigma !== 'undefined') {
     window.sigma = window.Sigma;
-}
-
-// ===== Custom Node and Edge Classes =====
-class CustomNode {
-    constructor(obj) {
-        Object.assign(this, obj);
-    }
-}
-class CustomEdge {
-    constructor(obj) {
-        Object.assign(this, obj);
-    }
 }
 
 function createSigmaGraph(graphData, chartId, title = 'Reaction Network', chartsMap) {
@@ -71,7 +190,7 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
     sigmaContainer.style.cssText = `width: 100%;height: ${SIZES.containerHeight}px;overflow: hidden;border: ${SIZES.borderWidth}px solid ${COLORS.border};border-radius: ${SIZES.borderRadius}px;background-color: ${COLORS.background};padding: 0;margin-bottom: 10px;position: relative;`;
     sigmaContainer.id = chartId + '_sigma';
     container.appendChild(sigmaContainer);
-    // 在 sigmaContainer 之后插入 infoBox
+    // Info box below sigmaContainer
     let infoBox = container.querySelector(`#${chartId}-info`);
     if (!infoBox) {
         infoBox = document.createElement('div');
@@ -83,7 +202,7 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
             width: 100%;
             margin-top: 10px;
         `;
-        // 左右两栏
+        // Two columns for info
         const leftCol = document.createElement('div');
         leftCol.className = 'network-info-col left';
         leftCol.style.cssText = 'flex:1; min-width:0; overflow-x:auto;';
@@ -94,13 +213,13 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
         infoBox.appendChild(rightCol);
         container.appendChild(infoBox);
     }
-    // 新增：在 infoBox 下方插入说明文字
+    // Info note below infoBox
     let infoNote = container.querySelector(`#${chartId}-info-note`);
     if (!infoNote) {
-        infoNote = document.createElement('div');
+        infoNote = document.createElement('p');
         infoNote.id = `${chartId}-info-note`;
-        infoNote.style.cssText = 'margin-top: 8px; color: #888; font-size: 0.95em;';
-        infoNote.textContent = '节点颜色：分子相对流入/流出比，流出占比越高越红，流入占比越高越蓝。节点大小：总流入流出数。\n边的颜色：反应的发生次数。次数越多颜色越深。\n点击特定节点高亮相关反应和上下游分子，并展示表格。';
+        infoNote.style.color = '#888';
+        infoNote.textContent = 'Node color: relative inflow/outflow ratio. More outflow = redder, more inflow = bluer. Node size: total flow. Edge color: reaction frequency (darker = more frequent). Click a node to highlight related reactions and show details.';
         container.appendChild(infoNote);
     }
     // Sigma.js rendering
@@ -109,15 +228,17 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
             const Graph = window.graphology;
             const Sigma = window.sigma;
             const g = new Graph();
-            // ===== 1. 计算所有动态缩放属性的 min/max =====
+            
             let minEdgeWeight = Infinity, maxEdgeWeight = -Infinity;
             let minDegree = Infinity, maxDegree = -Infinity;
             let minBalance = Infinity, maxBalance = -Infinity;
             const inWeights = {}, outWeights = {};
+
             graphData.nodes.forEach(node => {
                 inWeights[node.id] = 0;
                 outWeights[node.id] = 0;
             });
+
             graphData.edges.forEach(edge => {
                 let weight = 1;
                 if (edge.label) {
@@ -125,19 +246,19 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                     if (match) weight = parseFloat(match[1]);
                 }
                 weight = Number(weight);
-                // 调试输出每条边的label和解析出的weight
                 outWeights[edge.source] += weight;
                 inWeights[edge.target] += weight;
                 if (weight < minEdgeWeight) minEdgeWeight = weight;
                 if (weight > maxEdgeWeight) maxEdgeWeight = weight;
             });
+
             const nodeBalances = {}, nodeDegrees = {};
             graphData.nodes.forEach(node => {
                 const inW = inWeights[node.id];
                 const outW = outWeights[node.id];
                 const total = inW + outW;
                 let balance = 0.5;
-                if (total > 0) balance = inW / total;
+                if (total > 0) balance = inW - outW;
                 nodeBalances[node.id] = balance;
                 if (balance < minBalance) minBalance = balance;
                 if (balance > maxBalance) maxBalance = balance;
@@ -147,65 +268,11 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 if (degree > maxDegree) maxDegree = degree;
             });
 
-            // 2. 计算平衡度并设置颜色
-            function getBalanceColor(balance, lowColor, midColor, highColor) {
-                // Helper: hex to rgb
-                function hexToRgb(hex) {
-                    hex = hex.replace('#', '');
-                    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
-                    const num = parseInt(hex, 16);
-                    return [num >> 16 & 255, num >> 8 & 255, num & 255];
-                }
-                // Helper: rgb to hex
-                function rgbToHex([r, g, b]) {
-                    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-                }
-                let colorA, colorB, t;
-                if (balance <= 0.5) {
-                    colorA = hexToRgb(lowColor);
-                    colorB = hexToRgb(midColor);
-                    t = balance / 0.5;
-                } else {
-                    colorA = hexToRgb(midColor);
-                    colorB = hexToRgb(highColor);
-                    t = (balance - 0.5) / 0.5;
-                }
-                const rgb = colorA.map((a, i) => Math.round(a * (1 - t) + colorB[i] * t));
-                return rgbToHex(rgb);
-            }
-
-            // 边颜色插值函数
-            function getEdgeColor(weight, lowColor, highColor) {
-                // Helper: hex to rgb
-                function hexToRgb(hex) {
-                    hex = hex.replace('#', '');
-                    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
-                    const num = parseInt(hex, 16);
-                    return [num >> 16 & 255, num >> 8 & 255, num & 255];
-                }
-                // Helper: rgb to hex
-                function rgbToHex([r, g, b]) {
-                    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-                }
-                weight = Number(weight);
-                let t = 0;
-                if (maxEdgeWeight > minEdgeWeight && weight > 0 && minEdgeWeight > 0) {
-                    t = (Math.log2(weight) - Math.log2(minEdgeWeight)) / (Math.log2(maxEdgeWeight) - Math.log2(minEdgeWeight));
-                    t = Math.max(0, Math.min(1, t));
-                }
-                // 调试输出每次调用的weight和t
-                const rgbA = hexToRgb(lowColor);
-                const rgbB = hexToRgb(highColor);
-                const rgb = rgbA.map((a, i) => Math.round(a * (1 - t) + rgbB[i] * t));
-                return rgbToHex(rgb);
-            }
-
-            // 按平衡度排序节点
+            // Sort nodes by balance
             const sortedNodes = [...graphData.nodes].sort((a, b) => nodeBalances[a.id] - nodeBalances[b.id]);
             const N = sortedNodes.length;
-            const radius = 100; // You can also move this to SIZES if you want to adjust the node circle radius
-
-            // 生成N个均分圆上的角度，0号为12点（-90°），顺时针
+            const radius = 100; // Node circle radius
+            // Generate N evenly distributed positions on a circle
             const positions = [];
             for (let i = 0; i < N; i++) {
                 const angle = -Math.PI / 2 + (2 * Math.PI * i) / N;
@@ -215,15 +282,14 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                     y: radius * Math.sin(angle)
                 });
             }
-            // 按与12点方向的角度距离排序（12点为-90°，6点为+90°）
+            // Sort positions by angle distance from 12 o'clock
             positions.sort((a, b) => {
-                const base = -Math.PI / 2; // 12点方向
+                const base = -Math.PI / 2;
                 const diffA = Math.PI - Math.abs(Math.abs(a.angle - base) - Math.PI);
                 const diffB = Math.PI - Math.abs(Math.abs(b.angle - base) - Math.PI);
                 return diffB - diffA;
             });
-
-            // 生成CustomNode实例
+            // Create node objects
             const customNodes = sortedNodes.map((node, i) => {
                 const degree = nodeDegrees[node.id];
                 let size = SIZES.nodeMinSize;
@@ -233,51 +299,40 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 const inW = inWeights[node.id];
                 const outW = outWeights[node.id];
                 const total = inW + outW;
-                let balance = 0.5;
-                if (total > 0) balance = inW / total;
-                let t = 0.5;
-                if (maxBalance > minBalance) {
-                    t = (balance - minBalance) / (maxBalance - minBalance);
-                }
-                const color = getBalanceColor(t, COLORS.balanceLow, COLORS.balanceMid, COLORS.balanceHigh);
-                // Remove labelAlignment and angle
-                return new CustomNode({
+                balance = inW - outW;
+                // Use plain object for node
+                return {
                     id: node.id,
                     label: node.label,
                     x: positions[i].x,
                     y: positions[i].y,
                     degree,
                     balance,
-                    color,
-                    size
-                });
+                };
             });
-
-            // 生成CustomEdge实例
+            // Create edge objects
             const customEdges = graphData.edges.map(edge => {
                 let weight = 1;
                 if (edge.label) {
                     const match = String(edge.label).match(/R=(\d+(\.\d+)?)/);
                     if (match) weight = parseFloat(match[1]);
                 }
-                return new CustomEdge({
+                return {
                     source: edge.source,
                     target: edge.target,
                     label: edge.label ? String(edge.label) : undefined,
                     weight,
                     type: 'arrow',
                     arrowSize: SIZES.edgeMinWidth
-                });
+                };
             });
-
-            // 批量添加节点和边
+            // Add nodes and edges to graph
             customNodes.forEach(node => {
                 g.addNode(node.id, { ...node });
             });
             customEdges.forEach(edge => {
                 g.addEdge(edge.source, edge.target, { ...edge });
             });
-
             const renderer = new Sigma(g, sigmaContainer);
             // Highlight logic
             let highlightedNodes = new Set();
@@ -289,14 +344,14 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 highlightedEdges.clear();
                 renderer.refresh();
             }
-            renderer.on('clickNode', ({ node }) => {
+            renderer.on('enterNode', ({ node }) => {
                 const nodeAttr = g.getNodeAttributes(node);
                 selectedNodeLabel = nodeAttr.label || node;
                 selectedNodeId = node;
                 highlightedNodes = new Set([node, ...g.neighbors(node)]);
                 highlightedEdges = new Set(g.edges(node));
                 renderer.refresh();
-                // 侧边栏显示与该节点相关的边，节点id换成label
+                // Show related edges in sidebar
                 const infoList = g.edges(node).map(eid => {
                     const data = g.getEdgeAttributes(eid);
                     const sourceLabel = g.getNodeAttributes(data.source).label || data.source;
@@ -322,29 +377,6 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 });
                 updateSidebar(infoList);
             });
-            renderer.on('clickEdge', ({ edge }) => {
-                selectedNodeLabel = null;
-                selectedNodeId = null;
-                const source = g.source(edge);
-                const target = g.target(edge);
-                highlightedNodes = new Set([source, target]);
-                highlightedEdges = new Set([edge]);
-                renderer.refresh();
-                const data = g.getEdgeAttributes(edge);
-                const sourceLabel = g.getNodeAttributes(data.source).label || data.source;
-                const targetLabel = g.getNodeAttributes(data.target).label || data.target;
-                let at = '';
-                if (data.label) {
-                    const m = String(data.label).match(/AT=(\d+(?:\.\d+)?)/);
-                    if (m) at = m[1];
-                }
-                let r = '';
-                if (data.label) {
-                    const m = String(data.label).match(/R=(\d+(?:\.\d+)?)/);
-                    if (m) r = m[1];
-                }
-                updateSidebar([{ from: sourceLabel, fromId: data.source, to: targetLabel, toId: data.target, reactions: r, atomTransfer: at }]);
-            });
             renderer.on('clickStage', () => {
                 selectedNodeLabel = null;
                 selectedNodeId = null;
@@ -353,60 +385,78 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
             });
             // Node/edge reducer for highlight effect
             renderer.setSetting('nodeReducer', (node, data) => {
-                if (!highlightedNodes.size) return data;
-                return Object.assign({}, data, {
-                    color: highlightedNodes.has(node) ? data.color : COLORS.nodeDefault,
-                    zIndex: highlightedNodes.has(node) ? 100 : 0
-                });
-            });
-            renderer.setSetting('edgeReducer', (edge, data) => {
-                // 直接用 data.weight
-                let weight = data.weight;
-                if (!highlightedEdges.size) {
-                    // Always return dynamic color when not highlighted
-                    return {
+                let dynamicColor = getBalanceColor(data.balance, minBalance, maxBalance, COLORS.balanceLow, COLORS.balanceMid, COLORS.balanceHigh);
+                let dynamicSize = getNodeSize(data.degree, minDegree, maxDegree, SIZES.nodeMinSize, SIZES.nodeMaxSize);
+
+                if (!highlightedNodes.size) {
+                     return {
                         ...data,
-                        color: getEdgeColor(weight, COLORS.edgeLow, COLORS.edgeHigh),
-                        size: SIZES.edgeMinWidth,
-                        weight // 保证 weight 字段传递下去
+                        color: dynamicColor,
+                        size: dynamicSize
                     };
                 }
-                // Only return highlight color when highlighting
+                // Something seleted
+                return {
+                    ...data,
+                    color: highlightedNodes.has(node) ? dynamicColor : COLORS.nodeDefault,
+                    size: dynamicSize,
+                    zIndex: highlightedNodes.has(node) ? 50 : 0,
+                };
+            });
+            renderer.setSetting('edgeReducer', (edge, data) => {
+                let weight = data.weight;
+                let dynamicWidth = getEdgeWidth(weight, minEdgeWeight, maxEdgeWeight, SIZES.edgeMinWidth, SIZES.edgeMaxWidth);
+                let dynamicColor = getEdgeColor(weight, minEdgeWeight, maxEdgeWeight, COLORS.edgeLow, COLORS.edgeHigh);
+
+                if (!highlightedEdges.size) {
+                    return {
+                        ...data,
+                        color: dynamicColor,
+                        size: dynamicWidth,
+                        weight,
+                        label: "",
+                        zIndex: weight
+                    };
+                }
+                // Something selected
                 return {
                     ...data,
                     color: highlightedEdges.has(edge) ? COLORS.edgeSelected : COLORS.edgeDefault,
-                    size: SIZES.edgeMinWidth,
-                    weight // 保证 weight 字段传递下去
+                    size: dynamicWidth,
+                    zIndex: highlightedEdges.has(edge) ? 100 : 0,
+                    weight,
+                    label: highlightedEdges.has(edge) ? data.label : ""
                 };
             });
-            // 只在高亮时显示边label
-            renderer.setSetting('renderEdgeLabels', false);
+            // Only show edge labels when highlighted
+            renderer.setSetting('renderEdgeLabels', true);
+            renderer.setSetting('zIndex', true);
             renderer.setSetting('edgeLabelSize', SIZES.edgeLabelSize);
             renderer.setSetting('edgeLabelColor', 'inherit');
-            renderer.setSetting('nodeLabelSize', SIZES.nodeLabelFontSize);
-
-            // 未选中时的边颜色
+            renderer.setSetting('labelSize', SIZES.nodeLabelFontSize);
+            // Edge color when not selected
             renderer.setSetting('edgeColor', (edge, data) => {
-                // 用 data.weight 作为权重
-                return getEdgeColor(data.weight, COLORS.edgeLow, COLORS.edgeHigh);
+                return getEdgeColor(data.weight, minEdgeWeight, maxEdgeWeight, COLORS.edgeLow, COLORS.edgeHigh);
             });
-
             renderer.setSetting('edgeLabelReducer', () => null);
-
             if (chartsMap) chartsMap.set(chartId, true);
         } catch (error) {
             console.error('Sigma.js rendering failed:', error);
-            sigmaContainer.innerHTML = '<p style="text-align: center; padding: 20px; color: ' + COLORS.sigmaFail + '; font-style: italic;">Sigma.js 渲染失败</p>';
+            sigmaContainer.innerHTML = '<p style="text-align: center; padding: 20px; color: ' + COLORS.sigmaFail + '; font-style: italic;">Sigma.js rendering failed</p>';
         }
     } else {
-        sigmaContainer.innerHTML = '<p style="text-align: center; padding: 20px; color: ' + COLORS.sigmaFail + '; font-style: italic;">Sigma.js 未加载</p>';
+        sigmaContainer.innerHTML = '<p style="text-align: center; padding: 20px; color: ' + COLORS.sigmaFail + '; font-style: italic;">Sigma.js not loaded</p>';
     }
     return true;
 
+    /**
+     * Update the sidebar with edge/node info.
+     * @param {Array} infoList - List of info objects.
+     */
     function updateSidebar(infoList) {
         const infoBox = container.querySelector(`#${chartId}-info`);
         if (!infoBox) return;
-        // 渲染表格函数
+        // Render a table for info data
         function renderTable(data) {
             const table = document.createElement('table');
             table.className = 'key-mol-table';
@@ -421,7 +471,6 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
             table.appendChild(thead);
             const tbody = document.createElement('tbody');
             data.forEach(row => {
-                // row 可能是字符串或对象
                 let from = '', to = '', reactions = '', atomTransfer = '';
                 if (typeof row === 'string') {
                     const match = row.match(/^(.*?) -> (.*?)\s+R=(\d+(?:\.\d+)?)\s*AT=(\d+(?:\.\d+)?)/);
@@ -448,7 +497,7 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
             table.appendChild(tbody);
             return table;
         }
-        // 渲染所有 infoList 为两栏表格
+        // Render infoList as two-column tables
         const leftCol = infoBox.querySelector('.network-info-col.left');
         const rightCol = infoBox.querySelector('.network-info-col.right');
         leftCol.innerHTML = '';
@@ -475,8 +524,6 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
         }
     }
 }
-
-
 
 // UMD-style export for browser global usage
 if (typeof window !== 'undefined') {
