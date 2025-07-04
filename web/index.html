@@ -5,85 +5,84 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ReaxTools Web</title>
-    <!-- 引入外部样式表 -->
     <link rel="stylesheet" href="./styles.css">
-    <!-- 引入 JSZip 库，用于创建 ZIP 压缩包 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- 引入 Plotly.js 库，用于绘制交互式图表 -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <!-- 引入 Viz.js 库，用于渲染 Graphviz DOT 文件 -->
-    <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/viz.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/full.render.js"></script>
     <script src="https://unpkg.com/graphlib-dot@0.6.2/dist/graphlib-dot.min.js"></script>
-    <!-- Graphology (sigma.js 的依赖) -->
     <script src="https://unpkg.com/graphology@0.25.1/dist/graphology.umd.min.js" defer></script>
-    <!-- Sigma.js -->
     <script src="https://unpkg.com/sigma@2.4.0/build/sigma.min.js" defer></script>
 </head>
 
 <body>
-    <h2>ReaxTools (1.92-web-beta)</h2>
-    <div class="container">
-        <p><b>1.92版本</b>: 性能显著提升，现在网页端可以直接处理十万以上原子体系，见<a href="./performance.html">性能测试</a></p>
-        <p><b>1.91版本</b>: 新增-tr选项和--max-reactions选项，见<a href="./inputargs.html">附加参数说明</a></p>
-    </div>
-
+    <h2>ReaxTools Pro</h2>
     <!-- 介绍信息 -->
     <div class="container">
-        <p>ReaxTools是一个高性能的C++反应分子动力学后处理软件，支持输出多种图表，包括物质含量变化、键数量变化、原子类型变化、环数统计、反应网络、原子转移信息、分子上下游信息等。截至2025年6月已有1000-2000本地版下载。详细的ReaxTools原理、使用方法、示例结果请见:
-            <a href="https://github.com/tgraphite/reax_tools">Github页面</a>。可以点击加载示例文件并运行默认示例。
+        <p>ReaxTools Pro simplifies reactive molecule dynamics analysis, offering seamless compatibility with LAMMPS,
+            CP2K, GPUMD, and any program generating XYZ-style trajectories.</p>
+
+        <p>The software provides comprehensive visualization tools including:
+        <ul>
+            <li>Species, bond, atom type, and ring statistics</li>
+            <li>Advanced network analysis capabilities</li>
+            <li>Interactive reaction network visualization</li>
+            <li>Atom transfer and flow analysis tools</li>
+        </ul>
         </p>
-        <p>Web版特别说明:
-            Web版实际计算和文件存储基于您的本地设备，但由于浏览器和资源限制，速度比Linux版更慢。Web版不会上传任何实际数据到服务器，包括轨迹文件和产生的结果。<br>
-        </p>
-        <p>有关绘图: 除了自动绘制的基础折线图，您还可以使用github页面提供的本地版Python画图脚本。对于更多反应网络图，您可以使用本地版Graphviz，也可以使用<a
-                href="https://dreampuf.github.io/GraphvizOnline">在线Graphviz</a>。</p>
-        <p>作者: Graphite QQ群: 561184358 商务合作: 15693074850</p>
+
+        <p>Get started quickly: <a href="#" id="loadSampleBtn" class="cta-button">Load Example</a> and run your first
+            analysis.</p>
+
+        <div class="quick-links">
+            <a href="https://github.com/tgraphite/reax_tools">GitHub</a> |
+            <a href="./performance.html">Performance</a> |
+            <a href="./fileformat.html">File Format</a> |
+            <a href="./inputargs.html">Parameters</a> |
+            <a href="./faqandhint.html">FAQ</a>
+        </div>
     </div>
 
-    <!-- 输入区域 -->
     <div id="input">
-        <h3>输入</h3>
+        <h3>Inputs</h3>
         <p>
-            <label for="fileInput">1. 选择lammpstrj或xyz文件。
-            </label>
+            <label for="fileInput">1. Select .lammpstrj or .xyz file: </label>
             <input type="file" id="fileInput">
-            <a href="./fileformat.html">查看文件格式说明</a>
-            <a href="#" id="loadSampleBtn" style="margin: 0 8px;">加载示例文件</a>
         </p>
         <p>
-            <label for="argsInput">2. 输入附加参数，不需要再次指定文件名。</label>
-            <input type="text" id="argsInput" placeholder="例如: -t C,H,O,N -rr">
-            <a href="./inputargs.html">查看附加参数说明</a>
+            <label for="argsInput">2. Extra input parameters: </label>
+            <input type="text" id="argsInput" placeholder="e.g.: -t C,H,O,N -tr N:1.5">
         </p>
         <p>
             <label for="runBtn">3. </label>
-            <button id="runBtn">运行</button>
-            <a href="./faqandhint.html">查看常见问题提示</a>
+            <button id="runBtn">Run Analysis</button>
         </p>
     </div>
 
-    <!-- 输出区域 -->
     <div id="log-container">
-        <h3>文件与文本输出</h3>
+        <h3>Console Outputs</h3>
         <div id="output"></div>
         <pre id="log-output"></pre>
     </div>
 
-    <!-- 图表显示区 -->
     <div id="charts-container">
-        <h3>数据可视化</h3>
-        <div class="chart-controls">
-            <button id="clearChartsBtn">清除所有图表</button>
-            <button id="exportAllChartsBtn">导出所有图表</button>
-        </div>
+        <h3>Data Visualization</h3>
+        <!-- <div class="chart-controls"> -->
+        <button id="exportAllChartsBtn">Export All</button>
+        <!-- <button id="clearCacheBtn">Clear Cache</button> -->
+        <button id="clearAllBtn">Clear All</button>
+        <!-- </div> -->
         <div id="charts-area"></div>
     </div>
 
-    <!-- 脚本引用 -->
     <script src="./plot_network.js" defer></script>
     <script src="./plot.js" defer></script>
     <script src="./script.js" defer></script>
+
+    <div class="container">
+        <p><b>version 1.92</b>: Performance boost, web version now supports systems with >50,000 atoms</p>
+        <p><b>version 1.91</b>: New parameters: -tr and --max-reactions</p>
+        <p>Author: Graphite Mail: chenhx_cpu@163.com</p>
+        <p><a href="https://beian.miit.gov.cn">苏ICP备2024131880号</a></p>
+    </div>
 </body>
 
 </html>

@@ -20,9 +20,9 @@ function getMinMaxValues(seriesData) {
 
 function linearScale(value, minValue, maxValue) {
     if (maxValue <= minValue)
-        throw new Error("function linearScale: max <= min.")
+        throw new Error("function linearScale: max <= min.");
 
-    return (value - minValue) / (maxValue - minValue)
+    return (value - minValue) / (maxValue - minValue);
 }
 
 function log2Scale(value, minValue, maxValue) {
@@ -31,7 +31,9 @@ function log2Scale(value, minValue, maxValue) {
         throw new Error("function log2Scale: min or max <= 0.");
     }
 
-    let scaled = (Math.log2(value) - Math.log2(minValue)) / (Math.log2(maxValue) - Math.log2(minValue));
+    let scaled =
+        (Math.log2(value) - Math.log2(minValue)) /
+        (Math.log2(maxValue) - Math.log2(minValue));
     return Math.max(0, Math.min(1, scaled));
 }
 
@@ -41,10 +43,14 @@ function log2Scale(value, minValue, maxValue) {
  * @returns {number[]}
  */
 function hexToRgb(hex) {
-    hex = hex.replace('#', '');
-    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+    hex = hex.replace("#", "");
+    if (hex.length === 3)
+        hex = hex
+            .split("")
+            .map((x) => x + x)
+            .join("");
     const num = parseInt(hex, 16);
-    return [num >> 16 & 255, num >> 8 & 255, num & 255];
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
 }
 
 /**
@@ -53,21 +59,28 @@ function hexToRgb(hex) {
  * @returns {string}
  */
 function rgbToHex([r, g, b]) {
-    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+    return "#" + [r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
 /**
  * Interpolate color for node balance.
- * @param {number} balance - 
- * @param {number} minbalance - 
+ * @param {number} balance -
+ * @param {number} minbalance -
  * @param {number} maxbalance -
  * @param {string} lowColor - Hex color for low.
  * @param {string} midColor - Hex color for mid.
  * @param {string} highColor - Hex color for high.
  * @returns {string}
  */
-function getBalanceColor(balance, minBalance, maxBalance, lowColor, midColor, highColor) {
-    const scale = (maxBalance - minBalance) / 8 || 10;  
+function getBalanceColor(
+    balance,
+    minBalance,
+    maxBalance,
+    lowColor,
+    midColor,
+    highColor
+) {
+    const scale = (maxBalance - minBalance) / 8 || 10;
     let scaled = 0.5 + Math.atan(balance / scale) / Math.PI;
 
     let colorA, colorB, t;
@@ -93,11 +106,19 @@ function getBalanceColor(balance, minBalance, maxBalance, lowColor, midColor, hi
  * @param {string} highColor - Hex color for high.
  * @returns {string}
  */
-function getEdgeColor(weight, minEdgeWeight, maxEdgeWeight, lowColor, highColor) {
+function getEdgeColor(
+    weight,
+    minEdgeWeight,
+    maxEdgeWeight,
+    lowColor,
+    highColor
+) {
     let scaled = log2Scale(weight, minEdgeWeight, maxEdgeWeight);
     const rgbA = hexToRgb(lowColor);
     const rgbB = hexToRgb(highColor);
-    const rgb = rgbA.map((a, i) => Math.round(a * (1 - scaled) + rgbB[i] * scaled));
+    const rgb = rgbA.map((a, i) =>
+        Math.round(a * (1 - scaled) + rgbB[i] * scaled)
+    );
     return rgbToHex(rgb);
 }
 
@@ -110,8 +131,14 @@ function getEdgeColor(weight, minEdgeWeight, maxEdgeWeight, lowColor, highColor)
  * @param {number} highWidth - Width for high.
  * @returns {number}
  */
-function getEdgeWidth(weight, minEdgeWeight, maxEdgeWeight, lowWidth, highWidth) {
-    let scaled = log2Scale(weight, minEdgeWeight, maxEdgeWeight)
+function getEdgeWidth(
+    weight,
+    minEdgeWeight,
+    maxEdgeWeight,
+    lowWidth,
+    highWidth
+) {
+    let scaled = log2Scale(weight, minEdgeWeight, maxEdgeWeight);
     const width = (highWidth - lowWidth) * scaled + lowWidth;
     return width;
 }
@@ -133,93 +160,85 @@ function getNodeSize(degree, minNodeDegree, maxNodeDegree, lowSize, highSize) {
 
 // ===== Color configuration for easy theme adjustment =====
 const COLORS = {
-    title: '#34495e',
-    border: '#3498db',
-    background: '#fff',
-    nodeDefault: '#eee',
-    sigmaFail: '#666',
-    balanceLow: '#FF4F0F',    // reactant
-    balanceMid: '#06923E',    // intermediate
-    balanceHigh: '#3674B5',   // product
-    edgeLow: '#EFEFE0',        // min edge weight color
-    edgeHigh: '#819A91',       // max edge weight color
-    nodeSelected: '#ff9800',   // selected node color
-    edgeSelected: '#e53935',   // selected edge color
-    edgeDefault: '#E6E6E6'
+    title: "#34495e",
+    border: "#3498db",
+    background: "#fff",
+    nodeDefault: "#eee",
+    sigmaFail: "#666",
+    balanceLow: "#FF4F0F", // reactant
+    balanceMid: "#06923E", // intermediate
+    balanceHigh: "#3674B5", // product
+    edgeLow: "#EFEFE0", // min edge weight color
+    edgeHigh: "#819A91", // max edge weight color
+    nodeSelected: "#ff9800", // selected node color
+    edgeSelected: "#e53935", // selected edge color
+    edgeDefault: "#E6E6E6",
 };
 
 // ===== Size configuration for easy adjustment =====
 const SIZES = {
-    containerHeight: 1000,      // px
-    borderRadius: 5,           // px
-    borderWidth: 2,            // px
-    edgeWidthScale: 1.5,       // edge width scale factor
-    edgeMinWidth: 4,           // px, min edge width
-    edgeMaxWidth: 12,           // px, max edge width
-    edgeLabelSize: 18,         // px
-    nodeMinSize: 12,           // px, min node size
-    nodeMaxSize: 30,           // px, max node size
-    nodeLabelFontSize: 20,     // px, node label font size
+    containerHeight: 1000, // px
+    borderRadius: 5, // px
+    borderWidth: 2, // px
+    edgeWidthScale: 1.5, // edge width scale factor
+    edgeMinWidth: 4, // px, min edge width
+    edgeMaxWidth: 12, // px, max edge width
+    edgeLabelSize: 18, // px
+    nodeMinSize: 12, // px, min node size
+    nodeMaxSize: 30, // px, max node size
+    nodeLabelFontSize: 20, // px, node label font size
 };
 
 // 兼容 sigma.js UMD 导出
-if (typeof window.sigma === 'undefined' && typeof window.Sigma !== 'undefined') {
+if (
+    typeof window.sigma === "undefined" &&
+    typeof window.Sigma !== "undefined"
+) {
     window.sigma = window.Sigma;
 }
 
-function createSigmaGraph(graphData, chartId, title = 'Reaction Network', chartsMap) {
+function createSigmaGraph(
+    graphData,
+    chartId,
+    title = "Reaction Network",
+    chartsMap
+) {
     // graphData should be { nodes: [...], edges: [...] }
     const container = document.getElementById(chartId);
     if (!container) {
         console.error(`Container with id '${chartId}' not found`);
         return false;
     }
-    container.innerHTML = '';
-    // Title
-    const titleDiv = document.createElement('p');
-    titleDiv.textContent = title;
-    titleDiv.style.textAlign = 'center';
-    titleDiv.style.marginBottom = '15px';
-    titleDiv.style.marginTop = '0';
-    titleDiv.style.color = COLORS.title;
-    titleDiv.style.fontSize = '1.1rem';
-    titleDiv.style.fontWeight = 'bold';
-    container.appendChild(titleDiv);
+    container.innerHTML = "";
     // Sigma container
-    const sigmaContainer = document.createElement('div');
-    sigmaContainer.style.cssText = `width: 100%;height: ${SIZES.containerHeight}px;overflow: hidden;border: ${SIZES.borderWidth}px solid ${COLORS.border};border-radius: ${SIZES.borderRadius}px;background-color: ${COLORS.background};padding: 0;margin-bottom: 10px;position: relative;`;
-    sigmaContainer.id = chartId + '_sigma';
+    const sigmaContainer = document.createElement("div");
+    sigmaContainer.className = "sigma-container";
+    sigmaContainer.style.height = `${SIZES.containerHeight}px`;
+    sigmaContainer.id = chartId + "_sigma";
     container.appendChild(sigmaContainer);
     // Info box below sigmaContainer
     let infoBox = container.querySelector(`#${chartId}-info`);
     if (!infoBox) {
-        infoBox = document.createElement('div');
+        infoBox = document.createElement("div");
         infoBox.id = `${chartId}-info`;
-        infoBox.style.cssText = `
-            display: flex;
-            flex-direction: row;
-            gap: 20px;
-            width: 100%;
-            margin-top: 10px;
-        `;
+        infoBox.className = "network-info-box";
         // Two columns for info
-        const leftCol = document.createElement('div');
-        leftCol.className = 'network-info-col left';
-        leftCol.style.cssText = 'flex:1; min-width:0; overflow-x:auto;';
+        const leftCol = document.createElement("div");
+        leftCol.className = "network-info-col left";
         infoBox.appendChild(leftCol);
-        const rightCol = document.createElement('div');
-        rightCol.className = 'network-info-col right';
-        rightCol.style.cssText = 'flex:1; min-width:0; overflow-x:auto;';
+        const rightCol = document.createElement("div");
+        rightCol.className = "network-info-col right";
         infoBox.appendChild(rightCol);
         container.appendChild(infoBox);
     }
     // Info note below infoBox
     let infoNote = container.querySelector(`#${chartId}-info-note`);
     if (!infoNote) {
-        infoNote = document.createElement('p');
+        infoNote = document.createElement("p");
         infoNote.id = `${chartId}-info-note`;
-        infoNote.style.color = '#888';
-        infoNote.textContent = 'Node color: relative inflow/outflow ratio. More outflow = redder, more inflow = bluer. Node size: total flow. Edge color: reaction frequency (darker = more frequent). Click a node to highlight related reactions and show details.';
+        infoNote.className = "network-info-note";
+        infoNote.textContent =
+            "Node color: relative inflow/outflow ratio. More outflow = redder, more inflow = bluer. Node size: total flow. Edge color: reaction frequency (darker = more frequent). Click a node to highlight related reactions and show details.";
         container.appendChild(infoNote);
     }
     // Sigma.js rendering
@@ -228,18 +247,22 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
             const Graph = window.graphology;
             const Sigma = window.sigma;
             const g = new Graph();
-            
-            let minEdgeWeight = Infinity, maxEdgeWeight = -Infinity;
-            let minDegree = Infinity, maxDegree = -Infinity;
-            let minBalance = Infinity, maxBalance = -Infinity;
-            const inWeights = {}, outWeights = {};
 
-            graphData.nodes.forEach(node => {
+            let minEdgeWeight = Infinity,
+                maxEdgeWeight = -Infinity;
+            let minDegree = Infinity,
+                maxDegree = -Infinity;
+            let minBalance = Infinity,
+                maxBalance = -Infinity;
+            const inWeights = {},
+                outWeights = {};
+
+            graphData.nodes.forEach((node) => {
                 inWeights[node.id] = 0;
                 outWeights[node.id] = 0;
             });
 
-            graphData.edges.forEach(edge => {
+            graphData.edges.forEach((edge) => {
                 let weight = 1;
                 if (edge.label) {
                     const match = String(edge.label).match(/R=(\d+(\.\d+)?)/);
@@ -252,8 +275,9 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 if (weight > maxEdgeWeight) maxEdgeWeight = weight;
             });
 
-            const nodeBalances = {}, nodeDegrees = {};
-            graphData.nodes.forEach(node => {
+            const nodeBalances = {},
+                nodeDegrees = {};
+            graphData.nodes.forEach((node) => {
                 const inW = inWeights[node.id];
                 const outW = outWeights[node.id];
                 const total = inW + outW;
@@ -269,7 +293,9 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
             });
 
             // Sort nodes by balance
-            const sortedNodes = [...graphData.nodes].sort((a, b) => nodeBalances[a.id] - nodeBalances[b.id]);
+            const sortedNodes = [...graphData.nodes].sort(
+                (a, b) => nodeBalances[a.id] - nodeBalances[b.id]
+            );
             const N = sortedNodes.length;
             const radius = 100; // Node circle radius
             // Generate N evenly distributed positions on a circle
@@ -279,7 +305,7 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 positions.push({
                     angle: angle,
                     x: radius * Math.cos(angle),
-                    y: radius * Math.sin(angle)
+                    y: radius * Math.sin(angle),
                 });
             }
             // Sort positions by angle distance from 12 o'clock
@@ -294,7 +320,10 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 const degree = nodeDegrees[node.id];
                 let size = SIZES.nodeMinSize;
                 if (maxDegree > minDegree) {
-                    size = SIZES.nodeMinSize + (degree - minDegree) * (SIZES.nodeMaxSize - SIZES.nodeMinSize) / (maxDegree - minDegree);
+                    size =
+                        SIZES.nodeMinSize +
+                        ((degree - minDegree) * (SIZES.nodeMaxSize - SIZES.nodeMinSize)) /
+                        (maxDegree - minDegree);
                 }
                 const inW = inWeights[node.id];
                 const outW = outWeights[node.id];
@@ -311,7 +340,7 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 };
             });
             // Create edge objects
-            const customEdges = graphData.edges.map(edge => {
+            const customEdges = graphData.edges.map((edge) => {
                 let weight = 1;
                 if (edge.label) {
                     const match = String(edge.label).match(/R=(\d+(\.\d+)?)/);
@@ -322,15 +351,15 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                     target: edge.target,
                     label: edge.label ? String(edge.label) : undefined,
                     weight,
-                    type: 'arrow',
-                    arrowSize: SIZES.edgeMinWidth
+                    type: "arrow",
+                    arrowSize: SIZES.edgeMinWidth,
                 };
             });
             // Add nodes and edges to graph
-            customNodes.forEach(node => {
+            customNodes.forEach((node) => {
                 g.addNode(node.id, { ...node });
             });
-            customEdges.forEach(edge => {
+            customEdges.forEach((edge) => {
                 g.addEdge(edge.source, edge.target, { ...edge });
             });
             const renderer = new Sigma(g, sigmaContainer);
@@ -344,7 +373,7 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 highlightedEdges.clear();
                 renderer.refresh();
             }
-            renderer.on('enterNode', ({ node }) => {
+            renderer.on("enterNode", ({ node }) => {
                 const nodeAttr = g.getNodeAttributes(node);
                 selectedNodeLabel = nodeAttr.label || node;
                 selectedNodeId = node;
@@ -352,16 +381,18 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                 highlightedEdges = new Set(g.edges(node));
                 renderer.refresh();
                 // Show related edges in sidebar
-                const infoList = g.edges(node).map(eid => {
+                const infoList = g.edges(node).map((eid) => {
                     const data = g.getEdgeAttributes(eid);
-                    const sourceLabel = g.getNodeAttributes(data.source).label || data.source;
-                    const targetLabel = g.getNodeAttributes(data.target).label || data.target;
-                    let at = '';
+                    const sourceLabel =
+                        g.getNodeAttributes(data.source).label || data.source;
+                    const targetLabel =
+                        g.getNodeAttributes(data.target).label || data.target;
+                    let at = "";
                     if (data.label) {
                         const m = String(data.label).match(/AT=(\d+(?:\.\d+)?)/);
                         if (m) at = m[1];
                     }
-                    let r = '';
+                    let r = "";
                     if (data.label) {
                         const m = String(data.label).match(/R=(\d+(?:\.\d+)?)/);
                         if (m) r = m[1];
@@ -372,27 +403,40 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                         to: targetLabel,
                         toId: data.target,
                         reactions: r,
-                        atomTransfer: at
+                        atomTransfer: at,
                     };
                 });
                 updateSidebar(infoList);
             });
-            renderer.on('clickStage', () => {
+            renderer.on("clickStage", () => {
                 selectedNodeLabel = null;
                 selectedNodeId = null;
                 clearHighlight();
                 updateSidebar([]);
             });
             // Node/edge reducer for highlight effect
-            renderer.setSetting('nodeReducer', (node, data) => {
-                let dynamicColor = getBalanceColor(data.balance, minBalance, maxBalance, COLORS.balanceLow, COLORS.balanceMid, COLORS.balanceHigh);
-                let dynamicSize = getNodeSize(data.degree, minDegree, maxDegree, SIZES.nodeMinSize, SIZES.nodeMaxSize);
+            renderer.setSetting("nodeReducer", (node, data) => {
+                let dynamicColor = getBalanceColor(
+                    data.balance,
+                    minBalance,
+                    maxBalance,
+                    COLORS.balanceLow,
+                    COLORS.balanceMid,
+                    COLORS.balanceHigh
+                );
+                let dynamicSize = getNodeSize(
+                    data.degree,
+                    minDegree,
+                    maxDegree,
+                    SIZES.nodeMinSize,
+                    SIZES.nodeMaxSize
+                );
 
                 if (!highlightedNodes.size) {
-                     return {
+                    return {
                         ...data,
                         color: dynamicColor,
-                        size: dynamicSize
+                        size: dynamicSize,
                     };
                 }
                 // Something seleted
@@ -403,10 +447,22 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                     zIndex: highlightedNodes.has(node) ? 50 : 0,
                 };
             });
-            renderer.setSetting('edgeReducer', (edge, data) => {
+            renderer.setSetting("edgeReducer", (edge, data) => {
                 let weight = data.weight;
-                let dynamicWidth = getEdgeWidth(weight, minEdgeWeight, maxEdgeWeight, SIZES.edgeMinWidth, SIZES.edgeMaxWidth);
-                let dynamicColor = getEdgeColor(weight, minEdgeWeight, maxEdgeWeight, COLORS.edgeLow, COLORS.edgeHigh);
+                let dynamicWidth = getEdgeWidth(
+                    weight,
+                    minEdgeWeight,
+                    maxEdgeWeight,
+                    SIZES.edgeMinWidth,
+                    SIZES.edgeMaxWidth
+                );
+                let dynamicColor = getEdgeColor(
+                    weight,
+                    minEdgeWeight,
+                    maxEdgeWeight,
+                    COLORS.edgeLow,
+                    COLORS.edgeHigh
+                );
 
                 if (!highlightedEdges.size) {
                     return {
@@ -415,37 +471,47 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
                         size: dynamicWidth,
                         weight,
                         label: "",
-                        zIndex: weight
+                        zIndex: weight,
                     };
                 }
                 // Something selected
                 return {
                     ...data,
-                    color: highlightedEdges.has(edge) ? COLORS.edgeSelected : COLORS.edgeDefault,
+                    color: highlightedEdges.has(edge)
+                        ? COLORS.edgeSelected
+                        : COLORS.edgeDefault,
                     size: dynamicWidth,
                     zIndex: highlightedEdges.has(edge) ? 100 : 0,
                     weight,
-                    label: highlightedEdges.has(edge) ? data.label : ""
+                    label: highlightedEdges.has(edge) ? data.label : "",
                 };
             });
             // Only show edge labels when highlighted
-            renderer.setSetting('renderEdgeLabels', true);
-            renderer.setSetting('zIndex', true);
-            renderer.setSetting('edgeLabelSize', SIZES.edgeLabelSize);
-            renderer.setSetting('edgeLabelColor', 'inherit');
-            renderer.setSetting('labelSize', SIZES.nodeLabelFontSize);
+            renderer.setSetting("renderEdgeLabels", true);
+            renderer.setSetting("zIndex", true);
+            renderer.setSetting("edgeLabelSize", SIZES.edgeLabelSize);
+            renderer.setSetting("edgeLabelColor", "inherit");
+            renderer.setSetting("labelSize", SIZES.nodeLabelFontSize);
             // Edge color when not selected
-            renderer.setSetting('edgeColor', (edge, data) => {
-                return getEdgeColor(data.weight, minEdgeWeight, maxEdgeWeight, COLORS.edgeLow, COLORS.edgeHigh);
+            renderer.setSetting("edgeColor", (edge, data) => {
+                return getEdgeColor(
+                    data.weight,
+                    minEdgeWeight,
+                    maxEdgeWeight,
+                    COLORS.edgeLow,
+                    COLORS.edgeHigh
+                );
             });
-            renderer.setSetting('edgeLabelReducer', () => null);
+            renderer.setSetting("edgeLabelReducer", () => null);
             if (chartsMap) chartsMap.set(chartId, true);
         } catch (error) {
-            console.error('Sigma.js rendering failed:', error);
-            sigmaContainer.innerHTML = '<p style="text-align: center; padding: 20px; color: ' + COLORS.sigmaFail + '; font-style: italic;">Sigma.js rendering failed</p>';
+            console.error("Sigma.js rendering failed:", error);
+            sigmaContainer.innerHTML =
+                '<p class="sigma-error-message">Sigma.js rendering failed</p>';
         }
     } else {
-        sigmaContainer.innerHTML = '<p style="text-align: center; padding: 20px; color: ' + COLORS.sigmaFail + '; font-style: italic;">Sigma.js not loaded</p>';
+        sigmaContainer.innerHTML =
+            '<p class="sigma-error-message">Sigma.js not loaded</p>';
     }
     return true;
 
@@ -458,37 +524,42 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
         if (!infoBox) return;
         // Render a table for info data
         function renderTable(data) {
-            const table = document.createElement('table');
-            table.className = 'key-mol-table';
-            const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-            ['From', 'To', 'Reactions', 'Atom transfer'].forEach(h => {
-                const th = document.createElement('th');
+            const table = document.createElement("table");
+            table.className = "key-mol-table";
+            const thead = document.createElement("thead");
+            const headerRow = document.createElement("tr");
+            ["From", "To", "Reactions", "Atom transfer"].forEach((h) => {
+                const th = document.createElement("th");
                 th.textContent = h;
                 headerRow.appendChild(th);
             });
             thead.appendChild(headerRow);
             table.appendChild(thead);
-            const tbody = document.createElement('tbody');
-            data.forEach(row => {
-                let from = '', to = '', reactions = '', atomTransfer = '';
-                if (typeof row === 'string') {
-                    const match = row.match(/^(.*?) -> (.*?)\s+R=(\d+(?:\.\d+)?)\s*AT=(\d+(?:\.\d+)?)/);
+            const tbody = document.createElement("tbody");
+            data.forEach((row) => {
+                let from = "",
+                    to = "",
+                    reactions = "",
+                    atomTransfer = "";
+                if (typeof row === "string") {
+                    const match = row.match(
+                        /^(.*?) -> (.*?)\s+R=(\d+(?:\.\d+)?)\s*AT=(\d+(?:\.\d+)?)/
+                    );
                     if (match) {
                         from = match[1];
                         to = match[2];
                         reactions = match[3];
                         atomTransfer = match[4];
                     }
-                } else if (typeof row === 'object') {
-                    from = row.from || '';
-                    to = row.to || '';
-                    reactions = row.reactions || '';
-                    atomTransfer = row.atomTransfer || '';
+                } else if (typeof row === "object") {
+                    from = row.from || "";
+                    to = row.to || "";
+                    reactions = row.reactions || "";
+                    atomTransfer = row.atomTransfer || "";
                 }
-                const tr = document.createElement('tr');
-                [from, to, reactions, atomTransfer].forEach(val => {
-                    const td = document.createElement('td');
+                const tr = document.createElement("tr");
+                [from, to, reactions, atomTransfer].forEach((val) => {
+                    const td = document.createElement("td");
                     td.textContent = val;
                     tr.appendChild(td);
                 });
@@ -498,38 +569,42 @@ function createSigmaGraph(graphData, chartId, title = 'Reaction Network', charts
             return table;
         }
         // Render infoList as two-column tables
-        const leftCol = infoBox.querySelector('.network-info-col.left');
-        const rightCol = infoBox.querySelector('.network-info-col.right');
-        leftCol.innerHTML = '';
-        rightCol.innerHTML = '';
+        const leftCol = infoBox.querySelector(".network-info-col.left");
+        const rightCol = infoBox.querySelector(".network-info-col.right");
+        leftCol.innerHTML = "";
+        rightCol.innerHTML = "";
         if (Array.isArray(infoList) && infoList.length > 0) {
             const mid = Math.ceil(infoList.length / 2);
             const leftData = infoList.slice(0, mid);
             const rightData = infoList.slice(mid);
             if (leftData.length > 0) {
                 leftCol.appendChild(renderTable(leftData));
-                leftCol.style.display = '';
+                leftCol.classList.remove("hidden");
+                leftCol.classList.add("visible");
             } else {
-                leftCol.style.display = 'none';
+                leftCol.classList.remove("visible");
+                leftCol.classList.add("hidden");
             }
             if (rightData.length > 0) {
                 rightCol.appendChild(renderTable(rightData));
-                rightCol.style.display = '';
+                rightCol.classList.remove("hidden");
+                rightCol.classList.add("visible");
             } else {
-                rightCol.style.display = 'none';
+                rightCol.classList.remove("visible");
+                rightCol.classList.add("hidden");
             }
         } else {
-            leftCol.style.display = 'none';
-            rightCol.style.display = 'none';
+            leftCol.classList.remove("visible");
+            leftCol.classList.add("hidden");
+            rightCol.classList.remove("visible");
+            rightCol.classList.add("hidden");
         }
     }
 }
 
 // UMD-style export for browser global usage
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
     window.reaxToolsPlotNetwork = {
-        createSigmaGraph
+        createSigmaGraph,
     };
 }
-
-

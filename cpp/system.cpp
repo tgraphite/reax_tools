@@ -196,7 +196,7 @@ void System::dump_ring_count(std::string& filepath, bool& is_first_frame) {
     if (is_first_frame) {
         file = fopen(filepath.c_str(), "w");
         for (auto& ring_count : ring_counts) {
-            fmt::print(file, "{}-membered ring", ring_count.first);
+            fmt::print(file, "size {}", ring_count.first);
 
             // if ring_count is not the last element.
             if (&ring_count != &*std::prev(ring_counts.end())) {
@@ -636,7 +636,7 @@ void System::process_reax_flow() {
 void System::compute_ring_counts() {
     // Initialize ring counts for sizes 3 to MAX_RING_SIZE
     // MAX_RING_SIZE in defines.h / defines.cpp
-    for (int i = 3; i <= MAX_RING_SIZE; i++) {
+    for (int i = 4; i <= MAX_RING_SIZE; i++) {
         ring_counts[i] = 0;
     }
 

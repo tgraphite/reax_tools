@@ -12,7 +12,8 @@
 body {
     /* font-family: 'Microsoft YaHei', monospace; */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    max-width: 1200px;
+    font-size: 20px;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 1rem;
     background-color: #f8f9fa;
@@ -40,15 +41,21 @@ h3 {
    段落和链接样式
    ======================================== */
 p {
-    margin-top: 4px;
-    margin-bottom: 4px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    text-align: justify;
+}
+
+ul {
+    margin-top: 6px;
+    margin-bottom: 6px;
     text-align: justify;
 }
 
 b {
     color: #ee3333;
-    margin-top: 4px;
-    margin-bottom: 4px;
+    margin-top: 3px;
+    margin-bottom: 3px;
 }
 
 a {
@@ -60,6 +67,15 @@ a {
 a:hover {
     color: #2980b9;
     text-decoration: underline;
+}
+
+title {
+    font-family: 'Consolas', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 24;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    color: #333;
+    line-height: 1.6;
 }
 
 /* ========================================
@@ -112,6 +128,7 @@ button {
     cursor: pointer;
     font-weight: 500;
     border: none;
+    min-width: 100;
 }
 
 button:hover {
@@ -127,14 +144,26 @@ button:active {
 
 /* 次要按钮样式 */
 .chart-controls button {
+    min-width: 100;
     margin: 5px;
     padding: 8px 12px;
-    font-size: 0.9rem;
+    font-size: 1.0rem;
     background-color: #95a5a6;
 }
 
 .chart-controls button:hover {
     background-color: #7f8c8d;
+}
+
+#clearAllBtn {
+    min-width: 100;
+    background-color: #e74c3c;
+    border-color: #e74c3c;
+}
+
+#clearAllBtn:hover {
+    background-color: #722323;
+    border-color: #722323;
 }
 
 /* ========================================
@@ -427,6 +456,7 @@ body:lang(zh),
 
 .key-mol-table th,
 .key-mol-table td {
+    font-size: 20px;
     padding: 12px 8px;
     text-align: left;
     border-bottom: 2px solid #2980b9;
@@ -434,29 +464,35 @@ body:lang(zh),
 }
 
 .key-mol-table tbody tr {
+    font-size: 20px;
     border-bottom: 1px solid #ecf0f1;
     transition: background-color 0.2s ease;
 }
 
 .key-mol-table tbody tr:nth-child(even) {
+    font-size: 20px;
     background-color: #f8f9fa;
 }
 
 .key-mol-table tbody tr:hover {
+    font-size: 20px;
     background-color: #e3f2fd;
 }
 
 .key-mol-table td.molecule {
+    font-size: 20px;
     font-weight: bold;
     color: #2c3e50;
 }
 
 .key-mol-table td.from {
+    font-size: 20px;
     color: #2980b9;
     font-family: inherit;
 }
 
 .key-mol-table td.to {
+    font-size: 20px;
     color: #e74c3c;
     font-family: inherit;
 }
@@ -512,4 +548,131 @@ body:lang(zh),
     margin-top: 10px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     color: #333;
+}
+
+/* ========================================
+   动态生成的图表样式
+   ======================================== */
+
+/* Key Molecules 可视化容器 */
+.key-mol-charts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.key-mol-chart-div {
+    width: 100%;
+    height: 400px;
+}
+
+.key-mol-table-container {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 5px;
+    border: 1px solid #fff;
+}
+
+.key-mol-table-title {
+    margin: 0 0 15px 0;
+    color: #34495e;
+    font-weight: bold;
+}
+
+.key-mol-scroll-container {
+    /* max-height: 400px; */
+    /* overflow-y: auto; */
+    border: 1px solid #fff;
+    border-radius: 5px;
+}
+
+/* 图表容器通用样式 */
+.chart-main-div {
+    width: 100%;
+    min-height: 400px;
+    margin-bottom: 20px;
+}
+
+.chart-network-div {
+    width: 100%;
+    min-height: 400px;
+}
+
+.chart-keymol-div {
+    width: 100%;
+    min-height: 400px;
+}
+
+.chart-csv-div {
+    width: 100%;
+    min-height: 400px;
+}
+
+/* 网络图样式 */
+.chart-suptitle {
+    text-align: left;
+    margin-bottom: 10px;
+    font-size: 24px;
+    margin-top: 10px;
+    color: #34495e;
+    font-weight: bold;
+}
+
+.sigma-container {
+    width: 100%;
+    overflow: hidden;
+    border: 2px solid #3498db;
+    border-radius: 5px;
+    background-color: #fff;
+    padding: 0;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.network-info-box {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.network-info-col {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+.network-info-note {
+    color: #888;
+}
+
+/* 网络信息列显示/隐藏 */
+.network-info-col.hidden {
+    display: none;
+}
+
+.network-info-col.visible {
+    display: block;
+}
+
+/* 错误消息样式 */
+.error-message {
+    color: red;
+}
+
+/* Sigma.js 错误消息样式 */
+.sigma-error-message {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-style: italic;
+}
+
+/* 恢复信息样式 */
+.restore-info {
+    color: #666;
+    font-size: 0.9em;
 }
