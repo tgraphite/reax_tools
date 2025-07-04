@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./styles.css">
+    <title>ReaxTools Pro</title>
+</head>
+
+<body>
+    <h2>ReaxTools Pro Tutorial : Studying combustion of ethanol.</h2>
+    <a href="./index.html">Back to mainpage</a>
+
+    <div class="container">
+        <h3>Introduction</h3>
+        <p>This tutorial explores the combustion of ethanol (C<sub>2</sub>H<sub>6</sub>O) in oxygen:</p>
+        <p><strong>C<sub>2</sub>H<sub>6</sub>O + 3O<sub>2</sub> → 2CO<sub>2</sub> + 3H<sub>2</sub>O</strong></p>
+
+        <p>While stoichiometrically simple, actual combustion involves complex reaction networks.
+            <a
+                href="https://onlinelibrary.wiley.com/doi/10.1002/(SICI)1097-4601(1999)31:3%3C183::AID-KIN3%3E3.0.CO;2-X">Marinov's
+                study</a>
+            identified over 300 elementary reactions in this system.
+        </p>
+
+        <p>Modern reactive MD methods now enable efficient analysis of such complex systems, reducing computation time
+            from months to ~30 minutes.</p>
+    </div>
+    <div class="container">
+        <h3>Software Requirements</h3>
+        <ul>
+            <li><a href="https://m3g.github.io/packmol/">Packmol</a> - System initialization</li>
+            <li><a href="https://github.com/brucefan1983/GPUMD">GPUMD</a> - GPU-accelerated MD simulations</li>
+            <li><a href="https://github.com/tgraphite/reax_tools">ReaxTools</a> - Analysis and reporting</li>
+        </ul>
+    </div>
+    <div class="container">
+        <h3>1. System Preparation</h3>
+        <p>We construct a simulation box containing:</p>
+        <ul>
+            <li>100 ethanol molecules</li>
+            <li>300 oxygen molecules</li>
+            <li>Total: 1500 atoms in 236 nm³ (density = 0.1 g/mL)</li>
+        </ul>
+
+        <h4>Packmol Input:</h4>
+        <pre class="code-container">
+            filetype xyz
+            output model.xyz
+            tolerance 4.0
+            structure ethanol.xyz
+            number 100
+            inside box 0 0 0 67.18 67.18 67.18
+            end structure
+            structure oxygen.xyz
+            number 300
+            inside box 0 0 0 67.18 67.18 67.18
+            end structure
+        </pre>
+        <h4>Execution:</h4>
+        <pre class="code-container">packmol < packmol.inp</pre>
+
+        <p>The final periodic system XYZ file includes boundary conditions:</p>
+        <pre class="code-container">
+            1500
+            Lattice="67.18 0.0 0.0 0.0 67.18 0.0 0.0 0.0 67.18" Origin="0.026168 0.001867 0.024439" Properties=id:I:1:species:S:1:pos:R:3
+            1 C 49.2771926179 25.3604183225 27.8483112501
+            2 H 49.4570955095 25.3162389282 28.928943456
+            ...
+        </pre>
+        <div style="text-align:center">
+            <img src="images/combustion/model_0ps.png" width="500" alt="Initial simulation box">
+            <p style="text-align:center">Initial system configuration</p>
+        </div>
+    </div>
+</body>
+
+<script>
+    document.querySelectorAll('.code-container').forEach(function (el) {
+        let lines = el.textContent.split('\n');
+        let minIndent = Math.min(...lines.filter(l => l.trim()).map(l => l.match(/^(\s*)/)[1].length));
+        el.textContent = lines.map(l => l.slice(minIndent)).join('\n');
+    });
+</script>

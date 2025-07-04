@@ -29,12 +29,14 @@ h2 {
     border-bottom: 3px solid #3498db;
     padding-bottom: 10px;
     margin-bottom: 20px;
+    margin-left: 10px;
 }
 
 h3 {
     color: #34495e;
     margin-top: 0;
     margin-bottom: 15px;
+    margin-left: 10px;
 }
 
 /* ========================================
@@ -43,6 +45,7 @@ h3 {
 p {
     margin-top: 3px;
     margin-bottom: 3px;
+    margin-left: 10px;
     text-align: justify;
 }
 
@@ -50,6 +53,7 @@ ul {
     margin-top: 6px;
     margin-bottom: 6px;
     text-align: justify;
+    margin-left: 10px;
 }
 
 b {
@@ -230,6 +234,30 @@ button:active {
     font-size: 0.9rem;
     line-height: 1.4;
     border: 2px solid #3498db;
+}
+
+.code-container {
+    background-color: #f4f7fa;
+    /* 更淡雅的背景色 */
+    border: 3px solid #b0bec5;
+    border-radius: 6px;
+    /* 边框更细腻 */
+    padding: 12px 18px;
+    /* 内边距更均衡 */
+    margin: 10px 10px 10px 10px;
+    /* 上下间距 */
+    overflow-x: auto;
+    /* 横向滚动 */
+    white-space: pre;
+    /* 保持代码格式，不自动换行 */
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.08);
+    /* 轻微阴影 */
+    font-family: 'Consolas', 'Fira Mono', 'Menlo', 'Monaco', monospace;
+    /* 优化等宽字体 */
+    font-size: 20px;
+    /* 稍微小一点 */
+    line-height: 1.7;
+    /* 行距更舒适 */
 }
 
 /* 日志滚动条样式 */

@@ -172,8 +172,8 @@ async function restoreCalculationResults() {
 
     // Display results
     if (results.outputFiles && results.outputFiles.length > 0) {
-        let resultHtml = `<p>Computation Done.`;
-        resultHtml += `Created ${results.outputFiles.length} result files.`;
+        let resultHtml = `<p>Computation Finished. `;
+        resultHtml += `Created ${results.outputFiles.length} files. `;
         if (results.plotFiles && results.plotFiles.length > 0) {
             resultHtml += `Created ${results.plotFiles.length} charts on web page.`;
         }
@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // Add chart control button event listeners
     //
-    document.getElementById('clearAllBtn').addEventListener('click', function () {
+    document.getElementById('clearBtn').addEventListener('click', function () {
         // Clear charts first
         if (window.reaxToolsPlotter) {
             window.reaxToolsPlotter.clearCharts();
@@ -534,7 +534,7 @@ document.getElementById('runBtn').onclick = async function () {
 
             //
             let resultHtml = `<p>Computation finished. `;
-            resultHtml += `Created ${allFiles.length} files`;
+            resultHtml += `Created ${allFiles.length} files. `;
             if (plotFiles.length > 0) {
                 resultHtml += `Created ${plotFiles.length} charts on web page.`;
             }
