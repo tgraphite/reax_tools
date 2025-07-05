@@ -74,6 +74,32 @@
             <p style="text-align:center">Initial system configuration</p>
         </div>
     </div>
+    <div class="container">
+        <h3>2. Simulation</h3>
+        <p>When system prepared, we will use GPUMD to perform a 200 ps molecular dynamics simulation. According to the
+            adiabatic combustion temperature of ethanol, which is 2082 ℃, ~2350 K, we will set the simulation
+            temperature as 2350 K. And the ensemble is NVT, using langevin thermostat.</p>
+        <p>The GPUMD running parameter file run.in as below: </p>
+        <pre class="code-container">
+            potential    nep.txt
+            velocity     2350 
+            time_step    0.2
+            
+            ensemble     nvt_lan 2350 2350 100
+            dump_thermo   10  
+            dump_exyz     500
+            run           1000000            
+        </pre>
+        <p>We will use the newest Neuroevolution Potential (NEP) parameter set NEP-89 for simulation. Before simulation,
+            the working directory contains files below: </p>
+        <pre class="code-container">run.in nep.txt model.xyz</pre>
+        <p>The simulation cost 10~20 minutes on GTX 4090D machine, after simulation terminated, the system structure
+            looks like below: </p>
+        <div style="text-align:center">
+            <img src="images/combustion/model_200ps.png" width="500">
+            <p style="text-align:center">System configuration after simulation.</p>
+        </div>
+    </div>
 </body>
 
 <script>
