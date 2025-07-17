@@ -51,6 +51,7 @@ void Universe::flush() {
  */
 void Universe::process_traj(std::string& file_path, std::string& output_dir, std::vector<std::string>& type_names,
                             const float& rvdw_scale, const int& num_threads, const bool& if_dump_lammps_data,
+                            const int& dump_data_frame_step, const bool& if_mark_ring_atoms,
                             const bool& if_no_reax_flow) {
     int curr_frame_id = 1;
     int max_neigh = 10;
@@ -97,7 +98,7 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
 
         if (if_dump_lammps_data) {
             std::string lammps_data_file = output_dir + "frame_" + std::to_string(system->frame_id) + ".data";
-            system->dump_lammps_data(lammps_data_file);
+            system->dump_lammps_data(lammps_data_file, dump_data_frame_step, if_mark_ring_atoms);
         }
 
         if (system->frame_id == 1) {

@@ -93,6 +93,9 @@
         <p>We will use the newest Neuroevolution Potential (NEP) parameter set NEP-89 for simulation. Before simulation,
             the working directory contains files below: </p>
         <pre class="code-container">run.in nep.txt model.xyz</pre>
+        <p>Use command
+            <b>gpumd</b> directly to invoke an automatic GPUMD task in current directory.
+        </p>
         <p>The simulation cost 10~20 minutes on GTX 4090D machine, after simulation terminated, the system structure
             looks like below: </p>
         <div style="text-align:center">
@@ -100,6 +103,78 @@
             <p style="text-align:center">System configuration after simulation.</p>
         </div>
     </div>
+    <div class="container">
+        <h3>3. ReaxTools Analysis</h3>
+        <p>After simulation completion, GPUMD outputs a standard trajectory file (<code>dump.xyz</code>) in the current
+            directory. This file is compatible with ReaxTools (<a href="./fileformat.html">File format reference</a>).
+        </p>
+
+        <p><strong>Analysis steps:</strong></p>
+        <ol>
+            <li>Load the file on the main page</li>
+            <li>Click "Run" (typically completes within 1 minute)</li>
+            <li>View clearly presented results on the website</li>
+        </ol>
+        <p><strong>Configuration tip:</strong> For this case, we use <code>-r 1</code> to apply stricter bond cutoff
+            criteria for molecular identification. For advanced customization, see <a href="./inputargs.html">Input
+                options reference</a>.</p>
+        <div style="text-align:center">
+            <img src="images/combustion/p_input.png" width="500" alt="Input file loading interface">
+            <p style="text-align:center">Loading input file with analysis options</p>
+        </div>
+        <p>Key results from the simulation are presented below:</p>
+        <div style="text-align:center">
+            <img src="images/combustion/p_log.png" width="500" alt="Command line output">
+            <p style="text-align:center">Program execution log output</p>
+        </div>
+        <div style="text-align:center">
+            <img src="images/combustion/p_species_1.png" width="500" alt="Species evolution">
+            <p style="text-align:center">Species count versus time (complete view)</p>
+        </div>
+        <div style="text-align:center">
+            <img src="images/combustion/p_species_2.png" width="500" alt="Selected species evolution">
+            <p style="text-align:center">Species count versus time (focused view)</p>
+        </div>
+        <div style="text-align:center">
+            <img src="images/combustion/p_atomtypes.png" width="500" alt="Atom type evolution">
+            <p style="text-align:center">Atom type count versus time</p>
+        </div>
+        <p><strong>Atom type legend:</strong>
+        <ul>
+            <li><strong>C(3):</strong> sp² hybridized carbons</li>
+            <li><strong>C(2):</strong> sp hybridized carbons</li>
+            <li><strong>C(1):</strong> Primarily CO, occasionally CH/CC fragments</li>
+            <li><strong>O(0):</strong> Isolated oxygen atoms</li>
+        </ul>
+        </p>
+        <div style="text-align:center">
+            <img src="images/combustion/p_network_HO.png" width="500" alt="OH reaction network">
+            <p style="text-align:center">OH fragment reaction network (radical/anion focused)</p>
+        </div>
+        <div style="text-align:center">
+            <img src="images/combustion/p_network_table.png" width="500" alt="OH-related reactions">
+            <p style="text-align:center">OH-related reaction pathways table</p>
+        </div>
+        <p>The network visualization displays the main reaction components. Hover over elements to view associated
+            reactions and molecules.</p>
+        <div style="text-align:center">
+            <img src="images/combustion/p_flux.png" width="500" alt="Molecular flux analysis">
+            <p style="text-align:center">Key molecule reaction fluxes</p>
+        </div>
+        <div style="text-align:center">
+            <img src="images/combustion/p_keymol_table.png" width="500" alt="Key molecule relationships">
+            <p style="text-align:center">Key molecule reaction partners table</p>
+        </div>
+        <p>Key molecules (those with high reaction frequency) are identified through their flux values. The
+            visualizations and tables help analyze:
+        <ul>
+            <li>Which molecules react most frequently</li>
+            <li>Their reaction rates</li>
+            <li>Their source molecules and reaction products</li>
+        </ul>
+        </p>
+    </div>
+
 </body>
 
 <script>

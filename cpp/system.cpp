@@ -438,8 +438,12 @@ void System::dfs(Atom* atom, std::set<Atom*>& visited, Molecule* curr_mol) {
 /**
  * @brief Dump the current system as a LAMMPS data file for testing.
  * @param filepath Output file path.
+ * @param mark_ring_atoms Use mol id entry to mark if an atom on ring, 0 = no , 1 = yes.
  */
-void System::dump_lammps_data(std::string& filepath) {
+void System::dump_lammps_data(std::string& filepath, int frame_step, bool mark_ring_atoms) {
+    if (frame_id % frame_step != 0)
+        return;
+
     FILE* file = fopen(filepath.c_str(), "w");
     if (!file) {
         std::cerr << "Failed to open file: " << std::endl;
@@ -459,10 +463,18 @@ void System::dump_lammps_data(std::string& filepath) {
 
     fmt::print(file, "\nAtoms # full\n\n");
 
-    for (auto& mol : molecules) {
-        for (auto& atom : mol->mol_atoms) {
-            fmt::print(file, "{} {} {} 0.0 {:>.3f} {:>.3f} {:>.3f} 0 0 0\n", atom->id, mol->id, atom->type_id,
-                       atom->coord[0], atom->coord[1], atom->coord[2]);
+    if (mark_ring_atoms) {
+        for (auto& atom : atoms) {
+            fmt::print(file, "{} {} {} 0.0 {:>.3f} {:>.3f} {:>.3f} 0 0 0\n", atom->id, atom->on_ring ? 1 : 0,
+                       atom->type_id, atom->coord[0], atom->coord[1], atom->coord[2]);
+        }
+
+    } else {
+        for (auto& mol : molecules) {
+            for (auto& atom : mol->mol_atoms) {
+                fmt::print(file, "{} {} {} 0.0 {:>.3f} {:>.3f} {:>.3f} 0 0 0\n", atom->id, mol->id, atom->type_id,
+                           atom->coord[0], atom->coord[1], atom->coord[2]);
+            }
         }
     }
 
@@ -611,22 +623,6 @@ void System::process_reax_flow() {
             reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
         }
     }
-
-    // for (const auto& prev_mol : prev_sys->molecules) {
-    //     for (auto& curr_mol : this->molecules) {
-    //         if (*prev_mol == *curr_mol)
-    //             continue;
-
-    // intersection.clear();
-
-    // std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
-    //                       curr_mol->atom_ids.end(), back_inserter(intersection));
-
-    // if (intersection.size() > 0) {
-    //     reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
-    // }
-    //     }
-    // }
 }
 
 /**
@@ -636,7 +632,7 @@ void System::process_reax_flow() {
 void System::compute_ring_counts() {
     // Initialize ring counts for sizes 3 to MAX_RING_SIZE
     // MAX_RING_SIZE in defines.h / defines.cpp
-    for (int i = 4; i <= MAX_RING_SIZE; i++) {
+    for (int i = MIN_RING_SIZE; i <= MAX_RING_SIZE; i++) {
         ring_counts[i] = 0;
     }
 
@@ -660,8 +656,13 @@ void System::compute_ring_counts() {
             find_rings_from_atom(start_atom, start_atom, 0, visited, current_rings, current_path);
         }
 
+        // Set on_ring property for all atoms in rings
         for (auto& ring : current_rings) {
             ring_counts[ring->size()]++;
+            // Set on_ring = true for all atoms in this ring
+            for (auto& atom : *ring) {
+                atom->on_ring = true;
+            }
             delete ring; // Only count matters.
         }
     }
@@ -687,8 +688,8 @@ void System::find_rings_from_atom(Atom* current, Atom* start, int depth, std::un
     std::unordered_set<Atom*>* this_ring;
 
     for (Atom* bonded_atom : current->bonded_atoms) {
-        // If ring closed and depth = 3-8
-        if (bonded_atom == start && depth >= 2 && depth <= MAX_RING_SIZE - 1) {
+        // If ring closed and size = MIN - MAX
+        if (bonded_atom == start && depth >= MIN_RING_SIZE - 1 && depth <= MAX_RING_SIZE - 1) {
             this_ring = new std::unordered_set<Atom*>(); // Initialize the pointer
             for (Atom* atom : current_path) {
                 this_ring->insert(atom);

@@ -6,6 +6,7 @@ int atom_reserve = 100000;
 int bond_reserve = 300000;
 int mol_reserve = 50000;
 int MAX_RING_SIZE = 8;
+int MIN_RING_SIZE = 5;
 
 std::vector<std::string> all_elements = {
     "H",  "He", "Li", "Be", "B",  "C",  "N",  "O",  "F",  "Ne", "Na", "Mg", "Al", "Si", "P",  "S",  "Cl",

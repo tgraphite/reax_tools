@@ -25,6 +25,7 @@ struct Atom {
     int type_id;
     int max_valence;
     bool saturated = false;
+    bool on_ring = false;
 
     Molecule* belong_molecule = nullptr;
 
@@ -151,10 +152,10 @@ struct Molecule {
         formula = rename_formula(mol_formula);
 
         // Hash
-        unsigned int mol_hash = 0;
+        unsigned int mol_hash = 1;
         for (const auto& atom : mol_atoms) {
             unsigned int atom_hash = bigger_prime_numbers[atom->type_id];
-            unsigned int bonded_hash = 0;
+            unsigned int bonded_hash = 1;
 
             for (const auto& bonded : atom->bonded_atoms) {
                 bonded_hash ^= prime_numbers[bonded->type_id]; // XOR is commutative
@@ -220,7 +221,7 @@ class System {
     void load_xyz(std::ifstream& file);
     void load_lammpstrj(std::ifstream& file);
 
-    void dump_lammps_data(std::string& filepath);
+    void dump_lammps_data(std::string& filepath, int frame_step, bool mark_ring_atoms = false);
     void dump_bond_count(std::string& filepath, bool& is_first_frame);
     void dump_ring_count(std::string& filepath, bool& is_first_frame);
     void dump_atom_bonded_num_count(std::string& filepath, bool& is_first_frame);

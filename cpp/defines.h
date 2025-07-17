@@ -10,6 +10,7 @@ extern int mol_reserve;
 extern int angle_reserve;
 extern int dihedral_reserve;
 extern int MAX_RING_SIZE;
+extern int MIN_RING_SIZE;
 
 extern std::vector<std::string> all_elements;
 extern std::map<std::string, int> element_to_index;

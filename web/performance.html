@@ -4,26 +4,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ReaxTools 性能测试</title>
+    <title>ReaxTools Performance</title>
     <link rel="stylesheet" href="./styles.css">
 </head>
 
 <body>
-    <h2>ReaxTools 1.92 性能基准测试</h2>
-    <a href="./index.html">返回工具主页</a>
+    <h2>ReaxTools 1.92 Performance Test</h2>
+    <a href="./index.html">Back to main page</a>
     <div class="container">
-        <p>本地版与网页版在不同体系下的性能对比，单位为秒。网页版在大体系下受限于浏览器和单线程，速度较慢。</p>
-        <p>推荐的最佳体系大小：本地版：少于50万原子*1000帧；网页版：少于5万原子*1000帧。</p>
+        <p>Actual performance of web version depends on web browser enviroment.</p>
+        <p>Recommended configurations for local version: Linux, 8 cores, less than 1,000,000 atoms * 1,000 frames</p>
+        <p>Recommended configurations for web version: Chrome browser, PC, less than 100,000 atoms * 1,000 frames</p>
         <table class="perf-table">
             <thead>
                 <tr>
-                    <th>体系名</th>
-                    <th>原子数</th>
-                    <th>帧数</th>
-                    <th>原子帧</th>
-                    <th>文件体积</th>
-                    <th>本地耗时 (s)</th>
-                    <th>网页耗时 (s)</th>
+                    <th>System</th>
+                    <th># Atoms</th>
+                    <th># Frames</th>
+                    <th>Atoms*Frames</th>
+                    <th>File Size</th>
+                    <th>Local wall time (s)</th>
+                    <th>Web wall time (s)</th>
                 </tr>
             </thead>
             <tbody>
@@ -75,7 +76,7 @@
             </tbody>
         </table>
         <p style="margin-top:10px;font-size:0.95em;color:#888;">
-            本地版：g++，4线程，WSL，i5-13500H。网页版：emcc，单线程，Chrome 138，i5-13500H。
+            Local: g++, 4 threads, WSL, i5-13500H. Web：emcc, serial, Chrome 138, i5-13500H.
         </p>
     </div>
 </body>

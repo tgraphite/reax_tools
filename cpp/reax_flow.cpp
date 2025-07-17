@@ -15,9 +15,15 @@
 #endif
 
 ReaxFlow::~ReaxFlow() {
-    for (const auto& instance : nodes) {
-        if (instance != nullptr)
-            delete instance;
+    // for (const auto& instance : nodes) {
+    //     if (instance != nullptr)
+    //         delete instance;
+    // }
+
+    for (const auto& pair : nodes) {
+        if (pair.second != nullptr) {
+            delete pair.second;
+        }
     }
 
     nodes.clear();
@@ -41,7 +47,9 @@ inline int ReaxFlow::add_molecule(Molecule* mol) {
     // the current molecule in system will be destructed with system later.
     Molecule* new_mol = new Molecule(*mol);
     int new_id = nodes.size();
-    nodes.emplace_back(new_mol);
+    // nodes.emplace_back(new_mol);
+    nodes[new_id] = new_mol;
+
     molecule_map[mol->hash] = new_id;
     return new_id;
 }
@@ -75,9 +83,14 @@ std::pair<int, int> ReaxFlow::add_reaction(const int& frame, const int& atom_tra
 
     // create new
     int new_edge_id = edges.size();
-    edges.push_back(edge);
-    edge_reaction_counts.push_back(1);
-    edge_atom_transfer_counts.push_back(atom_transfer_count);
+    // edges.push_back(edge);
+    // edge_reaction_counts.push_back(1);
+    // edge_atom_transfer_counts.push_back(atom_transfer_count);
+
+    edges[new_edge_id] = edge;
+    edge_reaction_counts[new_edge_id] = 1;
+    edge_atom_transfer_counts[new_edge_id] = atom_transfer_count;
+
     return edge;
 }
 
@@ -109,10 +122,16 @@ void ReaxFlow::reduce_graph() {
         edges_visited.push_back(edge_id);
         reverse_edge = {edges[edge_id].second, edges[edge_id].first};
 
-        reverse_edge_id = std::find(edges.begin(), edges.end(), reverse_edge) - edges.begin();
+        // reverse_edge_id = std::find(edges.begin(), edges.end(), reverse_edge) - edges.begin();
+
+        int reverse_edge_id = -1;
+        for (const auto& pair : edges) {
+            if (pair.second == reverse_edge)
+                reverse_edge_id = pair.first;
+        }
 
         // no reverse reaction
-        if (reverse_edge_id == edges.size())
+        if (reverse_edge_id == -1)
             continue;
 
         // found reverse reaction
@@ -149,9 +168,14 @@ void ReaxFlow::reduce_graph() {
     }
 
     // Create new vectors for non-zero reactions
-    std::vector<std::pair<int, int>> new_edges;
-    std::vector<int> new_edge_reaction_counts;
-    std::vector<int> new_edge_atom_transfer_counts;
+
+    // std::vector<std::pair<int, int>> new_edges;
+    // std::vector<int> new_edge_reaction_counts;
+    // std::vector<int> new_edge_atom_transfer_counts;
+
+    std::unordered_map<int, std::pair<int, int>> new_edges;
+    std::unordered_map<int, int> new_edge_reaction_counts;
+    std::unordered_map<int, int> new_edge_atom_transfer_counts;
 
     new_edges.reserve(edges.size());
     new_edge_reaction_counts.reserve(edge_reaction_counts.size());
@@ -160,9 +184,9 @@ void ReaxFlow::reduce_graph() {
     for (size_t tmp_id = 0; tmp_id < edge_reaction_counts.size(); tmp_id++) {
         if (edge_reaction_counts[tmp_id] == 0 || edge_atom_transfer_counts[tmp_id] == 0)
             continue;
-        new_edges.push_back(edges[tmp_id]);
-        new_edge_reaction_counts.push_back(edge_reaction_counts[tmp_id]);
-        new_edge_atom_transfer_counts.push_back(edge_atom_transfer_counts[tmp_id]);
+        new_edges[tmp_id] = edges[tmp_id];
+        new_edge_reaction_counts[tmp_id] = edge_reaction_counts[tmp_id];
+        new_edge_atom_transfer_counts[tmp_id] = edge_atom_transfer_counts[tmp_id];
     }
 
     edges.clear();
@@ -332,7 +356,7 @@ void ReaxFlow::save_graph(const std::string& output_dir, int& max_reactions, boo
             all_edge_indices.push_back(tmp_id);
         }
 
-        write_dot_file(save_path_reactions_full, all_edge_indices, true);
+        write_dot_file(save_path_reactions_full, all_edge_indices, false);
         fmt::print("Note: Graphs too complex, write full graph (*full.dot) and default subgraph seperately.\n");
     }
 
@@ -518,8 +542,8 @@ void ReaxFlow::dump_smiles(const std::string& output_dir) {
     std::string smiles_file = output_dir + "molecules_smiles.csv";
     FILE* fp = fopen(smiles_file.c_str(), "w");
 
-    for (const auto& node : nodes) {
-        fmt::print(fp, "{},{}\n", node->formula, rdkit_smiles(*node));
+    for (const auto& pair : nodes) {
+        fmt::print(fp, "{},{}\n", pair.second->formula, rdkit_smiles(*pair.second));
     }
 
     fclose(fp);
@@ -528,8 +552,8 @@ void ReaxFlow::dump_smiles(const std::string& output_dir) {
 
 void ReaxFlow::draw_molecules(const std::string& output_dir) {
 #ifdef ENABLE_RDKIT
-    for (const auto& node : nodes) {
-        rdkit_draw_molecule(*node, output_dir);
+    for (const auto& pair : nodes) {
+        rdkit_draw_molecule(*pair.second, output_dir);
     }
 #endif
 }

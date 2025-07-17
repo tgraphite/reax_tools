@@ -16,10 +16,15 @@ class ReaxFlow {
     // Node: point to a specific molecule
     // Edge: reaction
 
-    std::vector<Molecule*> nodes;
-    std::vector<std::pair<int, int>> edges;
-    std::vector<int> edge_reaction_counts;
-    std::vector<int> edge_atom_transfer_counts;
+    // std::vector<Molecule*> nodes;
+    // std::vector<std::pair<int, int>> edges;
+    // std::vector<int> edge_reaction_counts;
+    // std::vector<int> edge_atom_transfer_counts;
+
+    std::unordered_map<int, Molecule*> nodes;
+    std::unordered_map<int, std::pair<int, int>> edges;
+    std::unordered_map<int, int> edge_reaction_counts;
+    std::unordered_map<int, int> edge_atom_transfer_counts;
 
     // Hash maps for O(1) lookup
     std::unordered_map<unsigned int, int> molecule_map;
@@ -54,4 +59,7 @@ class ReaxFlow {
     void remove_zero_nodes();
     void remove_zero_edges();
     void remove_isolated_nodes();
+
+    void merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula);
+    void merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool rescale);
 };

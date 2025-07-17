@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 inline std::vector<float> add_vectors(const std::vector<float>& vec_a, const std::vector<float>& vec_b) {
