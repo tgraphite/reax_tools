@@ -7,7 +7,7 @@
 #include "argparser.h"
 #include "defines.h"
 #include "fmt/core.h"
-#include "reax_species.h"
+#include "reax_counter.h"
 #include "string_tools.h"
 #include "universe.h"
 
@@ -35,6 +35,11 @@ extern "C" int cpp_main(int argc, const char** argv) {
     parser.add_argument("--radius", "-r", "scaling factor of vdW radii", "Traj analysis", "1.2", false, false, "float");
     parser.add_argument("--dump", "", "dump lammps data file (.data) for each frame", "Traj analysis", "", false, true);
 
+    parser.add_argument("--type-radius", "-tr", "set atomic radius for element, e.g. -tr N:1.5", "Key input parameters",
+                        "", false, false, "Element:Radius");
+    parser.add_argument("--type-valence", "-tv", "set atomic valence for element, e.g. -tv N:4", "Key input parameters",
+                        "", false, false, "Element:Valence");
+
     parser.add_argument("--no-reduce-reactions", "-norr", "disable reduce reverse reactions", "Network output options",
                         "false", false, true);
     parser.add_argument("--no-reactions", "", "disable reaction analysis", "Network output options", "", false, true);
@@ -47,8 +52,6 @@ extern "C" int cpp_main(int argc, const char** argv) {
                         "", false, true);
     parser.add_argument("--element-order", "--order", "set element order of outputting formulas", "Species analysis",
                         "", false, false, "e.g. C,H,O,N,S,F,P");
-    parser.add_argument("--type-radius", "-tr", "set atomic radius for element, e.g. -tr N:1.5", "Traj analysis", "",
-                        false, false, "Element:Radius");
     parser.add_argument("--threads", "-nt", "number of threads", "Performance", "4", false, false, "int");
     parser.add_argument("--max-reactions", "", "set max reactions in default network", "Network output options", "60",
                         false, false);
@@ -73,18 +76,22 @@ extern "C" int cpp_main(int argc, const char** argv) {
     if (parser.has_option("--types")) {
         type_names = parser.get<std::vector<std::string>>("--types");
     }
-    float rvdw_scale = parser.get<float>("--radius");
     int num_threads = parser.get<int>("--threads");
-    int max_reactions = parser.get<int>("--max-reactions");
+    float rvdw_scale = parser.get<float>("--radius");
 
-    bool if_dump_lammps_data = parser.has_flag("--dump");
+    bool if_dump_lammps_data = parser.has_option("--dump");
+    int dump_data_frame_step = parser.get<int>("--dump");
+    bool if_mark_ring_atoms = parser.has_flag("--mark-ring-atom");
+
     bool if_no_reax_flow = parser.has_flag("--no-reactions");
     bool if_no_reduce_reactions = parser.has_flag("--no-reduce-reactions") || parser.has_flag("-norr");
-    bool if_reduce_reactions = parser.has_flag("--reduce-reactions") || parser.has_flag("-rr");
+    int max_reactions = parser.get<int>("--max-reactions");
+
     std::string merge_target = parser.has_option("--merge-element") ? parser.get<std::string>("--merge-element") : "";
     std::vector<int> merge_range = parser.get<std::vector<int>>("--merge-ranges");
     bool if_merge_by_element = !merge_target.empty();
     bool if_merge_rescale = parser.has_flag("--rescale-count") || parser.has_flag("-rc");
+
     std::vector<std::string> sort_order;
 
     if (parser.has_option("--type-radius")) {
@@ -94,9 +101,23 @@ extern "C" int cpp_main(int argc, const char** argv) {
             if (pos != std::string::npos) {
                 std::string elem = tr.substr(0, pos);
                 float radius = std::stof(tr.substr(pos + 1));
-                default_atomic_radius[elem] = radius; // update global map
+                ELEMENT_ATOMIC_RADII[elem] = radius; // update global map
             } else {
                 std::cerr << "Invalid --type-radius format: " << tr << std::endl;
+            }
+        }
+    }
+
+    if (parser.has_option("--type-valence")) {
+        std::vector<std::string> type_valence_list = parser.get<std::vector<std::string>>("--type-valence");
+        for (const auto& tv : type_valence_list) {
+            auto pos = tv.find(':');
+            if (pos != std::string::npos) {
+                std::string elem = tv.substr(0, pos);
+                float valence = std::stoi(tv.substr(pos + 1));
+                ELEMENT_MAX_VALENCIES[elem] = valence; // update global map
+            } else {
+                std::cerr << "Invalid --type-valence format: " << tv << std::endl;
             }
         }
     }
@@ -104,7 +125,7 @@ extern "C" int cpp_main(int argc, const char** argv) {
     if (parser.has_option("--element-order")) {
         sort_order = parser.get<std::vector<std::string>>("--element-order");
     } else {
-        sort_order = default_order;
+        sort_order = ELEMENT_DISPLAY_ORDER;
     }
 
     if (ends_with(traj_file, "lammpstrj") && type_names.empty()) {
@@ -131,17 +152,25 @@ extern "C" int cpp_main(int argc, const char** argv) {
         fmt::print("**** NOTE **** : This may cause inaccuracy when X is not an elementary substance.\n");
     }
 
-    uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data, if_no_reax_flow);
+    uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data,
+                    dump_data_frame_step, if_mark_ring_atoms, if_no_reax_flow);
 
     if (if_merge_by_element) {
-        uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);
+        uv.reax_counter->merge_by_element(merge_target, merge_range, if_merge_rescale);
     }
 
-    uv.reax_species->brief_report();
-    uv.reax_species->save_file_to_dir(output_dir);
+    uv.reax_counter->brief_report();
+    uv.reax_counter->save_file_to_dir(output_dir);
     uv.reax_flow->brief_report();
     uv.reax_flow->save_graph(output_dir, max_reactions, true, if_no_reduce_reactions);
-    // uv.reax_flow->dump_smiles(output_dir);
+
+    std::string bond_count_filepath = output_dir + "bond_count.csv";
+    std::string ring_count_filepath = output_dir + "ring_count.csv";
+    std::string atom_bonded_num_count_filepath = output_dir + "atom_bonded_num_count.csv";
+
+    uv.bond_counter->save_file(bond_count_filepath);
+    uv.ring_counter->save_file(ring_count_filepath);
+    uv.atom_bonded_num_counter->save_file(atom_bonded_num_count_filepath);
 
     auto end_time = std::chrono::high_resolution_clock::now();
     double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();

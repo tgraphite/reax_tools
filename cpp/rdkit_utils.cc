@@ -23,7 +23,7 @@ std::string rdkit_smiles(const Molecule& mol) {
     RDKit::RWMol rdkit_mol;
     std::map<int, int> atom_idx_map; // Maps our atom id to RDKit atom index
     for (const auto& atom : mol.mol_atoms) {
-        int atomic_num = element_to_index[atom->type_name];
+        int atomic_num = ELEMENT_TO_INDEX[atom->type_name];
 
         RDKit::Atom rdkit_atom(atomic_num);
         int idx = rdkit_mol.addAtom(&rdkit_atom);
@@ -73,7 +73,7 @@ void rdkit_draw_molecule(const Molecule& mol, std::string output_dir) {
         RDKit::RWMol rdkit_mol;
         std::map<int, int> atom_idx_map; // Maps our atom id to RDKit atom index
         for (const auto& atom : mol.mol_atoms) {
-            int atomic_num = element_to_index[atom->type_name];
+            int atomic_num = ELEMENT_TO_INDEX[atom->type_name];
 
             RDKit::Atom rdkit_atom(atomic_num);
             int idx = rdkit_mol.addAtom(&rdkit_atom);

@@ -2,13 +2,10 @@
 #include <string>
 #include <vector>
 
-int atom_reserve = 100000;
-int bond_reserve = 300000;
-int mol_reserve = 50000;
 int MAX_RING_SIZE = 8;
 int MIN_RING_SIZE = 5;
 
-std::vector<std::string> all_elements = {
+std::vector<std::string> ALL_ELEMENTS = {
     "H",  "He", "Li", "Be", "B",  "C",  "N",  "O",  "F",  "Ne", "Na", "Mg", "Al", "Si", "P",  "S",  "Cl",
     "Ar", "K",  "Ca", "Sc", "Ti", "V",  "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se",
     "Br", "Kr", "Rb", "Sr", "Y",  "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb",
@@ -17,7 +14,7 @@ std::vector<std::string> all_elements = {
     "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U",  "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No",
     "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og", "X"};
 
-std::map<std::string, int> element_to_index = {
+std::map<std::string, int> ELEMENT_TO_INDEX = {
     {"H", 1},    {"He", 2},   {"Li", 3},   {"Be", 4},   {"B", 5},    {"C", 6},    {"N", 7},    {"O", 8},    {"F", 9},
     {"Ne", 10},  {"Na", 11},  {"Mg", 12},  {"Al", 13},  {"Si", 14},  {"P", 15},   {"S", 16},   {"Cl", 17},  {"Ar", 18},
     {"K", 19},   {"Ca", 20},  {"Sc", 21},  {"Ti", 22},  {"V", 23},   {"Cr", 24},  {"Mn", 25},  {"Fe", 26},  {"Co", 27},
@@ -33,7 +30,7 @@ std::map<std::string, int> element_to_index = {
     {"Mt", 109}, {"Ds", 110}, {"Rg", 111}, {"Cn", 112}, {"Nh", 113}, {"Fl", 114}, {"Mc", 115}, {"Lv", 116}, {"Ts", 117},
     {"Og", 118}, {"X", 0}};
 
-std::map<std::string, float> default_atomic_radius = {
+std::map<std::string, float> ELEMENT_ATOMIC_RADII = {
     {"H", 1.05f},  {"He", 1.4f},  {"Li", 1.82f}, {"Be", 2.f},   {"B", 2.f},    {"C", 1.7f},   {"N", 1.55f},
     {"O", 1.7f},   {"F", 1.35f},  {"Ne", 1.54f}, {"Na", 1.36f}, {"Mg", 1.18f}, {"Al", 2.f},   {"Si", 2.1f},
     {"P", 1.8f},   {"S", 1.8f},   {"Cl", 2.27f}, {"Ar", 1.88f}, {"K", 1.76f},  {"Ca", 1.37f}, {"Sc", 2.f},
@@ -48,7 +45,7 @@ std::map<std::string, float> default_atomic_radius = {
     {"Pt", 1.72f}, {"Au", 1.66f}, {"Hg", 1.55f}, {"Tl", 1.96f}, {"Pb", 2.02f}, {"Bi", 2.f},   {"Po", 2.f},
     {"At", 2.f},   {"Rn", 2.f},   {"Fr", 2.f},   {"Ra", 2.f},   {"X", 0.0f}};
 
-std::map<std::string, int> max_valences = {
+std::map<std::string, int> ELEMENT_MAX_VALENCIES = {
     {"H", 1},  {"He", 0}, {"Li", 1}, {"Be", 2}, {"B", 3},  {"C", 4},  {"N", 4},  {"O", 2},  {"F", 1},  {"Ne", 0},
     {"Na", 1}, {"Mg", 2}, {"Al", 3}, {"Si", 4}, {"P", 6},  {"S", 6},  {"Cl", 7}, {"Ar", 0}, {"K", 1},  {"Ca", 2},
     {"Sc", 3}, {"Ti", 4}, {"V", 5},  {"Cr", 6}, {"Mn", 7}, {"Fe", 6}, {"Co", 3}, {"Ni", 2}, {"Cu", 2}, {"Zn", 2},
@@ -59,7 +56,7 @@ std::map<std::string, int> max_valences = {
     {"Lu", 0}, {"Hf", 0}, {"Ta", 0}, {"W", 0},  {"Re", 0}, {"Os", 0}, {"Ir", 0}, {"Pt", 0}, {"Au", 0}, {"Hg", 0},
     {"Tl", 0}, {"Pb", 0}, {"Bi", 0}, {"Po", 0}, {"At", 0}, {"Rn", 0}, {"Fr", 0}, {"Ra", 0}, {"X", 0}};
 
-std::vector<std::string> default_order = {
+std::vector<std::string> ELEMENT_DISPLAY_ORDER = {
     "He", "Li", "Be", "B",  "C",  "H",  "N",  "O",  "F",  "Ne", "Na", "Mg", "Al", "Si", "P",  "S",  "Cl",
     "Ar", "K",  "Ca", "Sc", "Ti", "V",  "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se",
     "Br", "Kr", "Rb", "Sr", "Y",  "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb",
@@ -68,7 +65,7 @@ std::vector<std::string> default_order = {
     "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U",  "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No",
     "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og", "X"};
 
-std::vector<unsigned int> prime_numbers = {
+std::vector<unsigned int> PRIME_NUMBERS = {
     3,   5,   7,   11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,  53,  59,  61,  67,  71,  73,
     79,  83,  89,  97,  101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179,
     181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283,
@@ -76,7 +73,7 @@ std::vector<unsigned int> prime_numbers = {
     421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547,
     557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659};
 
-std::vector<unsigned int> bigger_prime_numbers = {
+std::vector<unsigned int> BIGGER_PRIME_NUMBERS = {
     661,  673,  677,  683,  691,  701,  709,  719,  727,  733,  739,  743,  751,  757,  761,  769,  773,
     787,  797,  809,  811,  821,  823,  827,  829,  839,  853,  857,  859,  863,  877,  881,  883,  887,
     907,  911,  919,  929,  937,  941,  947,  953,  967,  971,  977,  983,  991,  997,  1009, 1013, 1019,

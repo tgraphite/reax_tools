@@ -7,11 +7,11 @@
 #include "cell_list.h"
 #include "defines.h"
 #include "fmt/format.h"
-#include "reax_species.h"
+#include "reax_counter.h"
 #include "universe.h"
 #include "vec_algorithms.h"
 
-std::mutex reaxspecies_mutex;
+std::mutex reaxcounter_mutex;
 
 // Hash function for std::pair<int, int>
 struct pair_hash {
@@ -46,9 +46,9 @@ void System::set_types(std::vector<std::string>& type_names) {
         type_itos[type_id] = name;
         type_stoi[name] = type_id;
 
-        // Initialize max_valences for each type
-        if (max_valences.find(name) == max_valences.end()) {
-            max_valences[name] = 4; // Default max valence
+        // Initialize ELEMENT_MAX_VALENCIES for each type
+        if (ELEMENT_MAX_VALENCIES.find(name) == ELEMENT_MAX_VALENCIES.end()) {
+            ELEMENT_MAX_VALENCIES[name] = 4; // Default max valence
         }
     }
 }
@@ -146,7 +146,7 @@ void System::dump_atom_bonded_num_count(std::string& filepath, bool& is_first_fr
         type_id = pair.first;
         type_string = pair.second;
 
-        max_valence = max_valences[type_string];
+        max_valence = ELEMENT_MAX_VALENCIES[type_string];
 
         for (int val = 0; val <= max_valence; val++) {
             atom_bonded_num_count[{type_id, val}] = 0;
@@ -503,10 +503,10 @@ void System::process_this() {
         int typ_i = pair.second;
 
         // pair.first: string type, pair.second: int type
-        if (default_atomic_radius.find(typ_s) != default_atomic_radius.end())
-            atomic_radius[typ_i] = default_atomic_radius.at(typ_s);
+        if (ELEMENT_ATOMIC_RADII.find(typ_s) != ELEMENT_ATOMIC_RADII.end())
+            atomic_radius[typ_i] = ELEMENT_ATOMIC_RADII.at(typ_s);
         else
-            atomic_radius[typ_i] = default_atomic_radius.at("X");
+            atomic_radius[typ_i] = ELEMENT_ATOMIC_RADII.at("X");
     }
 
     for (int type_i = 1; type_i <= total_types; type_i++) {
@@ -537,16 +537,63 @@ void System::process_this() {
  * @brief Process the current system frame for ReaxFF analysis, including formula extraction and reaction tracking.
  *        Thread-safe import of frame formulas and molecule comparison with previous frame.
  */
-void System::process_reax_species() {
+void System::process_counters() {
     std::vector<std::string> frame_formulas(molecules.size());
+    std::map<std::string, int> bond_count_map;
+    std::map<std::string, int> ring_count_map;
+    std::map<std::string, int> atom_bonded_num_count_map;
+
+    // Formulas, aka reax_species.
     for (size_t i = 0; i < molecules.size(); i++) {
         frame_formulas[i] = molecules[i]->formula;
     }
 
-    // Lock the shared reax_species import operations.
+    // Bonds
+    for (const auto& ij_count : bond_type_counts) {
+        int i = ij_count.first.first;
+        int j = ij_count.first.second;
+        int count = ij_count.second;
+
+        std::pair<int, int> sorted_pair = std::make_pair(std::max(i, j), std::min(i, j));
+        std::string key = fmt::format("{}-{}", type_itos[sorted_pair.first], type_itos[sorted_pair.second]);
+
+        if (bond_count_map.find(key) == bond_count_map.end()) {
+            bond_count_map[key] = count;
+        } else {
+            bond_count_map[key] += count;
+        }
+    }
+
+    // Atom bonded nums
+    std::map<std::pair<int, int>, int> tmp_atom_bonded_num_count;
+    for (const auto& [type_id, type_string] : type_itos) {
+        int max_valence = ELEMENT_MAX_VALENCIES[type_string];
+        for (size_t valence = 0; valence <= max_valence; valence++) {
+            tmp_atom_bonded_num_count[{type_id, valence}] = 0;
+        }
+    }
+    for (const auto& atom : atoms) {
+        tmp_atom_bonded_num_count[{atom->type_id, atom->bonded_atoms.size()}]++;
+    }
+
+    for (const auto& [id_num, count] : tmp_atom_bonded_num_count) {
+        std::string key = fmt::format("{}-{}", type_itos[id_num.first], id_num.second);
+        atom_bonded_num_count_map[key] = count;
+    }
+
+    // Rings
+    for (const auto& [ring_size, count] : ring_counts) {
+        std::string key = fmt::format("ring size {}", ring_size);
+        ring_count_map[key] = count;
+    }
+
+    // Lock the shared reax_counter import operations.
     {
-        std::lock_guard<std::mutex> lock(reaxspecies_mutex);
-        reax_species->import_frame_formulas(frame_id, frame_formulas);
+        std::lock_guard<std::mutex> lock(reaxcounter_mutex);
+        reax_counter->import_frame_formulas(frame_id, frame_formulas);
+        bond_counter->import_frame_values(frame_id, bond_count_map);
+        atom_bonded_num_counter->import_frame_values(frame_id, atom_bonded_num_count_map);
+        ring_counter->import_frame_values(frame_id, ring_count_map);
     }
 }
 

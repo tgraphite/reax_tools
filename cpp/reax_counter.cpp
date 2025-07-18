@@ -1,4 +1,4 @@
-#include "reax_species.h"
+#include "reax_counter.h"
 
 #include <algorithm>
 #include <iostream>
@@ -12,7 +12,7 @@
 #include "vec_algorithms.h"
 
 // For read data from Lammps species file.
-ReaxSpecies::ReaxSpecies(const std::string& file_path) : file_path(file_path) {
+ReaxCounter::ReaxCounter(const std::string& file_path) : file_path(file_path) {
     file.open(file_path);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << file_path << std::endl << "Exit." << std::endl;
@@ -24,14 +24,14 @@ ReaxSpecies::ReaxSpecies(const std::string& file_path) : file_path(file_path) {
 }
 
 // For import data from class Universe.
-ReaxSpecies::ReaxSpecies() {}
+ReaxCounter::ReaxCounter() {}
 
-ReaxSpecies::~ReaxSpecies() {
+ReaxCounter::~ReaxCounter() {
     if (file.is_open())
         file.close();
 }
 
-void ReaxSpecies::get_formulas() {
+void ReaxCounter::get_formulas() {
     std::string line;
     std::unordered_set<std::string> formulas_set;
 
@@ -59,7 +59,7 @@ void ReaxSpecies::get_formulas() {
     return;
 }
 
-void ReaxSpecies::get_nums() {
+void ReaxCounter::get_nums() {
     std::string line;
     std::vector<std::string> cur_formulas;
     int cur_frame = 0;
@@ -91,7 +91,7 @@ void ReaxSpecies::get_nums() {
     }
 }
 
-void ReaxSpecies::rename_all_formulas(const std::vector<std::string>& order) {
+void ReaxCounter::rename_all_formulas(const std::vector<std::string>& order) {
     // Create a temporary map to store formulas that need to be renamed.
 
     // First step: collect all formulas that need to be renamed.
@@ -117,7 +117,7 @@ void ReaxSpecies::rename_all_formulas(const std::vector<std::string>& order) {
 }
 
 // User accessable.
-void ReaxSpecies::merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula) {
+void ReaxCounter::merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula) {
     std::vector<float> new_nums(nframes, 0.0);
     for (const std::string& formula : formulas) {
         std::vector<float> num = formulas_nums[formula];
@@ -133,7 +133,7 @@ void ReaxSpecies::merge_formulas(const std::vector<std::string>& formulas, const
 }
 
 // User accessable.
-void ReaxSpecies::scale_formula(const std::string& formula, const float& k) {
+void ReaxCounter::scale_formula(const std::string& formula, const float& k) {
     std::vector<float> new_nums(nframes, 0.0);
     new_nums = vector_scale(formulas_nums[formula], k);
     formulas_nums[formula] = new_nums;
@@ -141,7 +141,7 @@ void ReaxSpecies::scale_formula(const std::string& formula, const float& k) {
 }
 
 // User accessable.
-void ReaxSpecies::rescale_all_by_element(const std::string& target_element) {
+void ReaxCounter::rescale_all_by_element(const std::string& target_element) {
     for (auto& pair : formulas_nums) {
         std::string formula = pair.first;
         std::vector<float>& old_nums = pair.second;
@@ -165,7 +165,7 @@ void ReaxSpecies::rescale_all_by_element(const std::string& target_element) {
 }
 
 // User accessable.
-void ReaxSpecies::merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool rescale) {
+void ReaxCounter::merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool rescale) {
     for (size_t i = 0; i < ranges.size(); i++) {
         int start;
         int end;
@@ -224,7 +224,7 @@ void ReaxSpecies::merge_by_element(const std::string& target_element, const std:
     return;
 }
 
-void ReaxSpecies::brief_report() {
+void ReaxCounter::brief_report() {
     // if (nframes < 40) {
     //     this->show_nums();
     //     return;
@@ -300,7 +300,7 @@ void ReaxSpecies::brief_report() {
 }
 
 // Get current frame formulas (std::map<std::string, int>) from class Universe.
-void ReaxSpecies::import_frame_formulas(int& frame_id, const std::vector<std::string>& formulas) {
+void ReaxCounter::import_frame_formulas(int& frame_id, const std::vector<std::string>& formulas) {
     if (all_frame_formulas.size() < frame_id) {
         all_frame_formulas.resize(frame_id);
     }
@@ -310,7 +310,7 @@ void ReaxSpecies::import_frame_formulas(int& frame_id, const std::vector<std::st
 
 // Analyze imported frame formulas and get standard formulas_nums after
 // ReaxSpeices::import_frame_formulas all done.
-void ReaxSpecies::analyze_frame_formulas() {
+void ReaxCounter::analyze_frame_formulas() {
     // all_formulas_set : any occured formula, non-repeat.
     std::unordered_set<std::string> all_formulas_set;
     nframes = all_frame_formulas.size();
@@ -337,7 +337,7 @@ void ReaxSpecies::analyze_frame_formulas() {
 }
 
 // General function, save file to given path.
-void ReaxSpecies::save_file(const std::string& save_path) {
+void ReaxCounter::save_file(const std::string& save_path) {
     FILE* file = fopen(save_path.c_str(), "w");
     if (file == NULL) {
         fmt::print(stderr, "Cannot open file {} for writing.\n", save_path);
@@ -373,9 +373,9 @@ void ReaxSpecies::save_file(const std::string& save_path) {
 }
 
 // For traj mode, call from universe.
-void ReaxSpecies::save_file_to_dir(const std::string& output_dir) { save_file(output_dir + "species_count.csv"); }
+void ReaxCounter::save_file_to_dir(const std::string& output_dir) { save_file(output_dir + "species_count.csv"); }
 
 // For species mode, save file directly in current directory.
-void ReaxSpecies::save_file_to_current_dir() {
+void ReaxCounter::save_file_to_current_dir() {
     save_file(file_path.substr(0, file_path.find_last_of(".")) + "_species_count.csv");
 }

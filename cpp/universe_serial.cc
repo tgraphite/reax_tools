@@ -8,7 +8,7 @@
 
 #include "defines.h"
 #include "fmt/core.h"
-#include "reax_species.h"
+#include "reax_counter.h"
 #include "string_tools.h"
 #include "universe.h"
 
@@ -25,9 +25,9 @@ Universe::~Universe() {
         last_system = nullptr;
     }
 
-    if (reax_species != nullptr) {
-        delete reax_species;
-        reax_species = nullptr;
+    if (reax_counter != nullptr) {
+        delete reax_counter;
+        reax_counter = nullptr;
     }
 
     if (reax_flow != nullptr) {
@@ -58,9 +58,9 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
     bool is_first_frame = true;
 
     std::ifstream file(file_path);
-    std::string bond_count_filepath = output_dir + "bond_count.csv";
-    std::string ring_count_filepath = output_dir + "ring_count.csv";
-    std::string atom_bonded_num_count_filepath = output_dir + "atom_bonded_num_count.csv";
+    // std::string bond_count_filepath = output_dir + "bond_count.csv";
+    // std::string ring_count_filepath = output_dir + "ring_count.csv";
+    // std::string atom_bonded_num_count_filepath = output_dir + "atom_bonded_num_count.csv";
 
     // The highest calling stack, only do this once.
     while (file.is_open() && !file.eof()) {
@@ -75,7 +75,7 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
         system->set_max_neigh(max_neigh);
         system->set_rvdw_scale(rvdw_scale);
         system->set_reax_flow(this->reax_flow);
-        system->set_reax_species(this->reax_species);
+        system->set_counters(this->reax_counter, this->bond_counter, this->ring_counter, this->atom_bonded_num_counter);
 
         if (ends_with(file_path, ".lammpstrj"))
             system->load_lammpstrj(file);
@@ -93,7 +93,7 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
 
         system->set_prev_sys(last_system);
         system->process_this();
-        system->process_reax_species();
+        system->process_counters();
         system->process_reax_flow();
 
         if (if_dump_lammps_data) {
@@ -114,11 +114,11 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
             is_first_frame = false;
         }
 
-        system->dump_bond_count(bond_count_filepath, is_first_frame);
-        system->dump_ring_count(ring_count_filepath, is_first_frame);
-        system->dump_atom_bonded_num_count(atom_bonded_num_count_filepath, is_first_frame);
+        // system->dump_bond_count(bond_count_filepath, is_first_frame);
+        // system->dump_ring_count(ring_count_filepath, is_first_frame);
+        // system->dump_atom_bonded_num_count(atom_bonded_num_count_filepath, is_first_frame);
         system->finish();
     }
     fmt::print("\n\n");
-    reax_species->analyze_frame_formulas();
+    reax_counter->analyze_frame_formulas();
 }

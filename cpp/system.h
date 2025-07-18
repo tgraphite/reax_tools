@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "fmt/format.h"
+#include "reax_counter.h"
 #include "reax_flow.h"
-#include "reax_species.h"
 #include "string_tools.h"
 
 class ReaxFlow;
@@ -41,7 +41,7 @@ struct Atom {
 
     Atom(int _id, int _type_id, const std::vector<float>& _coord, std::string _type_name)
         : id(_id), type_id(_type_id), coord(_coord), type_name(_type_name) {
-        max_valence = max_valences[type_name];
+        max_valence = ELEMENT_MAX_VALENCIES[type_name];
     };
     ~Atom() {
         neighs.clear();
@@ -154,11 +154,11 @@ struct Molecule {
         // Hash
         unsigned int mol_hash = 1;
         for (const auto& atom : mol_atoms) {
-            unsigned int atom_hash = bigger_prime_numbers[atom->type_id];
+            unsigned int atom_hash = BIGGER_PRIME_NUMBERS[atom->type_id];
             unsigned int bonded_hash = 1;
 
             for (const auto& bonded : atom->bonded_atoms) {
-                bonded_hash ^= prime_numbers[bonded->type_id]; // XOR is commutative
+                bonded_hash ^= PRIME_NUMBERS[bonded->type_id]; // XOR is commutative
             }
             // Combine atom and its bonded environment, order independent
             atom_hash ^= bonded_hash;
@@ -211,7 +211,11 @@ class System {
 
     System* prev_sys = nullptr;
     ReaxFlow* reax_flow;
-    ReaxSpecies* reax_species;
+    ReaxCounter* reax_counter;
+
+    Counter<int>* bond_counter;
+    Counter<int>* ring_counter;
+    Counter<int>* atom_bonded_num_counter;
 
     System();
     ~System();
@@ -235,13 +239,22 @@ class System {
     void dfs(Atom* atom, std::set<Atom*>& visited, Molecule* curr_mol);
 
     void process_this();
-    void process_reax_species();
+    void process_counters();
     void process_reax_flow();
 
     void set_rvdw_scale(float value) { rvdw_scale = value; }
     void set_max_neigh(int value) { max_neigh = value; }
     void set_reax_flow(ReaxFlow* value) { reax_flow = value; }
-    void set_reax_species(ReaxSpecies* value) { reax_species = value; }
+    // void set_reax_counter(ReaxCounter* value) { reax_counter = value; }
+
+    void set_counters(ReaxCounter* _reax_counter, Counter<int>* _bond_counter, Counter<int>* _ring_counter,
+                      Counter<int>* _atom_bonded_num_counter) {
+        reax_counter = _reax_counter;
+        bond_counter = _bond_counter;
+        ring_counter = _ring_counter;
+        atom_bonded_num_counter = _atom_bonded_num_counter;
+    };
+
     void set_frame_id(int value) { frame_id = value; }
     void set_prev_sys(System* value) { prev_sys = value; }
 

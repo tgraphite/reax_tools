@@ -7,7 +7,7 @@
 #include "argparser.h"
 #include "defines.h"
 #include "fmt/core.h"
-#include "reax_species.h"
+#include "reax_counter.h"
 #include "string_tools.h"
 #include "universe.h"
 
@@ -35,6 +35,8 @@ int main(int argc, char** argv) {
                         "float");
     parser.add_argument("--type-radius", "-tr", "set atomic radius for element, e.g. -tr N:1.5", "Key input parameters",
                         "", false, false, "Element:Radius");
+    parser.add_argument("--type-valence", "-tv", "set atomic valence for element, e.g. -tv N:4", "Key input parameters",
+                        "", false, false, "Element:Valence");
 
     parser.add_argument("--threads", "-nt", "number of threads", "Performance", "4", false, false, "int");
 
@@ -95,7 +97,7 @@ int main(int argc, char** argv) {
     if (parser.has_option("--element-order")) {
         sort_order = parser.get<std::vector<std::string>>("--element-order");
     } else {
-        sort_order = default_order;
+        sort_order = ELEMENT_DISPLAY_ORDER;
     }
 
     if (ends_with(traj_file, "lammpstrj") && type_names.empty()) {
@@ -104,7 +106,7 @@ int main(int argc, char** argv) {
     }
 
     Universe uv;
-    std::string output_dir = "output/";
+    std::string output_dir = "reax_tools_output/";
 
     fmt::print("=== Reax Tools Trajectory Analysis (Local) ===\n");
     fmt::print("Input file: {}, output dir: {}\n", traj_file, output_dir);
@@ -129,9 +131,23 @@ int main(int argc, char** argv) {
             if (pos != std::string::npos) {
                 std::string elem = tr.substr(0, pos);
                 float radius = std::stof(tr.substr(pos + 1));
-                default_atomic_radius[elem] = radius; // update global map
+                ELEMENT_ATOMIC_RADII[elem] = radius; // update global map
             } else {
                 std::cerr << "Invalid --type-radius format: " << tr << std::endl;
+            }
+        }
+    }
+
+    if (parser.has_option("--type-valence")) {
+        std::vector<std::string> type_valence_list = parser.get<std::vector<std::string>>("--type-valence");
+        for (const auto& tv : type_valence_list) {
+            auto pos = tv.find(':');
+            if (pos != std::string::npos) {
+                std::string elem = tv.substr(0, pos);
+                float valence = std::stoi(tv.substr(pos + 1));
+                ELEMENT_MAX_VALENCIES[elem] = valence; // update global map
+            } else {
+                std::cerr << "Invalid --type-valence format: " << tv << std::endl;
             }
         }
     }
@@ -140,15 +156,23 @@ int main(int argc, char** argv) {
                     dump_data_frame_step, if_mark_ring_atoms, if_no_reax_flow);
 
     if (if_merge_by_element) {
-        uv.reax_species->merge_by_element(merge_target, merge_range, if_merge_rescale);
+        uv.reax_counter->merge_by_element(merge_target, merge_range, if_merge_rescale);
     }
 
-    uv.reax_species->brief_report();
-    uv.reax_species->save_file_to_dir(output_dir);
+    uv.reax_counter->brief_report();
+    uv.reax_counter->save_file_to_dir(output_dir);
     uv.reax_flow->brief_report();
     uv.reax_flow->save_graph(output_dir, max_reactions, true, if_no_reduce_reactions);
     uv.reax_flow->dump_smiles(output_dir);
     uv.reax_flow->draw_molecules(output_dir);
+
+    std::string bond_count_filepath = output_dir + "bond_count.csv";
+    std::string ring_count_filepath = output_dir + "ring_count.csv";
+    std::string atom_bonded_num_count_filepath = output_dir + "atom_bonded_num_count.csv";
+
+    uv.bond_counter->save_file(bond_count_filepath);
+    uv.ring_counter->save_file(ring_count_filepath);
+    uv.atom_bonded_num_counter->save_file(atom_bonded_num_count_filepath);
 
     auto end_time = std::chrono::high_resolution_clock::now();
     double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();

@@ -10,16 +10,16 @@
 
 #include "defines.h"
 #include "fmt/core.h"
-#include "reax_species.h"
+#include "reax_counter.h"
 #include "string_tools.h"
 #include "universe.h"
 
 Universe::Universe() {}
 
 Universe::~Universe() {
-    if (reax_species != nullptr) {
-        delete reax_species;
-        reax_species = nullptr;
+    if (reax_counter != nullptr) {
+        delete reax_counter;
+        reax_counter = nullptr;
     }
 
     if (reax_flow != nullptr) {
@@ -69,9 +69,6 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
     bool is_first_frame = true;
 
     std::ifstream file(file_path);
-    std::string bond_count_filepath = output_dir + "bond_count.csv";
-    std::string ring_count_filepath = output_dir + "ring_count.csv";
-    std::string atom_bonded_num_count_filepath = output_dir + "atom_bonded_num_count.csv";
 
     std::map<int, System*> frameid_system;
     std::vector<System*> systems_to_process;
@@ -98,7 +95,9 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
             curr_system->set_max_neigh(max_neigh);
             curr_system->set_rvdw_scale(rvdw_scale);
             curr_system->set_reax_flow(this->reax_flow);
-            curr_system->set_reax_species(this->reax_species);
+
+            curr_system->set_counters(this->reax_counter, this->bond_counter, this->ring_counter,
+                                      this->atom_bonded_num_counter);
 
             if (ends_with(file_path, ".lammpstrj"))
                 curr_system->load_lammpstrj(file);
@@ -124,7 +123,7 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
             else
                 curr_system->set_prev_sys(frameid_system[frame_id - 1]);
         }
-        parallel_for_each<System>(systems_to_process, &System::process_reax_species);
+        parallel_for_each<System>(systems_to_process, &System::process_counters);
         if (!if_no_reax_flow) {
             parallel_for_each<System>(systems_to_process, &System::process_reax_flow);
         }
@@ -159,16 +158,16 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
                 is_first_frame = false;
             }
 
-            curr_system->dump_bond_count(bond_count_filepath, is_first_frame);
-            curr_system->dump_ring_count(ring_count_filepath, is_first_frame);
-            curr_system->dump_atom_bonded_num_count(atom_bonded_num_count_filepath, is_first_frame);
+            // curr_system->dump_bond_count(bond_count_filepath, is_first_frame);
+            // curr_system->dump_ring_count(ring_count_filepath, is_first_frame);
+            // curr_system->dump_atom_bonded_num_count(atom_bonded_num_count_filepath, is_first_frame);
             curr_system->finish();
         }
 
         systems_to_process.clear();
     }
     fmt::print("\n\n");
-    reax_species->analyze_frame_formulas();
+    reax_counter->analyze_frame_formulas();
 
     // after all batch, free all systems.
     for (auto it = frameid_system.begin(); it != frameid_system.end();) {

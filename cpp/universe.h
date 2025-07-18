@@ -1,8 +1,8 @@
 #pragma once
 #include <string>
 
+#include "reax_counter.h"
 #include "reax_flow.h"
-#include "reax_species.h"
 #include "system.h"
 
 class Universe {
@@ -10,8 +10,11 @@ class Universe {
     System* last_system = nullptr;
     System* system = nullptr;
 
-    ReaxSpecies* reax_species = new ReaxSpecies();
+    ReaxCounter* reax_counter = new ReaxCounter();
     ReaxFlow* reax_flow = new ReaxFlow();
+    Counter<int>* bond_counter = new Counter<int>();
+    Counter<int>* ring_counter = new Counter<int>();
+    Counter<int>* atom_bonded_num_counter = new Counter<int>();
 
     Universe();
     ~Universe();
