@@ -530,7 +530,10 @@ void System::process_this() {
     search_neigh();
     build_bonds_by_radius();
     build_molecules();
-    compute_ring_counts();
+
+    if (!if_no_rings) {
+        compute_ring_counts();
+    }
 }
 
 /**
@@ -549,13 +552,11 @@ void System::process_counters() {
     }
 
     // Bonds
-    for (const auto& ij_count : bond_type_counts) {
-        int i = ij_count.first.first;
-        int j = ij_count.first.second;
-        int count = ij_count.second;
+    for (const auto& [ij, count] : bond_type_counts) {
+        std::string type_a = std::max(type_itos[ij.first], type_itos[ij.second]);
+        std::string type_b = std::min(type_itos[ij.first], type_itos[ij.second]);
 
-        std::pair<int, int> sorted_pair = std::make_pair(std::max(i, j), std::min(i, j));
-        std::string key = fmt::format("{}-{}", type_itos[sorted_pair.first], type_itos[sorted_pair.second]);
+        std::string key = fmt::format("{}-{}", type_a, type_b);
 
         if (bond_count_map.find(key) == bond_count_map.end()) {
             bond_count_map[key] = count;

@@ -34,6 +34,21 @@ Universe::~Universe() {
         delete reax_flow;
         reax_flow = nullptr;
     }
+
+    if (bond_counter != nullptr) {
+        delete bond_counter;
+        bond_counter = nullptr;
+    }
+
+    if (ring_counter != nullptr) {
+        delete ring_counter;
+        ring_counter = nullptr;
+    }
+
+    if (atom_bonded_num_counter != nullptr) {
+        delete atom_bonded_num_counter;
+        atom_bonded_num_counter = nullptr;
+    }
 }
 
 void Universe::flush() {
@@ -52,7 +67,7 @@ void Universe::flush() {
 void Universe::process_traj(std::string& file_path, std::string& output_dir, std::vector<std::string>& type_names,
                             const float& rvdw_scale, const int& num_threads, const bool& if_dump_lammps_data,
                             const int& dump_data_frame_step, const bool& if_mark_ring_atoms,
-                            const bool& if_no_reax_flow) {
+                            const bool& if_no_reax_flow, const bool& if_no_rings) {
     int curr_frame_id = 1;
     int max_neigh = 10;
     bool is_first_frame = true;
@@ -76,6 +91,7 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
         system->set_rvdw_scale(rvdw_scale);
         system->set_reax_flow(this->reax_flow);
         system->set_counters(this->reax_counter, this->bond_counter, this->ring_counter, this->atom_bonded_num_counter);
+        system->set_if_no_rings(if_no_rings);
 
         if (ends_with(file_path, ".lammpstrj"))
             system->load_lammpstrj(file);

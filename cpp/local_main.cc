@@ -45,6 +45,7 @@ int main(int argc, char** argv) {
     parser.add_argument("--mark-ring-atom", "", "use mol id entry to mark ring atom when dump data", "Misc", "", false,
                         true);
 
+    parser.add_argument("--no-rings", "", "disable ring computation", "Misc", "", false, true);
     parser.add_argument("--no-reactions", "", "disable reaction analysis", "Network output options", "", false, true);
     parser.add_argument("--no-reduce-reactions", "-norr", "disable reduce reverse reactions", "Network output options",
                         "false", false, true);
@@ -85,6 +86,7 @@ int main(int argc, char** argv) {
     bool if_mark_ring_atoms = parser.has_flag("--mark-ring-atom");
 
     bool if_no_reax_flow = parser.has_flag("--no-reactions");
+    bool if_no_rings = parser.has_flag("--no-rings");
     bool if_no_reduce_reactions = parser.has_flag("--no-reduce-reactions") || parser.has_flag("-norr");
     int max_reactions = parser.get<int>("--max-reactions");
 
@@ -153,7 +155,7 @@ int main(int argc, char** argv) {
     }
 
     uv.process_traj(traj_file, output_dir, type_names, rvdw_scale, num_threads, if_dump_lammps_data,
-                    dump_data_frame_step, if_mark_ring_atoms, if_no_reax_flow);
+                    dump_data_frame_step, if_mark_ring_atoms, if_no_reax_flow, if_no_rings);
 
     if (if_merge_by_element) {
         uv.reax_counter->merge_by_element(merge_target, merge_range, if_merge_rescale);

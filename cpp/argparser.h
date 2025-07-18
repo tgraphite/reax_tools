@@ -10,6 +10,26 @@
 #include <string>
 #include <vector>
 
+// struct GlobalOptions {
+//     int num_threads = 4;
+//     float rvdw_scale = 1.2;
+
+//     int dump_data_frame_step = 10;
+//     bool dump_lammps_data = false;
+//     bool mark_ring_atoms = false;
+
+//     int max_reactions = 60;
+//     bool no_reactions = false;
+//     bool no_reduce_reactions = false;
+
+//     bool merge_by_element = false;
+//     std::string merge_target;
+//     std::vector<int> merge_range;
+
+//     std::vector<std::string> sort_order;
+//     std::string output_dir;
+// };
+
 class ArgParser {
   private:
     struct ArgOption {

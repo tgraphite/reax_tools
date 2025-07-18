@@ -183,6 +183,7 @@ class System {
     // total_atoms only useful for loading files.
     bool to_destroy = false;
     bool has_boundaries = false;
+    bool if_no_rings = false;
 
     int total_atoms = 0;
     int total_types = 0;
@@ -245,7 +246,7 @@ class System {
     void set_rvdw_scale(float value) { rvdw_scale = value; }
     void set_max_neigh(int value) { max_neigh = value; }
     void set_reax_flow(ReaxFlow* value) { reax_flow = value; }
-    // void set_reax_counter(ReaxCounter* value) { reax_counter = value; }
+    void set_if_no_rings(bool value) {if_no_rings = value;}
 
     void set_counters(ReaxCounter* _reax_counter, Counter<int>* _bond_counter, Counter<int>* _ring_counter,
                       Counter<int>* _atom_bonded_num_counter) {
