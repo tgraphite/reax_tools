@@ -149,7 +149,7 @@ struct Molecule {
         for (auto& pair : types_nums) {
             mol_formula += fmt::format("{}{}", pair.first, pair.second);
         }
-        formula = rename_formula(mol_formula);
+        formula = rename_formula(mol_formula, ELEMENT_DISPLAY_ORDER);
 
         // Hash
         unsigned int mol_hash = 1;
@@ -180,17 +180,13 @@ inline bool operator==(const Molecule& lhs, const Molecule& rhs) { return (lhs.h
 
 class System {
   public:
-    // total_atoms only useful for loading files.
     bool to_destroy = false;
     bool has_boundaries = false;
-    bool if_no_rings = false;
 
     int total_atoms = 0;
     int total_types = 0;
     int frame_id = 0;
 
-    int max_neigh;
-    float rvdw_scale;
     float neigh_radius = 0.0f;
     unsigned int hash;
 
@@ -222,14 +218,9 @@ class System {
     ~System();
     void finish();
 
-    void set_types(std::vector<std::string>& type_names);
+    void set_types();
     void load_xyz(std::ifstream& file);
     void load_lammpstrj(std::ifstream& file);
-
-    void dump_lammps_data(std::string& filepath, int frame_step, bool mark_ring_atoms = false);
-    void dump_bond_count(std::string& filepath, bool& is_first_frame);
-    void dump_ring_count(std::string& filepath, bool& is_first_frame);
-    void dump_atom_bonded_num_count(std::string& filepath, bool& is_first_frame);
 
     void search_neigh();
     void search_neigh_naive();
@@ -243,11 +234,6 @@ class System {
     void process_counters();
     void process_reax_flow();
 
-    void set_rvdw_scale(float value) { rvdw_scale = value; }
-    void set_max_neigh(int value) { max_neigh = value; }
-    void set_reax_flow(ReaxFlow* value) { reax_flow = value; }
-    void set_if_no_rings(bool value) {if_no_rings = value;}
-
     void set_counters(ReaxCounter* _reax_counter, Counter<int>* _bond_counter, Counter<int>* _ring_counter,
                       Counter<int>* _atom_bonded_num_counter) {
         reax_counter = _reax_counter;
@@ -256,13 +242,12 @@ class System {
         atom_bonded_num_counter = _atom_bonded_num_counter;
     };
 
-    void set_frame_id(int value) { frame_id = value; }
-    void set_prev_sys(System* value) { prev_sys = value; }
-
     void compute_ring_counts();
     void find_rings_from_atom(Atom* current, Atom* start, int depth, std::unordered_set<Atom*>& visited,
                               std::unordered_set<std::unordered_set<Atom*>*>& current_rings,
                               std::vector<Atom*>& current_path);
+
+    void dump_lammps_data();
 
     Atom* get_atom_by_id(const int& atom_id);
     Molecule* get_molecule_by_id(const int& mol_id);

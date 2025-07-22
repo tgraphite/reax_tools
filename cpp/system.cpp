@@ -4,10 +4,11 @@
 #include <mutex>
 #include <queue>
 
+#include "argparser.h"
 #include "cell_list.h"
-#include "defines.h"
 #include "fmt/format.h"
 #include "reax_counter.h"
+#include "system.h"
 #include "universe.h"
 #include "vec_algorithms.h"
 
@@ -22,7 +23,7 @@ struct pair_hash {
     }
 };
 
-System::System() {}
+System::System() { set_types(); }
 
 System::~System() {
     // No need to free atoms ptr and bonds ptr, they will be deleted in Molecule destrcutor
@@ -34,14 +35,325 @@ System::~System() {
     molecules.clear();
 }
 
+void System::load_xyz(std::ifstream& file) {
+    std::string line;
+    std::vector<std::string> tokens;
+    int atom_id = 0;
+    int atom_count = 0;
+
+    float xlo, xhi, ylo, yhi, zlo, zhi, lx, ly, lz;
+    float x, y, z;
+
+    std::string given_type;
+    int type_int;
+    std::string type_str;
+    std::string tmp_str;
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file" << std::endl;
+    }
+
+    while (getline(file, line)) {
+        tokens = split_by_space(line);
+
+        if ((tokens.size() == 0) || (tokens[0] == "#")) {
+            continue;
+        }
+        // Skip time or energy information lines
+        else if (std::find(tokens.begin(), tokens.end(), "time") != tokens.end() &&
+                 std::find(tokens.begin(), tokens.end(), "=") != tokens.end() &&
+                 std::find(tokens.begin(), tokens.end(), "E") != tokens.end()) {
+            this->has_boundaries = false;
+            continue;
+        }
+        // Atom numbers line
+        else if (tokens.size() == 1 && can_convert_to_int(tokens[0])) {
+            total_atoms = std::stoi(tokens[0]);
+            atoms.reserve(total_atoms);
+            bonds.reserve(total_atoms * 3);
+            molecules.reserve(total_atoms / 2);
+            continue;
+        } else if (line.find("Lattice") != std::string::npos) {
+            // Parse Lattice matrix
+            std::string lattice_str = "";
+            size_t lattice_start = line.find("Lattice=\"");
+            if (lattice_start != std::string::npos) {
+                lattice_start += 9; // Skip "Lattice=\""
+                size_t lattice_end = line.find("\"", lattice_start);
+                if (lattice_end != std::string::npos) {
+                    lattice_str = line.substr(lattice_start, lattice_end - lattice_start);
+                }
+            }
+
+            if (lattice_str.empty()) {
+                fmt::print("Warning: Could not find Lattice= in line\n");
+                continue;
+            }
+
+            std::vector<std::string> lattice_values = split_by_space(lattice_str);
+            if (lattice_values.size() != 9) {
+                fmt::print("Warning: Invalid Lattice format, expected 9 values but got {}\n", lattice_values.size());
+                continue;
+            }
+
+            try {
+                lx = std::stof(lattice_values[0]);
+                ly = std::stof(lattice_values[4]);
+                lz = std::stof(lattice_values[8]);
+            } catch (const std::exception& e) {
+                fmt::print("Error parsing Lattice values: {}\n", e.what());
+                continue;
+            }
+
+            // Parse Origin if present
+            xlo = 0.0f;
+            ylo = 0.0f;
+            zlo = 0.0f;
+
+            size_t origin_start = line.find("Origin=\"");
+            if (origin_start != std::string::npos) {
+                origin_start += 8; // Skip "Origin=\""
+                size_t origin_end = line.find("\"", origin_start);
+                if (origin_end != std::string::npos) {
+                    std::string origin_str = line.substr(origin_start, origin_end - origin_start);
+                    std::vector<std::string> origin_values = split_by_space(origin_str);
+                    if (origin_values.size() == 3) {
+                        try {
+                            xlo = std::stof(origin_values[0]);
+                            ylo = std::stof(origin_values[1]);
+                            zlo = std::stof(origin_values[2]);
+                        } catch (const std::exception& e) {
+                            fmt::print("Error parsing Origin values: {}\n", e.what());
+                        }
+                    }
+                }
+            }
+
+            has_boundaries = true;
+            axis_lengths = {lx, ly, lz};
+            continue;
+        } else if (tokens.size() >= 4 && tokens.size() <= 5) {
+            if (tokens.size() == 4) {
+                atom_count++;
+                atom_id = atom_count;
+                given_type = tokens[0];
+                x = std::stof(tokens[1]);
+                y = std::stof(tokens[2]);
+                z = std::stof(tokens[3]);
+            } else if (tokens.size() == 5) {
+                atom_count++;
+                atom_id = std::stoi(tokens[0]);
+                given_type = tokens[1];
+                x = std::stof(tokens[2]);
+                y = std::stof(tokens[3]);
+                z = std::stof(tokens[4]);
+            } else {
+                std::cerr << "Invalid atom line in xyz file: " << line << std::endl;
+            }
+
+            // In xyz file, atom may have type of int (6...) or string (C...)
+            if (!can_convert_to_int(given_type)) {
+                // In case of string type, give a int type for atom.
+                // Notice that must get the types correct!
+                try {
+                    if (type_stoi.find(given_type) == type_stoi.end()) {
+                        type_int = type_stoi.size() + 1; // To ensure all types are count from 1.
+                        type_itos[type_int] = given_type;
+                        type_stoi[given_type] = type_int;
+                        total_types++;
+                    } else {
+                        type_int = type_stoi[given_type];
+                    }
+                    type_str = given_type;
+                } catch (const std::invalid_argument& e) {
+                    std::cerr << "Invalid element type in xyzfile: " << given_type << std::endl;
+                }
+            } else {
+                // In case of int type
+                try {
+                    type_int = std::stoi(given_type);
+                    type_str = type_itos[type_int];
+                } catch (const std::invalid_argument& e) {
+                    std::cerr << "Invalid element type in xyzfile: " << given_type << std::endl;
+                }
+            }
+
+            if (has_boundaries) {
+                x = x - xlo;
+                y = y - ylo;
+                z = z - zlo;
+                x = fmod(x, lx);
+                y = fmod(y, ly);
+                z = fmod(z, lz);
+                x = x < 0 ? x + lx : x;
+                y = y < 0 ? y + ly : y;
+                z = z < 0 ? z + lz : z;
+            } else {
+                x = x - xlo;
+                y = y - ylo;
+                z = z - zlo;
+            }
+
+            Atom* atom = new Atom(atom_id, type_int, {x, y, z}, type_str);
+            atoms.push_back(atom);
+            id_atom_map[atom_id] = atom;
+
+            // When there's no atom numbers line in xyz file, total_atoms = 0, and
+            // first atom id = 1.
+            if (atom_count == total_atoms) {
+                break;
+            }
+        }
+    }
+}
+
+void System::load_lammpstrj(std::ifstream& file) {
+    // load a frame from lammpstrj, create a system instance.
+    // when finish all atoms in this frame, stop.
+    std::string line;
+    // For rectangular box, maybe support triclinc box later.
+    // xlo, ylo, zlo, xhi, yhi, zhi
+    std::vector<float> bounds(6, 0.0f);
+    float xlo = 0.0f, xhi = 0.0f, ylo = 0.0f, yhi = 0.0f, zlo = 0.0f, zhi = 0.0f, lx = 0.0f, ly = 0.0f, lz = 0.0f;
+    float x, y, z;
+
+    // When lammpstrj style set to xs(,ys,zs), file uses relative coord.
+    bool is_relative_coord = false;
+    int atom_id_column = 0;
+    int atom_type_column = 1;
+    int atom_x_column = 2;
+    int atom_y_column = 3;
+    int atom_z_column = 4;
+
+    bool read_timestep = false;
+    bool read_natoms = false;
+    bool read_box = false;
+    int box_dim = 0;
+    bool read_atoms = false;
+    int atoms_count = 0;
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file" << std::endl;
+    }
+
+    while (getline(file, line)) {
+        std::vector<std::string> tokens = split_by_space(line);
+        if ((tokens.size() == 0) || (tokens[0] == "#")) {
+            continue;
+        } else if (tokens[0] == "ITEM:") {
+            if (tokens[1] == "TIMESTEP") {
+                read_timestep = true;
+            }
+            if (tokens[1] == "NUMBER") {
+                read_natoms = true;
+            }
+            if (tokens[1] == "BOX") {
+                read_box = true;
+            }
+            if (tokens[1] == "ATOMS") {
+                if (std::find(tokens.begin(), tokens.end(), "xs") != tokens.end()) {
+                    is_relative_coord = true;
+                    atom_x_column = std::find(tokens.begin(), tokens.end(), "xs") - tokens.begin() - 2;
+                    atom_y_column = std::find(tokens.begin(), tokens.end(), "ys") - tokens.begin() - 2;
+                    atom_z_column = std::find(tokens.begin(), tokens.end(), "zs") - tokens.begin() - 2;
+                } else {
+                    // find index of id, type, x, y, z
+                    atom_x_column = std::find(tokens.begin(), tokens.end(), "x") - tokens.begin() - 2;
+                    atom_y_column = std::find(tokens.begin(), tokens.end(), "y") - tokens.begin() - 2;
+                    atom_z_column = std::find(tokens.begin(), tokens.end(), "z") - tokens.begin() - 2;
+                }
+                atom_id_column = std::find(tokens.begin(), tokens.end(), "id") - tokens.begin() - 2;
+                atom_type_column = std::find(tokens.begin(), tokens.end(), "type") - tokens.begin() - 2;
+
+                static bool printed_column_info = false;
+                if (!printed_column_info) {
+                    fmt::print("Format of lammpstrj file: id: {}, type: {}, x: {}, y: {}, z: {}\n", atom_id_column,
+                               atom_type_column, atom_x_column, atom_y_column, atom_z_column);
+                    printed_column_info = true;
+                }
+
+                read_atoms = true;
+            }
+        } else if (read_timestep) {
+            read_timestep = false;
+        } else if (read_natoms) {
+            total_atoms = std::stoi(tokens[0]);
+            atoms.reserve(total_atoms);
+            bonds.reserve(total_atoms * 3);
+            molecules.reserve(total_atoms / 2);
+            read_natoms = false;
+        } else if (read_box) {
+            // For rectangular box, maybe support triclinc box later.
+            if (box_dim == 0) {
+                xlo = std::stof(tokens[0]);
+                xhi = std::stof(tokens[1]);
+                lx = xhi - xlo;
+            } else if (box_dim == 1) {
+                ylo = std::stof(tokens[0]);
+                yhi = std::stof(tokens[1]);
+                ly = yhi - ylo;
+            } else if (box_dim == 2) {
+                zlo = std::stof(tokens[0]);
+                zhi = std::stof(tokens[1]);
+                lz = zhi - zlo;
+            }
+
+            box_dim++;
+            if (box_dim > 2) {
+                bounds = {xlo, ylo, zlo, xhi, yhi, zhi};
+                this->has_boundaries = true;
+                axis_lengths = {lx, ly, lz};
+                read_box = false;
+            }
+        } else if (read_atoms) {
+            if (!has_boundaries) {
+                std::cerr << "lammstrj file must have boundaries!" << std::endl;
+            }
+            // Note: assume that the atom card style is "id type x y z" or "id
+            // type xs ys zs" types must be set before
+            int id = std::stoi(tokens[atom_id_column]);
+            int type_i = std::stoi(tokens[atom_type_column]);
+            std::string type_s = type_itos[type_i];
+
+            // wrap and transform into {0, lx, 0, ly, 0, lz} box.
+
+            if (!is_relative_coord) {
+                x = std::stof(tokens[atom_x_column]) - xlo;
+                y = std::stof(tokens[atom_y_column]) - ylo;
+                z = std::stof(tokens[atom_z_column]) - zlo;
+                x = fmod(x, lx);
+                y = fmod(y, ly);
+                z = fmod(z, lz);
+                x = x < 0 ? x + lx : x;
+                y = y < 0 ? y + ly : y;
+                z = z < 0 ? z + lz : z;
+            } else {
+                x = std::stof(tokens[atom_x_column]) * lx;
+                y = std::stof(tokens[atom_y_column]) * ly;
+                z = std::stof(tokens[atom_z_column]) * lz;
+            }
+
+            Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);
+            atoms.push_back(atom);
+            id_atom_map[id] = atom;
+            atoms_count++;
+
+            // End reading.
+            if (atoms_count == total_atoms) {
+                break;
+            }
+        }
+    }
+}
+
 /**
  * @brief Set atom types and initialize type-related mappings and valences.
  * @param type_names Vector of atom type names.
  */
-void System::set_types(std::vector<std::string>& type_names) {
-    total_types = type_names.size();
+void System::set_types() {
+    int total_types = INPUT_ELEMENT_TYPES.size();
     int type_id = 0;
-    for (auto& name : type_names) {
+    for (auto& name : INPUT_ELEMENT_TYPES) {
         type_id++;
         type_itos[type_id] = name;
         type_stoi[name] = type_id;
@@ -76,151 +388,6 @@ void System::finish() {
 }
 
 /**
- * @brief Dump the count of each bond type to a CSV file, combining ij and ji pairs.
- * @param filepath Output file path.
- * @param is_first_frame Indicates if this is the first frame (controls header writing).
- */
-void System::dump_bond_count(std::string& filepath, bool& is_first_frame) {
-    static FILE* file;
-
-    // consider ij = ji, new_map[ij] = bond_type_counts[ij] + bond_type_counts[ji]
-    // std::map<std::pair<int, int>, int> bond_type_counts
-    std::map<std::pair<int, int>, int> bond_type_counts_reduced;
-    for (const auto& ij_count : bond_type_counts) {
-        // New key.
-        auto i = ij_count.first.first;
-        auto j = ij_count.first.second;
-        auto key = std::make_pair(std::max(i, j), std::min(i, j));
-
-        auto count = ij_count.second;
-
-        if (bond_type_counts_reduced.find(key) == bond_type_counts_reduced.end()) {
-            bond_type_counts_reduced[key] = count;
-        } else {
-            bond_type_counts_reduced[key] += count;
-        }
-    }
-
-    if (is_first_frame) {
-        file = fopen(filepath.c_str(), "w");
-        for (auto& ij_count : bond_type_counts_reduced) {
-            fmt::print(file, "{}-{}", type_itos[ij_count.first.first], type_itos[ij_count.first.second]);
-
-            // if ij_count is not the last element.
-            if (&ij_count != &*std::prev(bond_type_counts_reduced.end())) {
-                fmt::print(file, ",");
-            }
-        }
-        fmt::print(file, "\n");
-        fclose(file);
-    }
-
-    file = fopen(filepath.c_str(), "a");
-    for (auto& ij_count : bond_type_counts_reduced) {
-        fmt::print(file, "{}", ij_count.second);
-
-        // if ij_count is not the last element.
-        if (&ij_count != &*std::prev(bond_type_counts_reduced.end())) {
-            fmt::print(file, ",");
-        }
-    }
-    fmt::print(file, "\n");
-    fclose(file);
-}
-
-/**
- * @brief Dump the count of atoms with different valences to a CSV file.
- * @param filepath Output file path.
- * @param is_first_frame Indicates if this is the first frame (controls header writing).
- */
-void System::dump_atom_bonded_num_count(std::string& filepath, bool& is_first_frame) {
-    static FILE* file;
-
-    std::map<std::pair<int, int>, int> atom_bonded_num_count; // < atom_type_id, valence >, number
-
-    int type_id;
-    std::string type_string;
-    int max_valence;
-
-    for (const auto& pair : type_itos) {
-        type_id = pair.first;
-        type_string = pair.second;
-
-        max_valence = ELEMENT_MAX_VALENCIES[type_string];
-
-        for (int val = 0; val <= max_valence; val++) {
-            atom_bonded_num_count[{type_id, val}] = 0;
-        }
-    }
-
-    // Count
-    for (const auto& atom : atoms) {
-        atom_bonded_num_count[{atom->type_id, atom->bonded_atoms.size()}]++;
-    }
-
-    // Write csv header
-    std::string atom_valence_desc;
-    if (is_first_frame) {
-        file = fopen(filepath.c_str(), "w");
-        for (const auto& pair : atom_bonded_num_count) {
-            atom_valence_desc = fmt::format("{}({})", type_itos[pair.first.first], pair.first.second);
-            fmt::print(file, atom_valence_desc);
-            if (&pair != &*std::prev(atom_bonded_num_count.end())) {
-                fmt::print(file, ",");
-            }
-        }
-        fmt::print(file, "\n");
-        fclose(file);
-    }
-
-    // Write data body
-    file = fopen(filepath.c_str(), "a");
-    for (const auto& pair : atom_bonded_num_count) {
-        fmt::print(file, fmt::format("{}", pair.second));
-        if (&pair != &*std::prev(atom_bonded_num_count.end())) {
-            fmt::print(file, ",");
-        }
-    }
-    fmt::print(file, "\n");
-    fclose(file);
-}
-
-/**
- * @brief Dump the count of rings of different sizes to a CSV file.
- * @param filepath Output file path.
- * @param is_first_frame Indicates if this is the first frame (controls header writing).
- */
-void System::dump_ring_count(std::string& filepath, bool& is_first_frame) {
-    static FILE* file;
-
-    if (is_first_frame) {
-        file = fopen(filepath.c_str(), "w");
-        for (auto& ring_count : ring_counts) {
-            fmt::print(file, "size {}", ring_count.first);
-
-            // if ring_count is not the last element.
-            if (&ring_count != &*std::prev(ring_counts.end())) {
-                fmt::print(file, ",");
-            }
-        }
-        fmt::print(file, "\n");
-        fclose(file);
-    }
-
-    file = fopen(filepath.c_str(), "a");
-    for (auto& ring_count : ring_counts) {
-        fmt::print(file, "{}", ring_count.second);
-
-        // if ring_count is not the last element.
-        if (&ring_count != &*std::prev(ring_counts.end())) {
-            fmt::print(file, ",");
-        }
-    }
-    fmt::print(file, "\n");
-    fclose(file);
-}
-
-/**
  * @brief Naive neighbor search for systems without periodic boundaries.
  *        Populates each atom's neighbor list based on a cutoff radius.
  */
@@ -239,7 +406,7 @@ void System::search_neigh_naive() {
             if (dist_sq <= radius_sq) {
                 curr_atom->neighs.insert(other_atom);
             }
-            if (curr_atom->neighs.size() >= max_neigh) {
+            if (curr_atom->neighs.size() >= MAX_NEIGH) {
                 continue;
             }
         }
@@ -250,7 +417,7 @@ void System::search_neigh_naive() {
  * @brief Use cell list algorithm to search for neighbors within a cutoff radius.
  */
 void System::search_neigh_cell_list() {
-    Cell_list cell_list(atoms, neigh_radius, axis_lengths, max_neigh);
+    Cell_list cell_list(atoms, neigh_radius, axis_lengths, MAX_NEIGH);
     for (auto& atom : atoms) {
         cell_list.search_neighbors(atom);
     }
@@ -283,7 +450,7 @@ void System::build_bonds_by_radius() {
 
     Atom* tmp_neigh;
     std::vector<std::pair<Atom*, float>> candidate_id_relative_sq;
-    candidate_id_relative_sq.reserve(max_neigh);
+    candidate_id_relative_sq.reserve(MAX_NEIGH);
 
     std::pair<int, float> id_dist_sq;
     std::pair<int, int> type_idx;
@@ -440,14 +607,12 @@ void System::dfs(Atom* atom, std::set<Atom*>& visited, Molecule* curr_mol) {
  * @param filepath Output file path.
  * @param mark_ring_atoms Use mol id entry to mark if an atom on ring, 0 = no , 1 = yes.
  */
-void System::dump_lammps_data(std::string& filepath, int frame_step, bool mark_ring_atoms) {
-    if (frame_id % frame_step != 0)
+void System::dump_lammps_data() {
+    if (frame_id % DUMP_STEPS != 0)
         return;
 
-    FILE* file = fopen(filepath.c_str(), "w");
-    if (!file) {
-        std::cerr << "Failed to open file: " << std::endl;
-    }
+    std::string file_basename = fmt::format("frame_{}.data", frame_id);
+    FILE* file = create_file(file_basename);
 
     fmt::print(file, "# LAMMPS data file written by reax_tools\n\n");
     fmt::print(file, "{} atoms\n", atoms.size());
@@ -463,7 +628,7 @@ void System::dump_lammps_data(std::string& filepath, int frame_step, bool mark_r
 
     fmt::print(file, "\nAtoms # full\n\n");
 
-    if (mark_ring_atoms) {
+    if (FLAG_MARK_RING_ATOMS) {
         for (auto& atom : atoms) {
             fmt::print(file, "{} {} {} 0.0 {:>.3f} {:>.3f} {:>.3f} 0 0 0\n", atom->id, atom->on_ring ? 1 : 0,
                        atom->type_id, atom->coord[0], atom->coord[1], atom->coord[2]);
@@ -515,7 +680,7 @@ void System::process_this() {
             if (atomic_radius[type_i] == 0.0f || atomic_radius[type_j] == 0.0f) {
                 bond_radius = 0.0f;
             } else {
-                bond_radius = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * rvdw_scale;
+                bond_radius = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * RVDW_FACTOR;
             }
             if (bond_radius > neigh_radius) {
                 neigh_radius = bond_radius;
@@ -531,7 +696,7 @@ void System::process_this() {
     build_bonds_by_radius();
     build_molecules();
 
-    if (!if_no_rings) {
+    if (!FLAG_NO_RINGS) {
         compute_ring_counts();
     }
 }

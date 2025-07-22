@@ -1,4 +1,6 @@
+#ifndef WASM_MODE
 #include <pthread.h>
+#endif
 
 #include <filesystem>
 #include <fstream>
@@ -8,7 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "defines.h"
+#include "argparser.h"
 #include "fmt/core.h"
 #include "reax_counter.h"
 #include "string_tools.h"
@@ -16,6 +18,7 @@
 
 Universe::Universe() {}
 
+#ifndef WASM_MODE
 Universe::~Universe() {
     if (reax_counter != nullptr) {
         delete reax_counter;
@@ -44,7 +47,56 @@ Universe::~Universe() {
 }
 
 void Universe::flush() {}
+#else
+Universe::~Universe() {
+    if (system != nullptr) {
+        delete system;
+        system = nullptr;
+    }
 
+    if (last_system != nullptr) {
+        delete last_system;
+        last_system = nullptr;
+    }
+
+    if (reax_counter != nullptr) {
+        delete reax_counter;
+        reax_counter = nullptr;
+    }
+
+    if (reax_flow != nullptr) {
+        delete reax_flow;
+        reax_flow = nullptr;
+    }
+
+    if (bond_counter != nullptr) {
+        delete bond_counter;
+        bond_counter = nullptr;
+    }
+
+    if (ring_counter != nullptr) {
+        delete ring_counter;
+        ring_counter = nullptr;
+    }
+
+    if (atom_bonded_num_counter != nullptr) {
+        delete atom_bonded_num_counter;
+        atom_bonded_num_counter = nullptr;
+    }
+}
+
+void Universe::flush() {
+    // only for fallbacked serial.
+    if (last_system != nullptr) {
+        delete last_system;
+        last_system = nullptr;
+    }
+    last_system = std::move(system);
+    system = nullptr;
+}
+#endif
+
+#ifndef WSAM_MODE
 template <typename T, typename Func> void parallel_for_each(std::vector<T*>& objects, Func func) {
     size_t n = objects.size();
     std::vector<pthread_t> threads(n);
@@ -74,21 +126,20 @@ template <typename T, typename Func> void parallel_for_each(std::vector<T*>& obj
             pthread_join(threads[i], nullptr);
     }
 }
+#endif
 
-void Universe::process_traj(std::string& file_path, std::string& output_dir, std::vector<std::string>& type_names,
-                            const float& rvdw_scale, const int& num_threads, const bool& if_dump_lammps_data,
-                            const int& dump_data_frame_step, const bool& if_mark_ring_atoms,
-                            const bool& if_no_reax_flow, const bool& if_no_rings) {
+#ifndef WASM_MODE
+void Universe::process_traj() {
     int max_neigh = 10;
     int curr_frame_id = 1;
     bool is_first_frame = true;
 
-    std::ifstream file(file_path);
+    std::ifstream input_file(INPUT_FILE);
 
     std::map<int, System*> frameid_system;
     std::vector<System*> systems_to_process;
 
-    while (file.is_open() && !file.eof()) {
+    while (input_file.is_open() && !input_file.eof()) {
         // flush
         if (curr_frame_id > 1) {
             // Iterate safely and erase elements from the map if their instance should be destroyed.
@@ -103,22 +154,18 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
         }
 
         // Initialize system and read data.
-        for (size_t thread_id = 0; thread_id < num_threads; thread_id++) {
+        for (size_t thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
             System* curr_system = new System();
-            curr_system->set_frame_id(curr_frame_id);
-            curr_system->set_types(type_names);
-            curr_system->set_max_neigh(max_neigh);
-            curr_system->set_rvdw_scale(rvdw_scale);
-            curr_system->set_reax_flow(this->reax_flow);
-            curr_system->set_if_no_rings(if_no_rings);
 
+            curr_system->frame_id = curr_frame_id;
+            curr_system->reax_flow = reax_flow;
             curr_system->set_counters(this->reax_counter, this->bond_counter, this->ring_counter,
                                       this->atom_bonded_num_counter);
 
-            if (ends_with(file_path, ".lammpstrj"))
-                curr_system->load_lammpstrj(file);
-            else if (ends_with(file_path, ".xyz"))
-                curr_system->load_xyz(file);
+            if (ends_with(INPUT_FILE, ".lammpstrj"))
+                curr_system->load_lammpstrj(input_file);
+            else if (ends_with(INPUT_FILE, ".xyz"))
+                curr_system->load_xyz(input_file);
 
             if (curr_system->atoms.size() == 0) {
                 delete curr_system;
@@ -134,13 +181,13 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
         for (auto& curr_system : systems_to_process) {
             int frame_id = curr_system->frame_id;
             if (frame_id == 1)
-                curr_system->set_prev_sys(nullptr);
+                curr_system->prev_sys = nullptr;
             // process_reax will skip compuations related to prev_sys.
             else
-                curr_system->set_prev_sys(frameid_system[frame_id - 1]);
+                curr_system->prev_sys = frameid_system[frame_id - 1];
         }
         parallel_for_each<System>(systems_to_process, &System::process_counters);
-        if (!if_no_reax_flow) {
+        if (!FLAG_NO_REACTIONS) {
             parallel_for_each<System>(systems_to_process, &System::process_reax_flow);
         }
 
@@ -148,9 +195,8 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
             if (curr_system->prev_sys) // prev_sys of the first frame is nullptr
                 curr_system->prev_sys->to_destroy = true;
 
-            if (if_dump_lammps_data) {
-                std::string lammps_data_file = output_dir + "frame_" + std::to_string(curr_system->frame_id) + ".data";
-                curr_system->dump_lammps_data(lammps_data_file, dump_data_frame_step, if_mark_ring_atoms);
+            if (FLAG_DUMP_STRUCTURE) {
+                curr_system->dump_lammps_data();
             }
 
             if (curr_system->frame_id == 1) {
@@ -174,9 +220,6 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
                 is_first_frame = false;
             }
 
-            // curr_system->dump_bond_count(bond_count_filepath, is_first_frame);
-            // curr_system->dump_ring_count(ring_count_filepath, is_first_frame);
-            // curr_system->dump_atom_bonded_num_count(atom_bonded_num_count_filepath, is_first_frame);
             curr_system->finish();
         }
 
@@ -191,3 +234,66 @@ void Universe::process_traj(std::string& file_path, std::string& output_dir, std
         it = frameid_system.erase(it); // Remove the element from the map and advance iterator
     }
 }
+#else
+void Universe::process_traj() {
+    int curr_frame_id = 1;
+    int max_neigh = 10;
+    bool is_first_frame = true;
+
+    std::ifstream file(INPUT_FILE);
+    // std::string bond_count_filepath = output_dir + "bond_count.csv";
+    // std::string ring_count_filepath = output_dir + "ring_count.csv";
+    // std::string atom_bonded_num_count_filepath = output_dir + "atom_bonded_num_count.csv";
+
+    // The highest calling stack, only do this once.
+    while (file.is_open() && !file.eof()) {
+        if (curr_frame_id > 1) {
+            flush();
+        }
+
+        system = new System();
+        system->frame_id = curr_frame_id;
+        system->reax_flow = reax_flow;
+        system->set_counters(this->reax_counter, this->bond_counter, this->ring_counter, this->atom_bonded_num_counter);
+
+        if (ends_with(INPUT_FILE, ".lammpstrj"))
+            system->load_lammpstrj(file);
+        else if (ends_with(INPUT_FILE, ".xyz"))
+            system->load_xyz(file);
+        else {
+            std::cerr << "Using unsupported format, check your file and suffix!";
+            exit(1);
+        }
+
+        if (system->atoms.size() == 0) {
+            continue;
+        };
+        curr_frame_id++;
+
+        system->prev_sys = last_system;
+        system->process_this();
+        system->process_counters();
+        system->process_reax_flow();
+
+        if (FLAG_DUMP_STRUCTURE) {
+            system->dump_lammps_data();
+        }
+
+        if (system->frame_id == 1) {
+            fmt::print("Atom Types: ");
+            for (auto& pair : system->type_itos) {
+                fmt::print("{}: {}, ", pair.first, pair.second);
+            }
+            fmt::print("\n");
+            fmt::print("\n");
+            is_first_frame = true;
+        } else {
+            is_first_frame = false;
+        }
+
+        system->finish();
+    }
+    fmt::print("\n\n");
+    reax_counter->analyze_frame_formulas();
+}
+#endif

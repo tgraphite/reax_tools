@@ -1,3 +1,4 @@
+#ifndef WASM_MODE
 #include "rdkit_utils.h"
 
 #include <GraphMol/DistGeomHelpers/Embedder.h>
@@ -15,7 +16,9 @@
 #include <filesystem>
 #include <string>
 
+#include "argparser.h"
 #include "fmt/format.h"
+#include "string_tools.h"
 #include "system.h"
 
 // Main SMILES generator, RDKit-style
@@ -64,7 +67,7 @@ std::string rdkit_smiles(const Molecule& mol) {
 }
 
 // Main SMILES generator, RDKit-style
-void rdkit_draw_molecule(const Molecule& mol, std::string output_dir) {
+void rdkit_draw_molecule(const Molecule& mol) {
     // Too big, don't draw, just use formula in downstream visualization tool.
     if (mol.mol_atoms.size() > 60)
         return;
@@ -135,11 +138,10 @@ void rdkit_draw_molecule(const Molecule& mol, std::string output_dir) {
         drawer.finishDrawing();
 
         // Create output directory if it doesn't exist
-        std::string pictures_dir = output_dir + "molecule_pictures/";
+        std::string pictures_dir = std::filesystem::path(OUTPUT_DIR) / "molecule_pictures";
         std::filesystem::create_directories(pictures_dir);
+        std::string output_path = std::filesystem::path(pictures_dir) / fmt::format("molecule_{}.svg", mol.formula);
 
-        // Save to file
-        std::string output_path = output_dir + fmt::format("molecule_pictures/molecule_{}.svg", mol.formula);
         std::ofstream out(output_path);
         out << drawer.getDrawingText();
         out.close();
@@ -148,3 +150,4 @@ void rdkit_draw_molecule(const Molecule& mol, std::string output_dir) {
 
     return;
 }
+#endif

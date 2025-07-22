@@ -1,12 +1,53 @@
-#include "string_tools.h"
-
+#include <filesystem>
+#include <iostream>
 #include <map>
 #include <sstream>
-#include <stdexcept>
 #include <string>
-#include <vector>
 
-#include "fmt/format.h"
+#include "argparser.h"
+#include "string_tools.h"
+
+/// Using try-catch exception will make too much debug pollution, and cost a
+/// little bit more time.
+// This function is used to check if the first column of xyz file is a number or
+// element symbol.
+bool can_convert_to_int(const std::string& str) {
+    for (size_t i = 0; i < str.size(); i++) {
+        if (!isdigit(str[i]))
+            return false;
+    }
+    return true;
+}
+
+std::ostream& operator<<(std::ostream& os, const std::vector<std::string>& vs) {
+    for (const auto& v : vs) {
+        os << v << ", ";
+    }
+    return os;
+}
+
+// old implementation of starts_with
+bool starts_with(const std::string& str, const std::string& prefix) {
+    return str.size() >= prefix.size() && std::equal(prefix.begin(), prefix.end(), str.begin());
+}
+
+// old implementation of ends_with
+bool ends_with(const std::string& str, const std::string& suffix) {
+    return str.size() >= suffix.size() && std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
+}
+
+FILE* create_file(std::string basename) {
+    std::string full_path = std::filesystem::path(OUTPUT_DIR) / basename;
+    FILE* file = fopen(full_path.c_str(), "w");
+    if (!file) {
+        std::cerr << "Failed to open file: " << std::endl;
+    }
+    return file;
+}
+
+// This template function accepts a container of pointer (e.g.
+// vector<shared_ptr<Actual-type>>) prints the ptr->info() for the first N
+// elements. if two_way = true, prints first and last N prt->info().
 
 // GPT-4 generated. Chemical formula to map<element: number>
 std::map<std::string, int> parse_formula(const std::string& formula) {
@@ -112,33 +153,4 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
         prev = pos + delim.length();
     }
     return tokens;
-}
-
-/// Using try-catch exception will make too much debug pollution, and cost a
-/// little bit more time.
-// This function is used to check if the first column of xyz file is a number or
-// element symbol.
-bool can_convert_to_int(const std::string& str) {
-    for (size_t i = 0; i < str.size(); i++) {
-        if (!isdigit(str[i]))
-            return false;
-    }
-    return true;
-}
-
-std::ostream& operator<<(std::ostream& os, const std::vector<std::string>& vs) {
-    for (const auto& v : vs) {
-        os << v << ", ";
-    }
-    return os;
-}
-
-// old implementation of starts_with
-bool starts_with(const std::string& str, const std::string& prefix) {
-    return str.size() >= prefix.size() && std::equal(prefix.begin(), prefix.end(), str.begin());
-}
-
-// old implementation of ends_with
-bool ends_with(const std::string& str, const std::string& suffix) {
-    return str.size() >= suffix.size() && std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
 }

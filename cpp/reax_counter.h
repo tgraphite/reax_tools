@@ -5,7 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "defines.h"
+#include "argparser.h"
+#include "string_tools.h"
 
 template <typename T> class Counter {
   private:
@@ -35,13 +36,11 @@ template <typename T> class Counter {
             entry_frame_values[entry][index] = value;
         }
     }
-    void save_file(const std::string& output_path) {
+    void save_file(const std::string& basename) {
         if (entry_frame_values.empty())
             return;
 
-        FILE* fp = fopen(output_path.c_str(), "w");
-        if (fp == NULL)
-            return;
+        FILE* fp = create_file(basename);
 
         // Write header
         bool first = true;
@@ -118,7 +117,5 @@ class ReaxCounter {
     void show_nums();
     void brief_report();
 
-    void save_file(const std::string& save_path);
-    void save_file_to_dir(const std::string& output_dir);
-    void save_file_to_current_dir();
+    void save_file();
 };

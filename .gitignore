@@ -2,3 +2,4 @@ test/
 .vscode/
 bin/
 node_modules/
+archived/

@@ -7,10 +7,12 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "argparser.h"
 #include "fmt/format.h"
+#include "string_tools.h"
 #include "universe.h"
 
-#ifdef ENABLE_RDKIT
+#ifndef WASM_MODE
 #include "rdkit_utils.h"
 #endif
 
@@ -63,7 +65,7 @@ inline int ReaxFlow::add_molecule(Molecule* mol) {
  * @return std::pair<int, int> Pair of molecule IDs representing the reaction edge
  * @note Thread-safe implementation with mutex lock
  */
-std::pair<int, int> ReaxFlow::add_reaction(const int& frame, const int& atom_transfer_count, Molecule* source,
+std::pair<int, int> ReaxFlow::add_reaction(const int& frame_id, const int& atom_transfer_count, Molecule* source,
                                            Molecule* target) {
     // lock it to avoid race condition when parallel execution
     std::lock_guard<std::mutex> lock(reaxflow_mutex);
@@ -210,19 +212,14 @@ void ReaxFlow::brief_report() { return; }
  * @param write_atom_transfer Whether to use atom transfer counts as edge weights
  * @param layout Graph layout algorithm to use
  */
-void ReaxFlow::write_dot_file(const std::string& output_file, const std::vector<int>& edge_indices,
-                              bool write_atom_transfer, std::string layout) {
-    FILE* fp = fopen(output_file.c_str(), "w");
+void ReaxFlow::write_dot_file(std::string basename, const std::vector<int>& edge_indices, bool write_atom_transfer,
+                              std::string layout) {
+    FILE* fp = create_file(basename);
     std::set<int> node_indices;
 
     for (const auto& edge_id : edge_indices) {
         node_indices.insert(edges[edge_id].first);
         node_indices.insert(edges[edge_id].second);
-    }
-
-    if (!fp) {
-        fmt::print(stderr, "Error: Could not open dot file {} for writing.", output_file);
-        return;
     }
 
     // Dot file header.
@@ -289,12 +286,8 @@ void ReaxFlow::write_dot_file(const std::string& output_file, const std::vector<
  * @param draw_molecules Whether to draw molecular structures
  * @param reduce_reactions Whether to reduce the reaction graph
  */
-void ReaxFlow::save_graph(const std::string& output_dir, int& max_reactions, bool draw_molecules,
-                          bool if_no_reduce_reactions) {
-    std::string save_path_reactions = output_dir + "reactions.dot";
-    std::string save_path_reactions_full = output_dir + "reactions_full.dot";
-
-    if (!if_no_reduce_reactions) {
+void ReaxFlow::save_graph() {
+    if (!FLAG_NO_REDUCE_REACTIONS) {
         reduce_graph();
     }
 
@@ -309,8 +302,8 @@ void ReaxFlow::save_graph(const std::string& output_dir, int& max_reactions, boo
               [](const auto& a, const auto& b) { return a.second > b.second; });
 
     // Resize the graph by max reactions
-    if (max_reactions > 0 && max_reactions < sorted_edge_id_count.size()) {
-        sorted_edge_id_count.resize(max_reactions);
+    if (MAX_REACTIONS > 0 && MAX_REACTIONS < sorted_edge_id_count.size()) {
+        sorted_edge_id_count.resize(MAX_REACTIONS);
     }
 
     std::vector<int> selected_edge_indices;
@@ -346,21 +339,21 @@ void ReaxFlow::save_graph(const std::string& output_dir, int& max_reactions, boo
     }
 
     // Write main dot file.
-    write_dot_file(save_path_reactions, selected_edge_indices, true);
-    fmt::print("Reaction graph saved to {}\n", save_path_reactions);
 
-    // If
     if (selected_edge_indices.size() < edges.size()) {
         std::vector<int> all_edge_indices;
         for (int tmp_id = 0; tmp_id < edges.size(); tmp_id++) {
             all_edge_indices.push_back(tmp_id);
         }
-
-        write_dot_file(save_path_reactions_full, all_edge_indices, false);
+        write_dot_file("reactions.dot", selected_edge_indices, true);
+        write_dot_file("reactions_full.dot", all_edge_indices, false);
         fmt::print("Note: Graphs too complex, write full graph (*full.dot) and default subgraph seperately.\n");
+    } else {
+        write_dot_file("reactions.dot", selected_edge_indices, true);
+        fmt::print("Note: write reactions to reactions.dot.\n");
     }
 
-    save_molecule_centered_subgraphs(output_dir, "reactions");
+    save_molecule_centered_subgraphs();
     // fmt::print("Reaction graphs centered on key moleulces saved to {}\n", output_dir);
 }
 
@@ -370,8 +363,7 @@ void ReaxFlow::save_graph(const std::string& output_dir, int& max_reactions, boo
  * @param write_atom_transfer Whether to write atom transfer counts in graph file and csv file
  * @details Generates subgraphs centered on key molecules, showing their reactions with other molecules
  */
-void ReaxFlow::save_molecule_centered_subgraphs(const std::string& output_dir, bool write_atom_transfer,
-                                                bool csv_only) {
+void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool csv_only) {
     std::map<int, int> node_degrees;
     std::map<int, int> node_in_degrees;
     std::map<int, int> node_out_degrees;
@@ -424,8 +416,7 @@ void ReaxFlow::save_molecule_centered_subgraphs(const std::string& output_dir, b
     }
 
     // Write molecule-centered graph dot files
-    std::string save_csv_path = output_dir + "key_molecules_reactions.csv";
-    FILE* fp_csv = fopen(save_csv_path.c_str(), "w");
+    FILE* fp_csv = create_file("key_molecules_reactions.csv");
 
     std::string csv_header = "";
     if (write_atom_transfer) {
@@ -455,8 +446,8 @@ void ReaxFlow::save_molecule_centered_subgraphs(const std::string& output_dir, b
         std::string curr_formula = nodes[pair.first]->formula;
         // Write dot file.
         if (!csv_only) {
-            std::string save_subgraph_path = output_dir + fmt::format("reactions_centered_on_{}.dot", curr_formula);
-            write_dot_file(save_subgraph_path, subgraph_edge_indices, write_atom_transfer, "dot");
+            std::string basename = fmt::format("reactions_centered_on_{}.dot", curr_formula);
+            write_dot_file(basename, subgraph_edge_indices, write_atom_transfer, "dot");
         }
         // Sort from nodes and to nodes by reaction weight;
         std::sort(from_nodes.begin(), from_nodes.end(),
@@ -498,62 +489,21 @@ void ReaxFlow::save_molecule_centered_subgraphs(const std::string& output_dir, b
     fclose(fp_csv);
 }
 
-void ReaxFlow::dump_molecules(const std::string& output_dir, int max_key_molecules, bool dump_pictures) {
-    // Get key molecules
-    std::map<int, int> node_degrees;
-    int source_id = -1;
-    int target_id = -1;
-
-    int max_molecule_size = 100;
-
-    int curr_degree;
-    int curr_degree_at;
-
-    for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
-        source_id = edges[edge_id].first;
-        target_id = edges[edge_id].second;
-
-        curr_degree = edge_reaction_counts[edge_id];
-        curr_degree_at = edge_atom_transfer_counts[edge_id];
-
-        node_degrees[source_id] += curr_degree;
-        node_degrees[target_id] += curr_degree;
-    }
-
-    // Sort nodes by degree in descending order
-    // Only output molecules smaller than max_molecule_size, we don't consider big polymers as a "main character"
-    std::vector<std::pair<int, int>> sort_nodes;
-    for (int node_id = 0; node_id < node_degrees.size(); node_id++) {
-        if (nodes[node_id]->atom_ids.size() > max_molecule_size)
-            continue;
-        sort_nodes.emplace_back(std::pair(node_id, node_degrees[node_id]));
-    }
-
-    std::sort(sort_nodes.begin(), sort_nodes.end(),
-              [](const std::pair<int, int>& a, const std::pair<int, int>& b) { return a.second > b.second; });
-
-    if (sort_nodes.size() > max_key_molecules) {
-        sort_nodes.resize(max_key_molecules);
-    }
-}
-
-void ReaxFlow::dump_smiles(const std::string& output_dir) {
-#ifdef ENABLE_RDKIT
-    std::string smiles_file = output_dir + "molecules_smiles.csv";
-    FILE* fp = fopen(smiles_file.c_str(), "w");
-
+#ifndef WASM_MODE
+void ReaxFlow::dump_smiles() {
+    FILE* fp = create_file("molecules_smiles.csv");
     for (const auto& pair : nodes) {
         fmt::print(fp, "{},{}\n", pair.second->formula, rdkit_smiles(*pair.second));
     }
 
     fclose(fp);
-#endif
 }
+#endif
 
-void ReaxFlow::draw_molecules(const std::string& output_dir) {
-#ifdef ENABLE_RDKIT
+#ifndef WASM_MODE
+void ReaxFlow::draw_molecules() {
     for (const auto& pair : nodes) {
-        rdkit_draw_molecule(*pair.second, output_dir);
+        rdkit_draw_molecule(*pair.second);
     }
-#endif
 }
+#endif

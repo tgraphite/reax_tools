@@ -98,12 +98,12 @@ function clearStoredData() {
         // Clear virtual file system if WASM module is available
         if (wasmModule && wasmModule.FS) {
             // Clear output directory
-            if (wasmModule.FS.analyzePath('/output').exists) {
-                const outputFiles = wasmModule.FS.readdir('/output');
+            if (wasmModule.FS.analyzePath('/reax_tools_output').exists) {
+                const outputFiles = wasmModule.FS.readdir('/reax_tools_output');
                 outputFiles.forEach(file => {
                     if (file !== '.' && file !== '..') {
                         try {
-                            wasmModule.FS.unlink(`/output/${file}`);
+                            wasmModule.FS.unlink(`/reax_tools_output/${file}`);
                         } catch (error) {
                             console.warn(`Failed to delete output file ${file}:`, error);
                         }
@@ -346,8 +346,8 @@ function loadWasmModule() {
             onRuntimeInitialized: function () {
                 wasmModule = this; //
                 //
-                if (!wasmModule.FS.analyzePath('/output').exists) {
-                    wasmModule.FS.mkdir('/output');
+                if (!wasmModule.FS.analyzePath('/reax_tools_output').exists) {
+                    wasmModule.FS.mkdir('/reax_tools_output');
                 }
                 resolve(wasmModule); //
             },
@@ -415,11 +415,11 @@ document.getElementById('runBtn').onclick = async function () {
         wasmModule = await loadWasmModule();
 
         //
-        if (wasmModule.FS.analyzePath('/output').exists) {
-            const oldFiles = wasmModule.FS.readdir('/output');
+        if (wasmModule.FS.analyzePath('/reax_tools_output').exists) {
+            const oldFiles = wasmModule.FS.readdir('/reax_tools_output');
             oldFiles.forEach(file => {
                 if (file !== '.' && file !== '..') {
-                    wasmModule.FS.unlink(`/output/${file}`);
+                    wasmModule.FS.unlink(`/reax_tools_output/${file}`);
                 }
             });
         }
@@ -431,7 +431,7 @@ document.getElementById('runBtn').onclick = async function () {
 
         //
         const userArgs = userArgsText ? userArgsText.split(/\s+/).filter(Boolean) : [];
-        const args = ['program', '--traj', inputFilePath, ...userArgs]; //
+        const args = ['program', '-f', inputFilePath, ...userArgs]; //
 
         //
         const argvPtrs = args.map(s => {
@@ -461,7 +461,7 @@ document.getElementById('runBtn').onclick = async function () {
         wasmModule._free(argvPtr);
 
         //
-        const outputFiles = wasmModule.FS.readdir('/output').filter(p => p !== '.' && p !== '..');
+        const outputFiles = wasmModule.FS.readdir('/reax_tools_output').filter(p => p !== '.' && p !== '..');
 
         //
         const logOutputText = logOutput.textContent || '';
@@ -495,7 +495,7 @@ document.getElementById('runBtn').onclick = async function () {
                 console.log(`Processing output file: ${fileName}`);
                 if (fileName.toLowerCase().endsWith('count.csv') || fileName.toLowerCase().endsWith('reactions.dot') || fileName === 'key_molecules_reactions.csv') {
                     try {
-                        const fileData = wasmModule.FS.readFile(`/output/${fileName}`);
+                        const fileData = wasmModule.FS.readFile(`/reax_tools_output/${fileName}`);
                         const content = new TextDecoder().decode(fileData);
                         plotFiles.push({ name: fileName, content: content });
                         console.log(`Added ${fileName} for visualization`);
@@ -514,7 +514,7 @@ document.getElementById('runBtn').onclick = async function () {
             if (allFiles.length === 1) {
                 //
                 const fileName = allFiles[0];
-                const resultData = wasmModule.FS.readFile(`/output/${fileName}`);
+                const resultData = wasmModule.FS.readFile(`/reax_tools_output/${fileName}`);
                 const blob = new Blob([resultData], { type: 'application/octet-stream' });
                 const url = URL.createObjectURL(blob);
                 downloadLinks = `<a href="${url}" download="${fileName}">Save result file (${fileName})</a>`;
@@ -522,7 +522,7 @@ document.getElementById('runBtn').onclick = async function () {
                 //
                 const zip = new JSZip();
                 allFiles.forEach(fileName => {
-                    const fileData = wasmModule.FS.readFile(`/output/${fileName}`);
+                    const fileData = wasmModule.FS.readFile(`/reax_tools_output/${fileName}`);
                     zip.file(fileName, fileData);
                 });
 

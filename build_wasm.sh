@@ -2,7 +2,7 @@ rm -f web/wasm_main.*
 
 # Collect all source files (excluding fmt.cc, only compile format.cc and os.cc)
 SRC_FILES=$(find cpp -name '*.cpp')
-SRC_FILES="$SRC_FILES cpp/fmt/format.cc cpp/fmt/os.cc cpp/universe_serial.cc cpp/wasm_main.cc"
+SRC_FILES="$SRC_FILES cpp/fmt/format.cc cpp/fmt/os.cc"
 # SRC_FILES=${SRC_FILES/}
 
 # 编译
@@ -18,4 +18,4 @@ emcc $SRC_FILES -o web/wasm_main.js \
   -s ASSERTIONS=1 \
   -s DISABLE_EXCEPTION_CATCHING=0 \
   -s INVOKE_RUN=0 \
-  -D ENABLE_RDKIT=0 \
+  -D WASM_MODE=1 \

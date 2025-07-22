@@ -1,310 +1,298 @@
+/// @file argparser.h
+/// @brief Provides ArgParser, a very strict command-line argument parser for scientific computing applications.
+
 #pragma once
 
-#include <string_tools.h>
-
-#include <filesystem>
+#include <algorithm>
+#include <fmt/core.h>
 #include <functional>
 #include <iostream>
 #include <map>
-#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
-// struct GlobalOptions {
-//     int num_threads = 4;
-//     float rvdw_scale = 1.2;
+extern int MAX_RING_SIZE;
+extern int MIN_RING_SIZE;
+extern int MAX_NEIGH;
 
-//     int dump_data_frame_step = 10;
-//     bool dump_lammps_data = false;
-//     bool mark_ring_atoms = false;
+extern int NUM_THREADS;
+extern int MAX_REACTIONS;
+extern int DUMP_STEPS;
 
-//     int max_reactions = 60;
-//     bool no_reactions = false;
-//     bool no_reduce_reactions = false;
+extern std::string INPUT_FILE;
+extern std::string OUTPUT_DIR;
+extern std::vector<std::string> INPUT_ELEMENT_TYPES;
+extern float RVDW_FACTOR;
 
-//     bool merge_by_element = false;
-//     std::string merge_target;
-//     std::vector<int> merge_range;
+extern bool FLAG_DUMP_STRUCTURE;
+extern bool FLAG_MARK_RING_ATOMS;
 
-//     std::vector<std::string> sort_order;
-//     std::string output_dir;
-// };
+extern bool FLAG_NO_REDUCE_REACTIONS;
+extern bool FLAG_NO_RINGS;
+extern bool FLAG_NO_REACTIONS;
 
+extern bool MERGE_ELEMENTS;
+extern bool FLAG_RESCALE_MERGE_COUNT;
+extern std::string MERGE_TARGET;
+extern std::vector<int> MERGE_RANGES;
+
+extern std::vector<std::string> ALL_ELEMENTS;
+extern std::map<std::string, int> ELEMENT_TO_INDEX;
+extern std::map<std::string, float> ELEMENT_ATOMIC_RADII;
+extern std::map<std::string, int> ELEMENT_MAX_VALENCIES;
+extern std::vector<std::string> ELEMENT_DISPLAY_ORDER;
+extern std::vector<unsigned int> PRIME_NUMBERS;
+extern std::vector<unsigned int> BIGGER_PRIME_NUMBERS;
+
+/**
+ * @class ArgParserException
+ * @brief Exception type for all errors thrown by ArgParser.
+ *
+ * This exception is thrown whenever an error occurs during argument parsing or operation execution.
+ */
+class ArgParserException : public std::runtime_error {
+  public:
+    /**
+     * @brief Construct a new ArgParserException with a message.
+     * @param msg The error message.
+     */
+    explicit ArgParserException(const std::string& msg) : std::runtime_error(msg) {}
+};
+
+/**
+ * @class ArgParser
+ * @brief Strict command-line argument parser for scientific computing applications.
+ *
+ * ArgParser enforces that every option must have an associated operation and that all arguments are strictly validated.
+ * It is designed for use cases where input correctness is critical, such as scientific computing.
+ *
+ * Usage example:
+ * @code
+ * ArgParser parser("myprog", "Program description");
+ * parser.add_argument("--input", "-i", "Input file", "File", false, [](std::string val){ ... });
+ * parser.parse_args(argc, argv);
+ * parser.operate_for_all();
+ * @endcode
+ */
 class ArgParser {
   private:
-    struct ArgOption {
-        std::string name;                                  // 选项名
-        std::string short_name;                            // 短选项名
-        std::string description;                           // 描述
-        std::string default_value;                         // 默认值
-        bool required;                                     // 是否必需
-        bool is_flag;                                      // 是否为标志（无需参数值）
-        std::string group;                                 // 分组
-        std::string value_type;                            // 值类型描述
-        std::function<bool(const std::string&)> validator; // 值验证函数
+    /**
+     * @struct Option
+     * @brief Represents a single command-line option and its associated metadata and operation(s).
+     *
+     * Each Option must have at least one operation defined. Operations can be for single value, multiple values, or
+     * flag.
+     */
+    struct Option {
+        std::string short_name;                 // Short option name (e.g., -i)
+        std::string long_name;                  // Long option name (e.g., --input)
+        std::string desc;                       // Description of the option
+        std::string desc_group;                 // Group name for help display
+        std::vector<std::string> parsed_values; // Values parsed from command line
+        bool is_flag;                           // True if this option is a flag (no value expected)
+        bool used = false;
+        bool closed = false;
+
+        std::function<bool(std::vector<std::string>)> operation; // Operation for single value
+
+        // Default constructor
+        Option() : short_name(""), long_name(""), desc(""), desc_group(""), is_flag(false), operation(nullptr) {}
+
+        /**
+         * @brief Construct a new Option object.
+         * @param short_name_ Short option name
+         * @param long_name_ Long option name
+         * @param desc_ Description
+         * @param desc_group_ Group name
+         * @param is_flag_ True if flag
+         * @param operation Operation for multiple values (std::vector<std::string>)
+         * @throws std::logic_error if no operation is provided
+         */
+        Option(std::string short_name_, std::string long_name_, std::string desc_, std::string desc_group_,
+               bool is_flag_, std::function<bool(std::vector<std::string>)> operation_ = nullptr)
+            : short_name(short_name_), long_name(long_name_), desc(desc_), desc_group(desc_group_), is_flag(is_flag_),
+              operation(operation_) {}
+
+        /**
+         * @brief Execute the associated operation for this option.
+         * @return true if operation succeeded, false otherwise
+         * @throws ArgParserException if no parameter is set or no valid operation is found
+         */
+        bool operate() {
+            if (is_flag)
+                return operation(parsed_values);
+
+            if (parsed_values.size() == 0) {
+                throw ArgParserException(
+                    fmt::format("Error when processing options: Parameter not set for option {}", long_name));
+            } else if (operation == nullptr) {
+                throw ArgParserException(
+                    fmt::format("Error when processing options: Can not find operation for {}", long_name));
+            } else {
+                return operation(parsed_values);
+            }
+        }
     };
 
-    std::string program_name;
-    std::string program_description;
-    std::map<std::string, ArgOption> options;
-    std::map<std::string, std::string> parsed_values;
-    std::vector<std::string> positional_args;
-    std::map<std::string, std::vector<std::string>> groups;
-    std::string example_usage;
+    std::string program_name;                                    // Name of the program
+    std::string program_desc;                                    // Description of the program
+    std::map<std::string, Option> options;                       // Map of long option name to Option
+    std::map<std::string, std::vector<std::string>> desc_groups; // Map of group name to option names
 
   public:
-    ArgParser(const std::string& name, const std::string& description)
-        : program_name(name), program_description(description) {}
+    /**
+     * @brief Construct a new ArgParser object.
+     * @param _program_name Name of the program
+     * @param _program_desc Description of the program
+     */
+    ArgParser(std::string _program_name, std::string _program_desc)
+        : program_name(_program_name), program_desc(_program_desc) {}
 
-    void add_example(const std::string& example) { example_usage = example; }
+    // -------------------- Developer phase --------------------
 
-    void add_argument(const std::string& name, const std::string& short_name, const std::string& description,
-                      const std::string& group = "General", const std::string& default_value = "",
-                      bool required = false, bool is_flag = false, const std::string& value_type = "",
-                      std::function<bool(const std::string&)> validator = nullptr) {
-        ArgOption option;
-        option.name = name;
-        option.short_name = short_name;
-        option.description = description;
-        option.default_value = default_value;
-        option.required = required;
-        option.is_flag = is_flag;
-        option.group = group;
-        option.value_type = value_type;
-        option.validator = validator;
-
-        options[name] = option;
-        if (!short_name.empty()) {
-            options[short_name] = option;
-        }
-
-        if (!group.empty()) {
-            groups[group].push_back(name);
-        }
+    /**
+     * @brief Add a new argument (option) to the parser.
+     *
+     * At least one operation must be provided, otherwise a logic_error will be thrown.
+     *
+     * @param long_name Long option name (e.g., --input)
+     * @param short_name Short option name (e.g., -i)
+     * @param desc Description of the option
+     * @param desc_group Group name for help display
+     * @param is_flag True if this option is a flag (no value expected)
+     * @param operation Operation for multiple values (std::vector<std::string>)
+     * @throws std::logic_error if no operation is provided
+     */
+    void add_argument(std::string long_name, std::string short_name, std::string desc, std::string desc_group,
+                      bool is_flag, std::function<bool(std::vector<std::string>)> operation) {
+        Option option(short_name, long_name, desc, desc_group, is_flag, operation);
+        options[long_name] = option;
+        desc_groups[desc_group].push_back(long_name);
     }
 
-    bool parse_args(int argc, char* argv[]) {
+    /**
+     * @brief Get the canonical long name for an option given any valid name.
+     * @param arg The option name (long or short)
+     * @return The canonical long name
+     * @throws ArgParserException if the argument is invalid
+     */
+    std::string get_option_long_name(std::string arg) {
+        for (const auto& [long_name, option] : options) {
+            if (option.long_name == arg || option.short_name == arg) {
+                return option.long_name;
+            }
+        }
+
+        throw ArgParserException(fmt::format("Error when processing arguments: invalid argument {}", arg));
+    }
+
+    /**
+     * @brief Print help information for the program and its options.
+     *
+     * @note Will invoke exit(0) to force user retry after reading help information.
+     */
+    void print_help() {
+        fmt::print("Usage: {} [options]\n", program_name);
+        fmt::print("{}\n\n", program_desc);
+
+        for (const auto& [group, option_names] : desc_groups) {
+            fmt::print("[{}]\n", group);
+            for (const auto& long_name : option_names) {
+                const auto& opt = options.at(long_name);
+                // Format:   -s, --long   Description
+                fmt::print("    {:<6}, {:<16}: {}\n", opt.short_name, opt.long_name, opt.desc);
+            }
+            fmt::print("\n");
+        }
+        exit(0);
+    }
+
+// -------------------- User phase --------------------
+
+/**
+ * @brief Parse command-line arguments.
+ *
+ * This function parses the command-line arguments and fills the options accordingly.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return true if parsing succeeded, false otherwise
+ * @throws ArgParserException on any parsing error
+ */
+#ifndef WASM_MODE
+    bool parse_args(int argc, char* argv[])
+#else
+    bool parse_args(int argc, const char* argv[])
+#endif
+    {
         if (argc <= 1) {
             print_help();
             return false;
         }
 
+        // Convert argv to vector<string>
         std::vector<std::string> args(argv + 1, argv + argc);
-        size_t i = 0;
 
-        while (i < args.size()) {
-            std::string arg = args[i];
+        size_t tmp_index;
+        std::string curr_option = "";
 
-            if (arg == "-h" || arg == "--help") {
-                print_help();
-                return false;
-            }
+        for (size_t index = 0; index < args.size(); ++index) {
+            std::string curr_arg = args[index];
 
-            if (arg.substr(0, 2) == "--" || arg.substr(0, 1) == "-") {
-                std::string option_name = arg;
-
-                if (options.find(option_name) == options.end()) {
-                    std::cerr << "Error: Invalid option " << option_name << std::endl;
-                    return false;
+            // An option name
+            if (curr_arg.substr(0, 2) == "--" || curr_arg.substr(0, 1) == "-") {
+                if (!curr_arg.empty() && options.find(curr_arg) != options.end() && !options[curr_option].is_flag) {
+                    options[curr_option].closed = true;
                 }
-
-                const ArgOption& option = options[option_name];
-
-                if (option.is_flag) {
-                    parsed_values[option.name] = "true";
-                    i++;
+                curr_option = get_option_long_name(curr_arg);
+                if (options[curr_option].is_flag) {
+                    options[curr_option].used = true;
+                    options[curr_option].closed = true;
+                }
+            } else { // A parameter
+                if (curr_option.empty()) {
+                    throw ArgParserException(fmt::format(
+                        "Error when processing arguments: Can not find option for parameter {}", curr_option));
+                }
+                if (options[curr_option].closed) {
+                    throw ArgParserException(
+                        fmt::format("Error when processing arguments: Set option {} multiple times", curr_option));
+                }
+                if (!options[curr_option].is_flag) {
+                    options[curr_option].parsed_values.push_back(curr_arg);
+                    options[curr_option].used = true;
                 } else {
-                    if (i + 1 >= args.size()) {
-                        std::cerr << "Error: option " << option_name << " need values." << std::endl;
-                        return false;
-                    }
-
-                    std::string value = args[i + 1];
-
-                    // 检验参数值
-                    if (option.validator && !option.validator(value)) {
-                        std::cerr << "Error: option " << option_name << " got invalid value '" << value << std::endl;
-                        return false;
-                    }
-
-                    parsed_values[option.name] = value;
-                    i += 2;
+                    throw ArgParserException(
+                        fmt::format("Error when processing arguments: Can not set parameter for flag {}", curr_option));
                 }
-            } else {
-                positional_args.push_back(arg);
-                i++;
-            }
-        }
-
-        // 检查必需参数
-        for (const auto& pair : options) {
-            const ArgOption& option = pair.second;
-            if (option.name != pair.first)
-                continue;
-            if (option.required &&
-                (parsed_values.find(option.name) == parsed_values.end() || parsed_values[option.name].empty())) {
-                std::cerr << "Error: Mandatory arguments missing! " << option.name << std::endl;
-                return false;
             }
         }
 
         return true;
     }
 
-    // 打印帮助信息
-    void print_help() const {
-        const int DESC_WIDTH = 120;
-        const int OPTION_WIDTH = 30;
-
-        std::cout << program_description << std::endl << std::endl;
-        std::cout << "Usages: " << program_name << " [options]" << std::endl << std::endl;
-
-        // 按分组打印选项
-        for (const auto& group_pair : groups) {
-            std::cout << group_pair.first << ":" << std::endl;
-
-            for (const auto& option_name : group_pair.second) {
-                const ArgOption& option = options.at(option_name);
-
-                if (option.name != option_name)
-                    continue;
-
-                std::stringstream option_str;
-                if (!option.short_name.empty()) {
-                    option_str << option.short_name << ", ";
-                }
-                option_str << option.name;
-
-                if (!option.is_flag) {
-                    if (!option.value_type.empty()) {
-                        option_str << " <" << option.value_type << "> ";
-                    } else {
-                        option_str << " VALUE";
-                    }
-                }
-
-                std::string option_display = option_str.str();
-
-                std::cout << "  " << std::left << std::setw(OPTION_WIDTH) << option_display;
-
-                // 处理说明文字的换行
-                std::string desc = option.description;
-                if (!option.default_value.empty()) {
-                    desc += " (default: " + option.default_value + ")";
-                }
-
-                if (desc.length() <= DESC_WIDTH - OPTION_WIDTH - 2) {
-                    std::cout << desc << std::endl;
-                } else {
-                    size_t pos = 0;
-                    bool first_line = true;
-
-                    while (pos < desc.length()) {
-                        size_t len = std::min(DESC_WIDTH - (first_line ? OPTION_WIDTH + 2 : 8),
-                                              static_cast<int>(desc.length() - pos));
-                        size_t space_pos = desc.rfind(' ', pos + len);
-
-                        if (space_pos > pos && space_pos < pos + len) {
-                            len = space_pos - pos;
-                        }
-
-                        if (!first_line) {
-                            std::cout << "        ";
-                        }
-
-                        std::cout << desc.substr(pos, len) << std::endl;
-
-                        pos += len;
-                        if (pos < desc.length() && desc[pos] == ' ')
-                            pos++;
-                        first_line = false;
-                    }
-                }
+    /**
+     * @brief Execute the operation for all options.
+     *
+     * This function will call the associated operation for each option. If any operation fails, an exception is thrown.
+     *
+     * @throws ArgParserException if any operation fails
+     */
+    void operate_for_all() {
+        for (auto& [long_name, option] : options) {
+            if (!option.used) {
+                continue;
             }
 
-            std::cout << std::endl;
-        }
+            bool has_successed = option.operate();
 
-        if (!example_usage.empty()) {
-            std::cout << "Examples:" << std::endl;
-            std::cout << "  " << example_usage << std::endl << std::endl;
-        }
-    }
-
-    template <typename T> T get(const std::string& name) const {
-        if (parsed_values.find(name) == parsed_values.end()) {
-            const ArgOption& option = options.at(name);
-            if (option.is_flag) {
-                return get_default_for_flag<T>();
+            if (!has_successed) {
+                throw ArgParserException(fmt::format(
+                    "Error when processing option {}, check format and numbers of parameters", option.long_name));
             }
-            if (!option.default_value.empty()) {
-                return convert<T>(option.default_value);
-            }
-            return T();
         }
-
-        return convert<T>(parsed_values.at(name));
-    }
-
-    // 为标志类型选项提供适当的默认值
-    template <typename T> T get_default_for_flag() const {
-        return T(); // 默认构造
-    }
-
-    bool has_flag(const std::string& name) const {
-        return parsed_values.find(name) != parsed_values.end() && parsed_values.at(name) == "true";
-    }
-    bool has_option(const std::string& name) const { return parsed_values.find(name) != parsed_values.end(); }
-    const std::vector<std::string>& get_positional_args() const { return positional_args; }
-
-  private:
-    template <typename T> T convert(const std::string& value) const {
-        std::istringstream ss(value);
-        T result;
-        ss >> result;
-        return result;
     }
 };
 
-// 外部定义模板特化
-template <> inline bool ArgParser::get_default_for_flag<bool>() const { return false; }
-
-template <> inline std::string ArgParser::get_default_for_flag<std::string>() const { return "false"; }
-
-template <> inline std::string ArgParser::convert<std::string>(const std::string& value) const { return value; }
-
-template <> inline bool ArgParser::convert<bool>(const std::string& value) const {
-    return value == "true" || value == "1" || value == "yes";
-}
-
-template <>
-inline std::vector<std::string> ArgParser::convert<std::vector<std::string>>(const std::string& value) const {
-    return split(value, ",");
-}
-
-template <> inline std::vector<int> ArgParser::convert<std::vector<int>>(const std::string& value) const {
-    std::vector<std::string> parts = split(value, ",");
-    std::vector<int> result;
-    for (const auto& part : parts) {
-        result.push_back(std::stoi(part));
-    }
-    return result;
-}
-
-bool validate_float_positive(const std::string& value) {
-    try {
-        float val = std::stof(value);
-        return val > 0;
-    } catch (...) {
-        return false;
-    }
-}
-
-bool validate_int_positive(const std::string& value) {
-    try {
-        int val = std::stoi(value);
-        return val > 0;
-    } catch (...) {
-        return false;
-    }
-}
+ArgParser init_argparser();

@@ -337,12 +337,8 @@ void ReaxCounter::analyze_frame_formulas() {
 }
 
 // General function, save file to given path.
-void ReaxCounter::save_file(const std::string& save_path) {
-    FILE* file = fopen(save_path.c_str(), "w");
-    if (file == NULL) {
-        fmt::print(stderr, "Cannot open file {} for writing.\n", save_path);
-        return;
-    }
+void ReaxCounter::save_file() {
+    FILE* file = create_file("species_count.csv");
 
     bool is_first = true;
     for (const auto& pair : formulas_nums) {
@@ -370,12 +366,4 @@ void ReaxCounter::save_file(const std::string& save_path) {
 
     fclose(file);
     fmt::print(stdout, "Save species file {} successfully.\n\n", save_path);
-}
-
-// For traj mode, call from universe.
-void ReaxCounter::save_file_to_dir(const std::string& output_dir) { save_file(output_dir + "species_count.csv"); }
-
-// For species mode, save file directly in current directory.
-void ReaxCounter::save_file_to_current_dir() {
-    save_file(file_path.substr(0, file_path.find_last_of(".")) + "_species_count.csv");
 }
