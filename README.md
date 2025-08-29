@@ -1,6 +1,6 @@
 ReaxTools: A high performance ReaxFF/AIMD/MLP-MD post-process code
 
-online test use: http://cc-portal.xyz/reax_tools/pro 
+online test use: http://cc-portal.xyz/reax_tools_pro 
 
 **click "load example" and confirm loaded, and click run!** (sometimes need to click 2-3 times, due to web latency)
 
