@@ -1,6 +1,7 @@
 ReaxTools: A high performance ReaxFF/AIMD/MLP-MD post-process code
 
 online test use: http://cc-portal.xyz/reax_tools_pro
+cite: Hanxiang Chen. ReaxTools: A high performance ReaxFF/AIMD/MLP-MD post-process code [Computer software]. https://github.com/tgraphite/reax_tools
 
 local installation: 
 1. git clone https://github.com/tgraphite/reax_tools
