@@ -623,6 +623,11 @@ void ReaxFlow::save_graph() {
     
     // New: Atom economy filtering
     filter_by_atom_economy(0.3);
+    
+    // New: Edge betweenness ranking if still too many edges
+    if (edges.size() > MAX_REACTIONS) {
+        filter_by_betweenness(MAX_REACTIONS);
+    }
 
     update_graph();
     brief_report();
@@ -1427,8 +1432,20 @@ void ReaxFlow::filter_by_betweenness(int target_edge_count) {
         delete edge;
     }
     
-    fmt::print("\n=== Betweenness Filter ===\n");
+    fmt::print("\n=== Edge Betweenness Filter ===\n");
     fmt::print("Target edges: {}\n", target_edge_count);
-    fmt::print("Kept: {}\n", edges_to_keep.size());
+    fmt::print("Total before: {}\n", edges.size() + edges_to_remove.size());
+    fmt::print("Kept: {} (BC top {} + count top {} + transfer top {})\n", 
+               edges_to_keep.size(), n_bc, n_count, n_transfer);
     fmt::print("Removed: {}\n", edges_to_remove.size());
+    
+    // Print top 5 highest betweenness edges
+    fmt::print("\nTop 5 by betweenness centrality:\n");
+    for (int i = 0; i < std::min(5, (int)by_bc.size()); i++) {
+        fmt::print("  {} -> {} (BC={:.2f}, count={})\n",
+                   by_bc[i]->source->molecule->formula,
+                   by_bc[i]->target->molecule->formula,
+                   by_bc[i]->betweenness,
+                   by_bc[i]->count);
+    }
 }
