@@ -15,7 +15,7 @@ class Cell_list {
     int max_neigh;
 
     Cell_list(std::vector<Atom*> atoms, const float& radius, const std::vector<float> axis_lengths,
-              const float& max_neigh);
+              const int& max_neigh);
     ~Cell_list();
 
     std::vector<int> get_cell_index_xyz(Atom* atom);

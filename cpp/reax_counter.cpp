@@ -12,7 +12,7 @@
 #include "vec_algorithms.h"
 
 // For read data from Lammps species file.
-ReaxCounter::ReaxCounter(const std::string& file_path) : file_path(file_path) {
+SpeciesCounter::SpeciesCounter(const std::string& file_path) : file_path(file_path) {
     file.open(file_path);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << file_path << std::endl << "Exit." << std::endl;
@@ -24,14 +24,14 @@ ReaxCounter::ReaxCounter(const std::string& file_path) : file_path(file_path) {
 }
 
 // For import data from class Universe.
-ReaxCounter::ReaxCounter() {}
+SpeciesCounter::SpeciesCounter() {}
 
-ReaxCounter::~ReaxCounter() {
+SpeciesCounter::~SpeciesCounter() {
     if (file.is_open())
         file.close();
 }
 
-void ReaxCounter::get_formulas() {
+void SpeciesCounter::get_formulas() {
     std::string line;
     std::unordered_set<std::string> formulas_set;
 
@@ -59,7 +59,7 @@ void ReaxCounter::get_formulas() {
     return;
 }
 
-void ReaxCounter::get_nums() {
+void SpeciesCounter::get_nums() {
     std::string line;
     std::vector<std::string> cur_formulas;
     int cur_frame = 0;
@@ -91,7 +91,7 @@ void ReaxCounter::get_nums() {
     }
 }
 
-void ReaxCounter::rename_all_formulas(const std::vector<std::string>& order) {
+void SpeciesCounter::rename_all_formulas(const std::vector<std::string>& order) {
     // Create a temporary map to store formulas that need to be renamed.
 
     // First step: collect all formulas that need to be renamed.
@@ -106,9 +106,7 @@ void ReaxCounter::rename_all_formulas(const std::vector<std::string>& order) {
     for (const auto& pair : formulas_nums) {
         old_formula = pair.first;
         nums = pair.second;
-
         new_formula = rename_formula(old_formula, order);
-
         new_formulas_nums[new_formula] = nums;
     }
 
@@ -117,7 +115,7 @@ void ReaxCounter::rename_all_formulas(const std::vector<std::string>& order) {
 }
 
 // User accessable.
-void ReaxCounter::merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula) {
+void SpeciesCounter::merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula) {
     std::vector<float> new_nums(nframes, 0.0);
     for (const std::string& formula : formulas) {
         std::vector<float> num = formulas_nums[formula];
@@ -133,7 +131,7 @@ void ReaxCounter::merge_formulas(const std::vector<std::string>& formulas, const
 }
 
 // User accessable.
-void ReaxCounter::scale_formula(const std::string& formula, const float& k) {
+void SpeciesCounter::scale_formula(const std::string& formula, const float& k) {
     std::vector<float> new_nums(nframes, 0.0);
     new_nums = vector_scale(formulas_nums[formula], k);
     formulas_nums[formula] = new_nums;
@@ -141,7 +139,7 @@ void ReaxCounter::scale_formula(const std::string& formula, const float& k) {
 }
 
 // User accessable.
-void ReaxCounter::rescale_all_by_element(const std::string& target_element) {
+void SpeciesCounter::rescale_all_by_element(const std::string& target_element) {
     for (auto& pair : formulas_nums) {
         std::string formula = pair.first;
         std::vector<float>& old_nums = pair.second;
@@ -165,7 +163,7 @@ void ReaxCounter::rescale_all_by_element(const std::string& target_element) {
 }
 
 // User accessable.
-void ReaxCounter::merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool rescale) {
+void SpeciesCounter::merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool rescale) {
     for (size_t i = 0; i < ranges.size(); i++) {
         int start;
         int end;
@@ -183,6 +181,7 @@ void ReaxCounter::merge_by_element(const std::string& target_element, const std:
 
         std::vector<std::string> formulas_to_erase;
         std::vector<float> new_nums(nframes, 0.0);
+        float f_weight;
 
         for (auto& pair : formulas_nums) {
             std::string old_formula = pair.first;
@@ -194,10 +193,7 @@ void ReaxCounter::merge_by_element(const std::string& target_element, const std:
 
             std::map<std::string, int> elements_weights = parse_formula(old_formula);
 
-            for (auto& elem_weight : elements_weights) {
-                std::string elem = elem_weight.first;
-                float weight = float(elem_weight.second);
-
+            for (const auto& [elem, weight] : elements_weights) {
                 if (target_element == elem && weight >= start && weight <= end) {
                     if (rescale) {
                         std::vector<float> weighed_nums = vector_scale(old_nums, weight);
@@ -224,7 +220,7 @@ void ReaxCounter::merge_by_element(const std::string& target_element, const std:
     return;
 }
 
-void ReaxCounter::brief_report() {
+void SpeciesCounter::brief_report() {
     // if (nframes < 40) {
     //     this->show_nums();
     //     return;
@@ -300,7 +296,7 @@ void ReaxCounter::brief_report() {
 }
 
 // Get current frame formulas (std::map<std::string, int>) from class Universe.
-void ReaxCounter::import_frame_formulas(int& frame_id, const std::vector<std::string>& formulas) {
+void SpeciesCounter::import_frame_formulas(int& frame_id, const std::vector<std::string>& formulas) {
     if (all_frame_formulas.size() < frame_id) {
         all_frame_formulas.resize(frame_id);
     }
@@ -310,7 +306,7 @@ void ReaxCounter::import_frame_formulas(int& frame_id, const std::vector<std::st
 
 // Analyze imported frame formulas and get standard formulas_nums after
 // ReaxSpeices::import_frame_formulas all done.
-void ReaxCounter::analyze_frame_formulas() {
+void SpeciesCounter::analyze_frame_formulas() {
     // all_formulas_set : any occured formula, non-repeat.
     std::unordered_set<std::string> all_formulas_set;
     nframes = all_frame_formulas.size();
@@ -337,7 +333,7 @@ void ReaxCounter::analyze_frame_formulas() {
 }
 
 // General function, save file to given path.
-void ReaxCounter::save_file() {
+void SpeciesCounter::save_file() {
     FILE* file = create_file("species_count.csv");
 
     bool is_first = true;
@@ -365,5 +361,4 @@ void ReaxCounter::save_file() {
     }
 
     fclose(file);
-    fmt::print(stdout, "Save species file {} successfully.\n\n", save_path);
 }

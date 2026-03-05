@@ -43,6 +43,16 @@ inline std::vector<float> vector_scale(const std::vector<float>& vec_a, const fl
     return vec;
 }
 
+inline std::vector<float> vector_scale(const std::vector<float>& vec_a, const int& k) {
+    std::vector<float> vec(vec_a.size());
+
+    for (size_t i = 0; i < vec_a.size(); i++) {
+        vec[i] = vec_a[i] * float(k);
+    }
+
+    return vec;
+}
+
 inline std::vector<float> vector_add(const std::vector<float>& vec_a, const float& b) {
     std::vector<float> vec(vec_a.size());
 

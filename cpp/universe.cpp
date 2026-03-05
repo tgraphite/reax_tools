@@ -20,9 +20,9 @@ Universe::Universe() {}
 
 #ifndef WASM_MODE
 Universe::~Universe() {
-    if (reax_counter != nullptr) {
-        delete reax_counter;
-        reax_counter = nullptr;
+    if (species_counter != nullptr) {
+        delete species_counter;
+        species_counter = nullptr;
     }
 
     if (reax_flow != nullptr) {
@@ -43,6 +43,11 @@ Universe::~Universe() {
     if (atom_bonded_num_counter != nullptr) {
         delete atom_bonded_num_counter;
         atom_bonded_num_counter = nullptr;
+    }
+
+    if (hash_counter != nullptr) {
+        delete hash_counter;
+        hash_counter = nullptr;
     }
 }
 
@@ -59,9 +64,9 @@ Universe::~Universe() {
         last_system = nullptr;
     }
 
-    if (reax_counter != nullptr) {
-        delete reax_counter;
-        reax_counter = nullptr;
+    if (species_counter != nullptr) {
+        delete species_counter;
+        species_counter = nullptr;
     }
 
     if (reax_flow != nullptr) {
@@ -83,6 +88,11 @@ Universe::~Universe() {
         delete atom_bonded_num_counter;
         atom_bonded_num_counter = nullptr;
     }
+
+    if (hash_counter != nullptr) {
+        delete hash_counter;
+        hash_counter = nullptr;
+    }
 }
 
 void Universe::flush() {
@@ -97,7 +107,8 @@ void Universe::flush() {
 #endif
 
 #ifndef WSAM_MODE
-template <typename T, typename Func> void parallel_for_each(std::vector<T*>& objects, Func func) {
+template <typename T, typename Func>
+void parallel_for_each(std::vector<T*>& objects, Func func) {
     size_t n = objects.size();
     std::vector<pthread_t> threads(n);
 
@@ -118,12 +129,10 @@ template <typename T, typename Func> void parallel_for_each(std::vector<T*>& obj
 
     for (size_t i = 0; i < n; ++i) {
         args[i] = {objects[i], func};
-        if (objects[i])
-            pthread_create(&threads[i], nullptr, thread_func, &args[i]);
+        if (objects[i]) pthread_create(&threads[i], nullptr, thread_func, &args[i]);
     }
     for (size_t i = 0; i < n; ++i) {
-        if (objects[i])
-            pthread_join(threads[i], nullptr);
+        if (objects[i]) pthread_join(threads[i], nullptr);
     }
 }
 #endif
@@ -132,7 +141,6 @@ template <typename T, typename Func> void parallel_for_each(std::vector<T*>& obj
 void Universe::process_traj() {
     int max_neigh = 10;
     int curr_frame_id = 1;
-    bool is_first_frame = true;
 
     std::ifstream input_file(INPUT_FILE);
 
@@ -145,8 +153,8 @@ void Universe::process_traj() {
             // Iterate safely and erase elements from the map if their instance should be destroyed.
             for (auto it = frameid_system.begin(); it != frameid_system.end();) {
                 if (it->second->to_destroy) {
-                    delete it->second;             // Delete the instance
-                    it = frameid_system.erase(it); // Remove the element from the map and advance iterator
+                    delete it->second;              // Delete the instance
+                    it = frameid_system.erase(it);  // Remove the element from the map and advance iterator
                 } else {
                     ++it;
                 }
@@ -159,8 +167,8 @@ void Universe::process_traj() {
 
             curr_system->frame_id = curr_frame_id;
             curr_system->reax_flow = reax_flow;
-            curr_system->set_counters(this->reax_counter, this->bond_counter, this->ring_counter,
-                                      this->atom_bonded_num_counter);
+            curr_system->set_counters(this->species_counter, this->bond_counter, this->ring_counter,
+                                      this->atom_bonded_num_counter, this->hash_counter);
 
             if (ends_with(INPUT_FILE, ".lammpstrj"))
                 curr_system->load_lammpstrj(input_file);
@@ -172,6 +180,12 @@ void Universe::process_traj() {
                 continue;
             };
 
+            if (curr_frame_id == 1) {
+                curr_system->is_first_frame = true;
+            } else {
+                curr_system->is_last_frame = true;
+            }
+
             frameid_system[curr_frame_id] = curr_system;
             systems_to_process.push_back(curr_system);
             curr_frame_id++;
@@ -180,11 +194,12 @@ void Universe::process_traj() {
         parallel_for_each<System>(systems_to_process, &System::process_this);
         for (auto& curr_system : systems_to_process) {
             int frame_id = curr_system->frame_id;
-            if (frame_id == 1)
-                curr_system->prev_sys = nullptr;
+            if (frame_id == 1) curr_system->prev_sys = nullptr;
             // process_reax will skip compuations related to prev_sys.
-            else
+            else {
                 curr_system->prev_sys = frameid_system[frame_id - 1];
+                curr_system->prev_sys->is_last_frame = false;  // if a system can be prev_sys, it is not the last frame.
+            }
         }
         parallel_for_each<System>(systems_to_process, &System::process_counters);
         if (!FLAG_NO_REACTIONS) {
@@ -192,14 +207,14 @@ void Universe::process_traj() {
         }
 
         for (auto& curr_system : systems_to_process) {
-            if (curr_system->prev_sys) // prev_sys of the first frame is nullptr
+            if (curr_system->prev_sys)  // prev_sys of the first frame is nullptr
                 curr_system->prev_sys->to_destroy = true;
 
             if (FLAG_DUMP_STRUCTURE) {
                 curr_system->dump_lammps_data();
             }
 
-            if (curr_system->frame_id == 1) {
+            if (curr_system->is_first_frame) {
                 fmt::print("Atom Types: ");
                 for (auto& pair : curr_system->type_itos) {
                     fmt::print("{}: {}, ", pair.first, pair.second);
@@ -215,9 +230,19 @@ void Universe::process_traj() {
 
                 fmt::print("\n");
 
-                is_first_frame = true;
-            } else {
-                is_first_frame = false;
+                std::unordered_set<unsigned int> initial_mol_hashes;
+                for (auto& mol : curr_system->molecules) {
+                    initial_mol_hashes.insert(mol->hash);
+                }
+                reax_flow->import_molecules(true, initial_mol_hashes);
+            }
+
+            if (curr_system->is_last_frame) {
+                std::unordered_set<unsigned int> final_mol_hashes;
+                for (auto& mol : curr_system->molecules) {
+                    final_mol_hashes.insert(mol->hash);
+                }
+                reax_flow->import_molecules(false, final_mol_hashes);
             }
 
             curr_system->finish();
@@ -226,19 +251,18 @@ void Universe::process_traj() {
         systems_to_process.clear();
     }
     fmt::print("\n\n");
-    reax_counter->analyze_frame_formulas();
+    species_counter->analyze_frame_formulas();
 
     // after all batch, free all systems.
     for (auto it = frameid_system.begin(); it != frameid_system.end();) {
-        delete it->second;             // Delete the instance
-        it = frameid_system.erase(it); // Remove the element from the map and advance iterator
+        delete it->second;              // Delete the instance
+        it = frameid_system.erase(it);  // Remove the element from the map and advance iterator
     }
 }
 #else
 void Universe::process_traj() {
     int curr_frame_id = 1;
     int max_neigh = 10;
-    bool is_first_frame = true;
 
     std::ifstream file(INPUT_FILE);
     // std::string bond_count_filepath = output_dir + "bond_count.csv";
@@ -254,7 +278,15 @@ void Universe::process_traj() {
         system = new System();
         system->frame_id = curr_frame_id;
         system->reax_flow = reax_flow;
-        system->set_counters(this->reax_counter, this->bond_counter, this->ring_counter, this->atom_bonded_num_counter);
+        system->set_counters(this->species_counter, this->bond_counter, this->ring_counter,
+                             this->atom_bonded_num_counter, this->hash_counter);
+
+        if (curr_frame_id == 1) {
+            system->is_first_frame = true;
+        }
+        if (file.eof()) {
+            system->is_last_frame = true;
+        }
 
         if (ends_with(INPUT_FILE, ".lammpstrj"))
             system->load_lammpstrj(file);
@@ -286,14 +318,11 @@ void Universe::process_traj() {
             }
             fmt::print("\n");
             fmt::print("\n");
-            is_first_frame = true;
-        } else {
-            is_first_frame = false;
         }
 
         system->finish();
     }
     fmt::print("\n\n");
-    reax_counter->analyze_frame_formulas();
+    species_counter->analyze_frame_formulas();
 }
 #endif

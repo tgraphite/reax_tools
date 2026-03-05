@@ -10,7 +10,7 @@
 Cell_list::~Cell_list() { cells.clear(); }
 // Note that all the atoms have been transformed to {0, lx, 0, ly, 0, lz} before.
 Cell_list::Cell_list(std::vector<Atom*> atoms, const float& radius, const std::vector<float> axis_lengths,
-                     const float& max_neigh) {
+                     const int& max_neigh) {
     radius_sq = radius * radius;
     this->max_neigh = max_neigh;
     this->axis_lengths = axis_lengths;

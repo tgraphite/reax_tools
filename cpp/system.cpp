@@ -1,3 +1,5 @@
+#include "system.h"
+
 #include <assert.h>
 
 #include <algorithm>
@@ -8,20 +10,10 @@
 #include "cell_list.h"
 #include "fmt/format.h"
 #include "reax_counter.h"
-#include "system.h"
 #include "universe.h"
 #include "vec_algorithms.h"
 
-std::mutex reaxcounter_mutex;
-
-// Hash function for std::pair<int, int>
-struct pair_hash {
-    std::size_t operator()(const std::pair<int, int>& p) const noexcept {
-        // Combine the two integers into a single hash value
-        // This is a common way to combine two hash values
-        return std::hash<int>()(p.first) ^ (std::hash<int>()(p.second) << 1);
-    }
-};
+std::mutex species_counter_mutex;
 
 System::System() { set_types(); }
 
@@ -29,8 +21,7 @@ System::~System() {
     // No need to free atoms ptr and bonds ptr, they will be deleted in Molecule destrcutor
 
     for (const auto& instance : molecules) {
-        if (instance != nullptr)
-            delete instance;
+        if (instance != nullptr) delete instance;
     }
     molecules.clear();
 }
@@ -61,8 +52,8 @@ void System::load_xyz(std::ifstream& file) {
         }
         // Skip time or energy information lines
         else if (std::find(tokens.begin(), tokens.end(), "time") != tokens.end() &&
-                 std::find(tokens.begin(), tokens.end(), "=") != tokens.end() &&
-                 std::find(tokens.begin(), tokens.end(), "E") != tokens.end()) {
+            std::find(tokens.begin(), tokens.end(), "=") != tokens.end() &&
+            std::find(tokens.begin(), tokens.end(), "E") != tokens.end()) {
             this->has_boundaries = false;
             continue;
         }
@@ -73,12 +64,13 @@ void System::load_xyz(std::ifstream& file) {
             bonds.reserve(total_atoms * 3);
             molecules.reserve(total_atoms / 2);
             continue;
-        } else if (line.find("Lattice") != std::string::npos) {
+        }
+        else if (line.find("Lattice") != std::string::npos) {
             // Parse Lattice matrix
             std::string lattice_str = "";
             size_t lattice_start = line.find("Lattice=\"");
             if (lattice_start != std::string::npos) {
-                lattice_start += 9; // Skip "Lattice=\""
+                lattice_start += 9;  // Skip "Lattice=\""
                 size_t lattice_end = line.find("\"", lattice_start);
                 if (lattice_end != std::string::npos) {
                     lattice_str = line.substr(lattice_start, lattice_end - lattice_start);
@@ -100,7 +92,8 @@ void System::load_xyz(std::ifstream& file) {
                 lx = std::stof(lattice_values[0]);
                 ly = std::stof(lattice_values[4]);
                 lz = std::stof(lattice_values[8]);
-            } catch (const std::exception& e) {
+            }
+            catch (const std::exception& e) {
                 fmt::print("Error parsing Lattice values: {}\n", e.what());
                 continue;
             }
@@ -112,7 +105,7 @@ void System::load_xyz(std::ifstream& file) {
 
             size_t origin_start = line.find("Origin=\"");
             if (origin_start != std::string::npos) {
-                origin_start += 8; // Skip "Origin=\""
+                origin_start += 8;  // Skip "Origin=\""
                 size_t origin_end = line.find("\"", origin_start);
                 if (origin_end != std::string::npos) {
                     std::string origin_str = line.substr(origin_start, origin_end - origin_start);
@@ -122,7 +115,8 @@ void System::load_xyz(std::ifstream& file) {
                             xlo = std::stof(origin_values[0]);
                             ylo = std::stof(origin_values[1]);
                             zlo = std::stof(origin_values[2]);
-                        } catch (const std::exception& e) {
+                        }
+                        catch (const std::exception& e) {
                             fmt::print("Error parsing Origin values: {}\n", e.what());
                         }
                     }
@@ -130,9 +124,10 @@ void System::load_xyz(std::ifstream& file) {
             }
 
             has_boundaries = true;
-            axis_lengths = {lx, ly, lz};
+            axis_lengths = { lx, ly, lz };
             continue;
-        } else if (tokens.size() >= 4 && tokens.size() <= 5) {
+        }
+        else if (tokens.size() >= 4 && tokens.size() <= 5) {
             if (tokens.size() == 4) {
                 atom_count++;
                 atom_id = atom_count;
@@ -140,14 +135,16 @@ void System::load_xyz(std::ifstream& file) {
                 x = std::stof(tokens[1]);
                 y = std::stof(tokens[2]);
                 z = std::stof(tokens[3]);
-            } else if (tokens.size() == 5) {
+            }
+            else if (tokens.size() == 5) {
                 atom_count++;
                 atom_id = std::stoi(tokens[0]);
                 given_type = tokens[1];
                 x = std::stof(tokens[2]);
                 y = std::stof(tokens[3]);
                 z = std::stof(tokens[4]);
-            } else {
+            }
+            else {
                 std::cerr << "Invalid atom line in xyz file: " << line << std::endl;
             }
 
@@ -157,23 +154,27 @@ void System::load_xyz(std::ifstream& file) {
                 // Notice that must get the types correct!
                 try {
                     if (type_stoi.find(given_type) == type_stoi.end()) {
-                        type_int = type_stoi.size() + 1; // To ensure all types are count from 1.
+                        type_int = type_stoi.size() + 1;  // To ensure all types are count from 1.
                         type_itos[type_int] = given_type;
                         type_stoi[given_type] = type_int;
                         total_types++;
-                    } else {
+                    }
+                    else {
                         type_int = type_stoi[given_type];
                     }
                     type_str = given_type;
-                } catch (const std::invalid_argument& e) {
+                }
+                catch (const std::invalid_argument& e) {
                     std::cerr << "Invalid element type in xyzfile: " << given_type << std::endl;
                 }
-            } else {
+            }
+            else {
                 // In case of int type
                 try {
                     type_int = std::stoi(given_type);
                     type_str = type_itos[type_int];
-                } catch (const std::invalid_argument& e) {
+                }
+                catch (const std::invalid_argument& e) {
                     std::cerr << "Invalid element type in xyzfile: " << given_type << std::endl;
                 }
             }
@@ -188,13 +189,14 @@ void System::load_xyz(std::ifstream& file) {
                 x = x < 0 ? x + lx : x;
                 y = y < 0 ? y + ly : y;
                 z = z < 0 ? z + lz : z;
-            } else {
+            }
+            else {
                 x = x - xlo;
                 y = y - ylo;
                 z = z - zlo;
             }
 
-            Atom* atom = new Atom(atom_id, type_int, {x, y, z}, type_str);
+            Atom* atom = new Atom(atom_id, type_int, { x, y, z }, type_str);
             atoms.push_back(atom);
             id_atom_map[atom_id] = atom;
 
@@ -240,7 +242,8 @@ void System::load_lammpstrj(std::ifstream& file) {
         std::vector<std::string> tokens = split_by_space(line);
         if ((tokens.size() == 0) || (tokens[0] == "#")) {
             continue;
-        } else if (tokens[0] == "ITEM:") {
+        }
+        else if (tokens[0] == "ITEM:") {
             if (tokens[1] == "TIMESTEP") {
                 read_timestep = true;
             }
@@ -256,7 +259,8 @@ void System::load_lammpstrj(std::ifstream& file) {
                     atom_x_column = std::find(tokens.begin(), tokens.end(), "xs") - tokens.begin() - 2;
                     atom_y_column = std::find(tokens.begin(), tokens.end(), "ys") - tokens.begin() - 2;
                     atom_z_column = std::find(tokens.begin(), tokens.end(), "zs") - tokens.begin() - 2;
-                } else {
+                }
+                else {
                     // find index of id, type, x, y, z
                     atom_x_column = std::find(tokens.begin(), tokens.end(), "x") - tokens.begin() - 2;
                     atom_y_column = std::find(tokens.begin(), tokens.end(), "y") - tokens.begin() - 2;
@@ -268,31 +272,36 @@ void System::load_lammpstrj(std::ifstream& file) {
                 static bool printed_column_info = false;
                 if (!printed_column_info) {
                     fmt::print("Format of lammpstrj file: id: {}, type: {}, x: {}, y: {}, z: {}\n", atom_id_column,
-                               atom_type_column, atom_x_column, atom_y_column, atom_z_column);
+                        atom_type_column, atom_x_column, atom_y_column, atom_z_column);
                     printed_column_info = true;
                 }
 
                 read_atoms = true;
             }
-        } else if (read_timestep) {
+        }
+        else if (read_timestep) {
             read_timestep = false;
-        } else if (read_natoms) {
+        }
+        else if (read_natoms) {
             total_atoms = std::stoi(tokens[0]);
             atoms.reserve(total_atoms);
             bonds.reserve(total_atoms * 3);
             molecules.reserve(total_atoms / 2);
             read_natoms = false;
-        } else if (read_box) {
+        }
+        else if (read_box) {
             // For rectangular box, maybe support triclinc box later.
             if (box_dim == 0) {
                 xlo = std::stof(tokens[0]);
                 xhi = std::stof(tokens[1]);
                 lx = xhi - xlo;
-            } else if (box_dim == 1) {
+            }
+            else if (box_dim == 1) {
                 ylo = std::stof(tokens[0]);
                 yhi = std::stof(tokens[1]);
                 ly = yhi - ylo;
-            } else if (box_dim == 2) {
+            }
+            else if (box_dim == 2) {
                 zlo = std::stof(tokens[0]);
                 zhi = std::stof(tokens[1]);
                 lz = zhi - zlo;
@@ -300,12 +309,13 @@ void System::load_lammpstrj(std::ifstream& file) {
 
             box_dim++;
             if (box_dim > 2) {
-                bounds = {xlo, ylo, zlo, xhi, yhi, zhi};
+                bounds = { xlo, ylo, zlo, xhi, yhi, zhi };
                 this->has_boundaries = true;
-                axis_lengths = {lx, ly, lz};
+                axis_lengths = { lx, ly, lz };
                 read_box = false;
             }
-        } else if (read_atoms) {
+        }
+        else if (read_atoms) {
             if (!has_boundaries) {
                 std::cerr << "lammstrj file must have boundaries!" << std::endl;
             }
@@ -327,13 +337,14 @@ void System::load_lammpstrj(std::ifstream& file) {
                 x = x < 0 ? x + lx : x;
                 y = y < 0 ? y + ly : y;
                 z = z < 0 ? z + lz : z;
-            } else {
+            }
+            else {
                 x = std::stof(tokens[atom_x_column]) * lx;
                 y = std::stof(tokens[atom_y_column]) * ly;
                 z = std::stof(tokens[atom_z_column]) * lz;
             }
 
-            Atom* atom = new Atom(id, type_i, {x, y, z}, type_s);
+            Atom* atom = new Atom(id, type_i, { x, y, z }, type_s);
             atoms.push_back(atom);
             id_atom_map[id] = atom;
             atoms_count++;
@@ -351,7 +362,12 @@ void System::load_lammpstrj(std::ifstream& file) {
  * @param type_names Vector of atom type names.
  */
 void System::set_types() {
-    int total_types = INPUT_ELEMENT_TYPES.size();
+    total_types = INPUT_ELEMENT_TYPES.size();
+
+    if (total_types == 0) {
+        return;
+    }
+
     int type_id = 0;
     for (auto& name : INPUT_ELEMENT_TYPES) {
         type_id++;
@@ -360,7 +376,7 @@ void System::set_types() {
 
         // Initialize ELEMENT_MAX_VALENCIES for each type
         if (ELEMENT_MAX_VALENCIES.find(name) == ELEMENT_MAX_VALENCIES.end()) {
-            ELEMENT_MAX_VALENCIES[name] = 4; // Default max valence
+            ELEMENT_MAX_VALENCIES[name] = 4;  // Default max valence
         }
     }
 }
@@ -369,22 +385,53 @@ void System::set_types() {
  * @brief Print system summary for the current frame, including atom, bond, molecule, and ring counts.
  */
 void System::finish() {
-    fmt::print("\rFrame: {}, Atoms: {}, Bonds: {}, Mols: {}, ", frame_id, atoms.size(), bonds.size(), molecules.size());
-    if (has_boundaries) {
-        fmt::print("PBC: {:.1f} {:.1f} {:.1f}", axis_lengths[0], axis_lengths[1], axis_lengths[2]);
-    } else {
-        fmt::print("PBC: false (time++)");
-    }
+    std::string header = fmt::format("{:<8} {:<8} {:<8} {:<8}", "Frame", "Atoms", "Bonds", "Mols");
+    std::string formatting = "{:<8} {:<8} {:<8} {:<8} {}";
 
-    if (ring_counts.size() > 0) {
-        for (auto& ring_count : ring_counts) {
-            if (ring_count.second > 0) {
-                fmt::print(", R{}={}", ring_count.first, ring_count.second);
+    std::string ring_str = "";
+
+    if (!FLAG_NO_RINGS) {
+        for (int i = MIN_RING_SIZE; i <= MAX_RING_SIZE; i++) {
+            header += fmt::format(" R{:<5}", i);
+
+            if (ring_counts.find(i) != ring_counts.end()) {
+                ring_str += fmt::format(" {:<6}", ring_counts[i]);
+            }
+            else {
+                ring_str += fmt::format(" {:<6}", 0);
             }
         }
     }
 
-    fmt::print("                  "); // If the previous print is too long, clear the line.
+    if (frame_id <= 1) {
+        fmt::print(header);
+        fmt::print("\n");
+    }
+
+    fmt::print(formatting, frame_id, atoms.size(), bonds.size(), molecules.size(), ring_str);
+    fmt::print("\n");
+
+    static int has_warned_pbc = 5;
+    if (!this->has_boundaries && has_warned_pbc > 0) {
+        fmt::print("**** WARNING **** : No PBC info, cost much more time and results may be inaccurate!\n");
+        has_warned_pbc--;
+    }
+    else if (!this->has_boundaries && has_warned_pbc == 0) {
+        fmt::print("**** WARNING **** : No more PBC warnings, you'd better know what you are doing!\n");
+        has_warned_pbc--;
+    }
+
+    static int has_warned_atom_lost = 5;
+    if (prev_sys != nullptr) {
+        if (prev_sys->atoms.size() != atoms.size() && has_warned_atom_lost > 0) {
+            fmt::print("**** WARNING **** : Detected ATOM LOST, reactions may be inaccurate!\n");
+            has_warned_atom_lost--;
+        }
+        else if (prev_sys->atoms.size() != atoms.size() && has_warned_atom_lost == 0) {
+            fmt::print("**** WARNING **** : No more ATOM LOST warnings, you'd better know what you are doing!\n");
+            has_warned_atom_lost--;
+        }
+    }
 }
 
 /**
@@ -399,8 +446,7 @@ void System::search_neigh_naive() {
     // Define a function pointer type for distance calculation function
     for (auto& curr_atom : atoms) {
         for (auto& other_atom : atoms) {
-            if (curr_atom == other_atom)
-                continue;
+            if (curr_atom == other_atom) continue;
 
             dist_sq = distance_sq(curr_atom->coord, other_atom->coord);
             if (dist_sq <= radius_sq) {
@@ -430,7 +476,8 @@ void System::search_neigh() {
     if (has_boundaries && axis_lengths.size() == 3 && axis_lengths[0] > 0.0f && axis_lengths[1] > 0.0f &&
         axis_lengths[2] > 0.0f) {
         search_neigh_cell_list();
-    } else {
+    }
+    else {
         search_neigh_naive();
     }
 }
@@ -457,47 +504,42 @@ void System::build_bonds_by_radius() {
 
     for (auto& atom : atoms) {
         // Skip X atoms and atoms that reached max valence
-        if (type_itos[atom->type_id] == "X" || atom->bonded_atoms.size() >= atom->max_valence)
-            continue;
+        if (type_itos[atom->type_id] == "X" || atom->bonded_atoms.size() >= atom->max_valence) continue;
 
         for (auto& neigh : atom->neighs) {
-            type_idx = {atom->type_id, neigh->type_id};
+            type_idx = { atom->type_id, neigh->type_id };
             bond_sq = bond_radius_sq[type_idx];
 
-            if (bond_sq <= 0)
-                continue;
+            if (bond_sq <= 0) continue;
 
             if (has_boundaries) {
                 dist_sq = distance_sq_pbc(atom->coord, neigh->coord, axis_lengths);
-            } else {
+            }
+            else {
                 dist_sq = distance_sq(atom->coord, neigh->coord);
             }
 
-            if (dist_sq > bond_sq)
-                continue;
+            if (dist_sq > bond_sq) continue;
 
             relative_sq = dist_sq / bond_sq;
 
             if (relative_sq < 1.0f) {
-                id_dist_sq = {neigh->id, dist_sq};
+                id_dist_sq = { neigh->id, dist_sq };
                 candidate_id_relative_sq.emplace_back(std::pair(neigh, relative_sq));
             }
         }
 
         std::sort(candidate_id_relative_sq.begin(), candidate_id_relative_sq.end(),
-                  [](const auto& a, const auto& b) { return a.second < b.second; });
+            [](const auto& a, const auto& b) { return a.second < b.second; });
 
         for (size_t tmp_id = 0; tmp_id < candidate_id_relative_sq.size(); tmp_id++) {
-            if (atom->bonded_atoms.size() >= atom->max_valence)
-                break;
+            if (atom->bonded_atoms.size() >= atom->max_valence) break;
 
             tmp_neigh = candidate_id_relative_sq[tmp_id].first;
 
-            if (atom->bonded_atoms.find(tmp_neigh) != atom->bonded_atoms.end())
-                continue;
+            if (atom->bonded_atoms.find(tmp_neigh) != atom->bonded_atoms.end()) continue;
 
-            if (tmp_neigh->bonded_atoms.size() >= tmp_neigh->max_valence)
-                continue;
+            if (tmp_neigh->bonded_atoms.size() >= tmp_neigh->max_valence) continue;
 
             Bond* bond = new Bond(atom, tmp_neigh);
             bond_type_counts[std::pair(atom->type_id, tmp_neigh->type_id)]++;
@@ -521,7 +563,7 @@ void System::build_molecules() {
     int new_mol_id = 0;
 
     for (auto& atom : atoms) {
-        if (visited.find(atom) == visited.end()) // If not visited
+        if (visited.find(atom) == visited.end())  // If not visited
         {
             new_mol_id++;
             Molecule* new_mol = new Molecule(new_mol_id);
@@ -542,8 +584,7 @@ void System::build_molecules() {
 
     for (auto& molecule : molecules) {
         // Skip single atom molecules and molecules containing X atoms
-        if (molecule->mol_atoms.size() == 1)
-            continue;
+        if (molecule->mol_atoms.size() == 1) continue;
 
         // Greedy algorithm.
         while (true) {
@@ -557,8 +598,7 @@ void System::build_molecules() {
                     atom_valence_residual[bond->atom_j]--;
 
                     // We do not consider 4+ bonds, they merely exist.
-                    if (bond->order >= 3)
-                        continue;
+                    if (bond->order >= 3) continue;
                 }
             }
 
@@ -608,8 +648,7 @@ void System::dfs(Atom* atom, std::set<Atom*>& visited, Molecule* curr_mol) {
  * @param mark_ring_atoms Use mol id entry to mark if an atom on ring, 0 = no , 1 = yes.
  */
 void System::dump_lammps_data() {
-    if (frame_id % DUMP_STEPS != 0)
-        return;
+    if ((frame_id % DUMP_STEPS != 0) && (frame_id != 1)) return;
 
     std::string file_basename = fmt::format("frame_{}.data", frame_id);
     FILE* file = create_file(file_basename);
@@ -626,19 +665,48 @@ void System::dump_lammps_data() {
         fmt::print(file, "{} {} zlo zhi\n", 0, axis_lengths[2]);
     }
 
+    fmt::print(file, "\nMasses\n\n");
+
+    // Re-sort type_id and symbol map by element order.
+    std::vector<std::pair<int, int>> type_id_atomic_index;
+    int atomic_index = 0;
+    for (auto& [type_id, symbol] : type_itos) {
+        if (ELEMENT_TO_INDEX.find(symbol) != ELEMENT_TO_INDEX.end()) {
+            atomic_index = ELEMENT_TO_INDEX[symbol];
+        }
+        else {
+            atomic_index = 118 + type_id;  // Unknown, but still give it a unique index.
+        }
+        type_id_atomic_index.emplace_back(type_id, atomic_index);
+    }
+    std::sort(type_id_atomic_index.begin(), type_id_atomic_index.end(),
+        [](const auto& a, const auto& b) { return a.second < b.second; });
+
+    for (auto& [type_id, atomic_index] : type_id_atomic_index) {
+        std::string symbol = type_itos[type_id];
+        if (ELEMENT_MASS.find(symbol) != ELEMENT_MASS.end()) {
+            fmt::print(file, "{} {} # {}\n", type_id, ELEMENT_MASS[symbol], symbol);
+        }
+        else {
+            fmt::print(file, "{} {} # {}\n", type_id, 1.0, type_id);
+        }
+    }
+
+    fmt::print(file, "\n");
     fmt::print(file, "\nAtoms # full\n\n");
 
     if (FLAG_MARK_RING_ATOMS) {
         for (auto& atom : atoms) {
             fmt::print(file, "{} {} {} 0.0 {:>.3f} {:>.3f} {:>.3f} 0 0 0\n", atom->id, atom->on_ring ? 1 : 0,
-                       atom->type_id, atom->coord[0], atom->coord[1], atom->coord[2]);
+                atom->type_id, atom->coord[0], atom->coord[1], atom->coord[2]);
         }
 
-    } else {
+    }
+    else {
         for (auto& mol : molecules) {
             for (auto& atom : mol->mol_atoms) {
                 fmt::print(file, "{} {} {} 0.0 {:>.3f} {:>.3f} {:>.3f} 0 0 0\n", atom->id, mol->id, atom->type_id,
-                           atom->coord[0], atom->coord[1], atom->coord[2]);
+                    atom->coord[0], atom->coord[1], atom->coord[2]);
             }
         }
     }
@@ -676,10 +744,11 @@ void System::process_this() {
 
     for (int type_i = 1; type_i <= total_types; type_i++) {
         for (int type_j = 1; type_j <= total_types; type_j++) {
-            std::pair<int, int> pair_ij = {type_i, type_j};
+            std::pair<int, int> pair_ij = { type_i, type_j };
             if (atomic_radius[type_i] == 0.0f || atomic_radius[type_j] == 0.0f) {
                 bond_radius = 0.0f;
-            } else {
+            }
+            else {
                 bond_radius = 0.5f * (atomic_radius[type_i] + atomic_radius[type_j]) * RVDW_FACTOR;
             }
             if (bond_radius > neigh_radius) {
@@ -689,8 +758,6 @@ void System::process_this() {
             bond_type_counts[pair_ij] = 0;
         }
     }
-
-    // neigh_radius = 2.5 * rvdw_scale;
 
     search_neigh();
     build_bonds_by_radius();
@@ -710,6 +777,7 @@ void System::process_counters() {
     std::map<std::string, int> bond_count_map;
     std::map<std::string, int> ring_count_map;
     std::map<std::string, int> atom_bonded_num_count_map;
+    std::map<std::string, int> hash_count_map;
 
     // Formulas, aka reax_species.
     for (size_t i = 0; i < molecules.size(); i++) {
@@ -725,7 +793,8 @@ void System::process_counters() {
 
         if (bond_count_map.find(key) == bond_count_map.end()) {
             bond_count_map[key] = count;
-        } else {
+        }
+        else {
             bond_count_map[key] += count;
         }
     }
@@ -753,13 +822,26 @@ void System::process_counters() {
         ring_count_map[key] = count;
     }
 
-    // Lock the shared reax_counter import operations.
+    // Molecule hashes
+    std::string hash_str;
+    for (const auto& molecule : molecules) {
+        hash_str = std::to_string(molecule->hash);
+        if (hash_count_map.find(hash_str) == hash_count_map.end()) {
+            hash_count_map[hash_str] = 1;
+        }
+        else {
+            hash_count_map[hash_str]++;
+        }
+    }
+
+    // Lock the shared species_counter import operations.
     {
-        std::lock_guard<std::mutex> lock(reaxcounter_mutex);
-        reax_counter->import_frame_formulas(frame_id, frame_formulas);
+        std::lock_guard<std::mutex> lock(species_counter_mutex);
+        species_counter->import_frame_formulas(frame_id, frame_formulas);
         bond_counter->import_frame_values(frame_id, bond_count_map);
         atom_bonded_num_counter->import_frame_values(frame_id, atom_bonded_num_count_map);
         ring_counter->import_frame_values(frame_id, ring_count_map);
+        hash_counter->import_frame_values(frame_id, hash_count_map);
     }
 }
 
@@ -768,7 +850,8 @@ inline Atom* System::get_atom_by_id(const int& atom_id) {
     auto it = id_atom_map.find(atom_id);
     if (it != id_atom_map.end()) {
         return it->second;
-    } else {
+    }
+    else {
         return nullptr;
     }
 }
@@ -778,45 +861,60 @@ inline Molecule* System::get_molecule_by_id(const int& mol_id) {
     auto it = id_mol_map.find(mol_id);
     if (it != id_mol_map.end()) {
         return it->second;
-    } else {
+    }
+    else {
         return nullptr;
     }
 }
 
 void System::process_reax_flow() {
     // These computations are safe without lock.
-    if (prev_sys == nullptr) // The first frame.
+    if (prev_sys == nullptr)  // The first frame.
         return;
-
-    static int has_warned = 5;
-    if (prev_sys->atoms.size() != atoms.size() && has_warned > 0) {
-        fmt::print("**** WARNING **** : Detected ATOM LOST, reactions may be inaccurate!\n");
-        has_warned--;
-    } else if (prev_sys->atoms.size() != atoms.size() && has_warned == 0) {
-        fmt::print("**** WARNING **** : No more warnings will be printed, you'd better know what you are doing.\n");
-        has_warned--;
-    }
 
     std::vector<int> intersection;
     std::unordered_set<std::pair<int, int>, pair_hash> reaction_mol_id_pairs;
-    std::pair<int, int> mol_id_pair = {0, 0};
+    std::pair<int, int> mol_id_pair = { 0, 0 };
     Atom* prev_atom = nullptr;
     Molecule* prev_mol = nullptr;
     Molecule* curr_mol = nullptr;
 
+    // Downgrading: naive comparison of molecules between frames.
+    // for (const auto& curr_atom : this->atoms) {
+    //     prev_atom = prev_sys->get_atom_by_id(curr_atom->id);
+    //     if (!prev_atom) continue;
+
+    //     prev_mol = prev_atom->belong_molecule;
+    //     curr_mol = curr_atom->belong_molecule;
+
+    //     if (prev_mol == nullptr || curr_mol == nullptr) continue;
+
+    //     if (prev_mol->hash != curr_mol->hash) {
+    //         mol_id_pair = { prev_mol->id, curr_mol->id };
+    //         if (reaction_mol_id_pairs.find(mol_id_pair) == reaction_mol_id_pairs.end()) {
+    //             reaction_mol_id_pairs.insert(mol_id_pair);
+    //         }
+    //     }
+    // }
+
+    // for (const auto& pair : reaction_mol_id_pairs) {
+    //     prev_mol = prev_sys->get_molecule_by_id(pair.first);
+    //     curr_mol = this->get_molecule_by_id(pair.second);
+
+    //     reax_flow->add_reaction(this->frame_id, 1, prev_mol, curr_mol);
+    // }
+
     for (const auto& curr_atom : this->atoms) {
         prev_atom = prev_sys->get_atom_by_id(curr_atom->id);
-        if (!prev_atom)
-            continue;
+        if (!prev_atom) continue;
 
         prev_mol = prev_atom->belong_molecule;
         curr_mol = curr_atom->belong_molecule;
 
-        if (prev_mol == nullptr || curr_mol == nullptr)
-            continue;
+        if (prev_mol == nullptr || curr_mol == nullptr) continue;
 
         if (prev_mol->hash != curr_mol->hash) {
-            mol_id_pair = {prev_mol->id, curr_mol->id};
+            mol_id_pair = { prev_mol->id, curr_mol->id };
             if (reaction_mol_id_pairs.find(mol_id_pair) == reaction_mol_id_pairs.end()) {
                 reaction_mol_id_pairs.insert(mol_id_pair);
             }
@@ -830,7 +928,7 @@ void System::process_reax_flow() {
         curr_mol = this->get_molecule_by_id(pair.second);
 
         std::set_intersection(prev_mol->atom_ids.begin(), prev_mol->atom_ids.end(), curr_mol->atom_ids.begin(),
-                              curr_mol->atom_ids.end(), back_inserter(intersection));
+            curr_mol->atom_ids.end(), back_inserter(intersection));
 
         if (intersection.size() > 0) {
             reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
@@ -860,8 +958,7 @@ void System::compute_ring_counts() {
         current_path.clear();
 
         // At least 3 atoms to form rings.
-        if (molecule->mol_atoms.size() < 3)
-            continue;
+        if (molecule->mol_atoms.size() < 3) continue;
 
         // Search from every atom is mandatory for polycyclics like Naphthalene.
         // Actually this is not very time-consuming.
@@ -876,7 +973,7 @@ void System::compute_ring_counts() {
             for (auto& atom : *ring) {
                 atom->on_ring = true;
             }
-            delete ring; // Only count matters.
+            delete ring;  // Only count matters.
         }
     }
 
@@ -890,8 +987,8 @@ void System::compute_ring_counts() {
  *        Updates the ring_counts member variable.
  */
 void System::find_rings_from_atom(Atom* current, Atom* start, int depth, std::unordered_set<Atom*>& visited,
-                                  std::unordered_set<std::unordered_set<Atom*>*>& current_rings,
-                                  std::vector<Atom*>& current_path) {
+    std::unordered_set<std::unordered_set<Atom*>*>& current_rings,
+    std::vector<Atom*>& current_path) {
     // Move forward
     // Add current atom to path
     // depth start from 0 and RING_SIZE start from 1.
@@ -903,7 +1000,7 @@ void System::find_rings_from_atom(Atom* current, Atom* start, int depth, std::un
     for (Atom* bonded_atom : current->bonded_atoms) {
         // If ring closed and size = MIN - MAX
         if (bonded_atom == start && depth >= MIN_RING_SIZE - 1 && depth <= MAX_RING_SIZE - 1) {
-            this_ring = new std::unordered_set<Atom*>(); // Initialize the pointer
+            this_ring = new std::unordered_set<Atom*>();  // Initialize the pointer
             for (Atom* atom : current_path) {
                 this_ring->insert(atom);
             }
@@ -932,15 +1029,17 @@ void System::find_rings_from_atom(Atom* current, Atom* start, int depth, std::un
                     }
 
                     // If ring is a proper subset of another, we drop the bigger one.
-                    if (is_subset_of_other && !is_subset_of_this) { // The other contains this one
+                    if (is_subset_of_other && !is_subset_of_this) {  // The other contains this one
                         to_erase.insert(other_ring);
                         // Don't change to_insert here
-                    } else if (is_subset_of_this && !is_subset_of_other) { // This one contains the other
+                    }
+                    else if (is_subset_of_this && !is_subset_of_other) {  // This one contains the other
                         to_insert = false;
-                        break;                                            // No need to check other rings
-                    } else if (is_subset_of_this && is_subset_of_other) { // They are the same
+                        break;                                             // No need to check other rings
+                    }
+                    else if (is_subset_of_this && is_subset_of_other) {  // They are the same
                         to_insert = false;
-                        break; // No need to check other rings
+                        break;  // No need to check other rings
                     }
                     // else: None of them is subset, may have intersection, but that is what we want.
                     // to_insert stays true
@@ -955,11 +1054,13 @@ void System::find_rings_from_atom(Atom* current, Atom* start, int depth, std::un
 
             if (to_insert) {
                 current_rings.insert(this_ring);
-            } else {
+            }
+            else {
                 // Free memory if we're not inserting this ring
                 delete this_ring;
             }
-        } else if (visited.find(bonded_atom) == visited.end() && depth < MAX_RING_SIZE - 1) {
+        }
+        else if (visited.find(bonded_atom) == visited.end() && depth < MAX_RING_SIZE - 1) {
             // recursive, if not visited
             find_rings_from_atom(bonded_atom, start, depth + 1, visited, current_rings, current_path);
         }

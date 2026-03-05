@@ -6,15 +6,16 @@
 #include "system.h"
 
 class Universe {
-  public:
+   public:
     System* last_system = nullptr;
     System* system = nullptr;
 
-    ReaxCounter* reax_counter = new ReaxCounter();
+    SpeciesCounter* species_counter = new SpeciesCounter();
     ReaxFlow* reax_flow = new ReaxFlow();
     Counter<int>* bond_counter = new Counter<int>();
     Counter<int>* ring_counter = new Counter<int>();
     Counter<int>* atom_bonded_num_counter = new Counter<int>();
+    Counter<int>* hash_counter = new Counter<int>();
 
     Universe();
     ~Universe();

@@ -1,10 +1,12 @@
 #include "reax_flow.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <mutex>
+#include <queue>
 #include <unordered_map>
 
 #include "argparser.h"
@@ -16,259 +18,466 @@
 #include "rdkit_utils.h"
 #endif
 
-ReaxFlow::~ReaxFlow() {
-    // for (const auto& instance : nodes) {
-    //     if (instance != nullptr)
-    //         delete instance;
-    // }
-
-    for (const auto& pair : nodes) {
-        if (pair.second != nullptr) {
-            delete pair.second;
-        }
+/**
+ * @brief Constructs a Node object representing a molecule in the reaction graph
+ * @param mol Pointer to the molecule to be represented by this node
+ * @throws ReaxFlowException if mol is nullptr
+ * @note Creates a deep copy of the molecule to ensure the original can be
+ * safely destroyed
+ */
+Node::Node(Molecule* mol) {
+    // deep copy a molecule in system, thus the origin one can be detroyed safely.
+    if (mol == nullptr) {
+        throw ReaxFlowException("Invalid molecule when construct node.");
     }
 
+    molecule = new Molecule(*mol);
+    hash = molecule->hash;
+}
+
+/**
+ * @brief Destructor for Node object
+ * @note Safely deallocates the molecule pointer to prevent memory leaks
+ */
+Node::~Node() {
+    if (molecule != nullptr) {
+        delete molecule;
+    }
+}
+
+/**
+ * @brief Updates the degree statistics for this node based on reaction
+ * participation
+ * @param source_or_target True if this node is the source (outgoing), false if
+ * target (incoming)
+ * @param count Number of reactions involving this node
+ * @param atom_transfer_count Total number of atoms transferred in reactions
+ * involving this node
+ * @note Updates both total degrees and directional degrees (in/out) based on
+ * reaction direction
+ */
+void Node::add_degrees(bool source_or_target, unsigned int count, unsigned int atom_transfer_count) {
+    if (source_or_target) {
+        degree += count;
+        degree_at += atom_transfer_count;
+        out_degree++;
+        out_degree_at += atom_transfer_count;
+    }
+    else {
+        degree += count;
+        degree_at += atom_transfer_count;
+        in_degree++;
+        in_degree_at += atom_transfer_count;
+    }
+}
+
+/**
+ * @brief Constructs an Edge object representing a reaction between two
+ * molecules
+ * @param from_node Pointer to the source node (reactant)
+ * @param to_node Pointer to the target node (product)
+ * @throws ReaxFlowException if either node is nullptr
+ * @note Automatically generates a hash for efficient lookup
+ */
+Edge::Edge(Node* from_node, Node* to_node) {
+    if (from_node == nullptr || to_node == nullptr) {
+        throw ReaxFlowException("Invalid node when construct edge.");
+    }
+
+    source = from_node;
+    target = to_node;
+    hash = get_edge_hash(source, target);
+}
+
+/**
+ * @brief Destructor for Edge object
+ * @note No dynamic memory to deallocate, but provides virtual destructor for
+ * inheritance
+ */
+Edge::~Edge() {}
+
+/**
+ * @brief Default constructor for ReaxFlow object
+ * @note Initializes empty reaction graph with thread-safe mutex
+ */
+ReaxFlow::ReaxFlow() {}
+
+/**
+ * @brief Destructor for ReaxFlow object
+ * @note Safely deallocates all nodes and edges to prevent memory leaks
+ */
+ReaxFlow::~ReaxFlow() {
+    for (auto& edge : edges) {
+        if (edge != nullptr) {
+            delete edge;
+        }
+    }
+    edges.clear();
+
+    for (auto& node : nodes) {
+        if (node != nullptr) {
+            delete node;
+        }
+    }
     nodes.clear();
+
+    // Clear the hash map
+    molecule_hash_to_node.clear();
+}
+
+/**
+ * @brief Retrieves a node by molecule pointer using hash-based lookup
+ * @param mol Pointer to the molecule to search for
+ * @return Node* Pointer to the node if found, nullptr otherwise
+ * @note Uses O(1) hash map lookup for efficient retrieval
+ */
+Node* ReaxFlow::get_node(Molecule* mol) {
+    if (mol == nullptr) {
+        return nullptr;
+    }
+
+    // Use hash map for O(1) lookup
+    auto it = molecule_hash_to_node.find(mol->hash);
+    if (it != molecule_hash_to_node.end()) {
+        return it->second;
+    }
+
+    return nullptr;
+}
+
+/**
+ * @brief Retrieves a node by hash value using hash-based lookup
+ * @param hash Hash value of the molecule to search for
+ * @return Node* Pointer to the node if found, nullptr otherwise
+ * @note Uses O(1) hash map lookup for efficient retrieval
+ */
+Node* ReaxFlow::get_node(unsigned int hash) {
+    auto it = molecule_hash_to_node.find(hash);
+    if (it != molecule_hash_to_node.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+/**
+ * @brief Retrieves an edge between two nodes using hash-based lookup
+ * @param from_node Source node of the edge
+ * @param to_node Target node of the edge
+ * @return Edge* Pointer to the edge if found, nullptr otherwise
+ * @note Uses O(1) hash map lookup for efficient retrieval
+ */
+Edge* ReaxFlow::get_edge(Node* from_node, Node* to_node) {
+    if (from_node == nullptr || to_node == nullptr) {
+        return nullptr;
+    }
+
+    unsigned int hash = get_edge_hash(from_node, to_node);
+    auto it = edge_hash_to_edge.find(hash);
+    if (it != edge_hash_to_edge.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+/**
+ * @brief Retrieves an edge by hash value using hash-based lookup
+ * @param hash Hash value of the edge to search for
+ * @return Edge* Pointer to the edge if found, nullptr otherwise
+ * @note Uses O(1) hash map lookup for efficient retrieval
+ */
+Edge* ReaxFlow::get_edge(unsigned int hash) {
+    auto it = edge_hash_to_edge.find(hash);
+    if (it != edge_hash_to_edge.end()) {
+        return it->second;
+    }
+    return nullptr;
 }
 
 /**
  * @brief Adds a molecule to the reaction flow system
  * @param mol Pointer to the molecule to be added
- * @return int The ID of the molecule in the system
- * @note If the molecule already exists, returns its existing ID
+ * @return Node* Pointer to the node representing the molecule
+ * @note If the molecule already exists, returns its existing node. Otherwise
+ * creates a new node.
+ * @note Thread-safe implementation with automatic node creation
  */
-inline int ReaxFlow::add_molecule(Molecule* mol) {
-    // If already exists
-    // Use hash map for O(1) lookup
-    auto it = molecule_map.find(mol->hash);
-    if (it != molecule_map.end()) {
-        return it->second;
+Node* ReaxFlow::add_molecule(Molecule* mol) {
+    if (mol == nullptr) {
+        return nullptr;
     }
 
-    // create new by copy
-    // the current molecule in system will be destructed with system later.
-    Molecule* new_mol = new Molecule(*mol);
-    int new_id = nodes.size();
-    // nodes.emplace_back(new_mol);
-    nodes[new_id] = new_mol;
+    // Check if molecule already exists using hash map
+    auto it = molecule_hash_to_node.find(mol->hash);
+    if (it != molecule_hash_to_node.end()) {
+        return it->second;  // Return existing node
+    }
 
-    molecule_map[mol->hash] = new_id;
-    return new_id;
+    // Create new node
+    Node* new_node = new Node(mol);
+    nodes.insert(new_node);
+    molecule_hash_to_node[mol->hash] = new_node;
+
+    return new_node;
 }
 
 /**
  * @brief Adds a reaction between two molecules to the system
- * @param frame Frame number of the reaction
+ * @param frame_id Frame number of the reaction (currently unused but preserved
+ * for future use)
  * @param atom_transfer_count Number of atoms transferred in the reaction
- * @param source Source molecule of the reaction
- * @param target Target molecule of the reaction
- * @return std::pair<int, int> Pair of molecule IDs representing the reaction edge
+ * @param source Source molecule of the reaction (reactant)
+ * @param target Target molecule of the reaction (product)
+ * @return Edge* Pointer to the edge representing the reaction
  * @note Thread-safe implementation with mutex lock
+ * @note If the reaction already exists, updates the existing edge counts
+ * @note Automatically creates nodes for molecules if they don't exist
  */
-std::pair<int, int> ReaxFlow::add_reaction(const int& frame_id, const int& atom_transfer_count, Molecule* source,
-                                           Molecule* target) {
-    // lock it to avoid race condition when parallel execution
+Edge* ReaxFlow::add_reaction(const int& frame_id, const int& atom_transfer_count, Molecule* source, Molecule* target) {
+    // lock for parallel, dynamic find & create in unordered_set / unordered_map
+    // is thread unsafe.
     std::lock_guard<std::mutex> lock(reaxflow_mutex);
 
-    int source_id = add_molecule(source);
-    int target_id = add_molecule(target);
-    std::pair<int, int> edge = {source_id, target_id};
+    Node* source_node = add_molecule(source);
+    Node* target_node = add_molecule(target);
 
-    // If already exists, optimize by unordered_set later.
-    for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
-        if (edge == edges[edge_id]) {
-            edge_reaction_counts[edge_id]++;
-            edge_atom_transfer_counts[edge_id] += atom_transfer_count;
-            return edge;
-        }
+    if (source_node == nullptr || target_node == nullptr) {
+        return nullptr;
     }
 
-    // create new
-    int new_edge_id = edges.size();
-    // edges.push_back(edge);
-    // edge_reaction_counts.push_back(1);
-    // edge_atom_transfer_counts.push_back(atom_transfer_count);
+    // Check if edge already exists
+    Edge* existing_edge = get_edge(source_node, target_node);
+    if (existing_edge != nullptr) {
+        // Update existing edge
+        existing_edge->count++;
+        existing_edge->atom_transfer += atom_transfer_count;
 
-    edges[new_edge_id] = edge;
-    edge_reaction_counts[new_edge_id] = 1;
-    edge_atom_transfer_counts[new_edge_id] = atom_transfer_count;
+        return existing_edge;
+    }
 
-    return edge;
+    // Create new edge
+    Edge* new_edge = new Edge(source_node, target_node);
+    new_edge->count++;
+    new_edge->atom_transfer += atom_transfer_count;
+
+    edges.insert(new_edge);
+    edge_hash_to_edge[new_edge->hash] = new_edge;
+
+    return new_edge;
 }
 
 /**
  * @brief Reduces the reaction graph by handling reversible reactions
- * @details Combines forward and reverse reactions, keeping only the net reaction counts
- * and atom transfer counts. Removes zero-count reactions from the graph.
+ * @details Combines forward and reverse reactions, keeping only the net
+ * reaction counts and atom transfer counts. Removes zero-count reactions from
+ * the graph.
  */
 void ReaxFlow::reduce_graph() {
-    // Reduce reversive reactions.
-    std::vector<int> edges_visited;
-    int reaction_count_diff = 0;
-    int atom_transfer_count_diff = 0;
+    std::vector<Edge*> edges_to_remove;
+    std::unordered_set<Edge*> processed_edges;
 
-    size_t reverse_edge_id = 0;
-    std::pair<int, int> reverse_edge = {0, 0};
-
-    // Verify data consistency
-    if (edges.size() != edge_reaction_counts.size()) {
-        fmt::print(stderr, "Error: Inconsistent data in reduce_graph: edges size {} != edge_reaction_counts size {}\n",
-                   edges.size(), edge_reaction_counts.size());
-        return;
-    }
-
-    for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
-        if (std::find(edges_visited.begin(), edges_visited.end(), edge_id) != edges_visited.end())
+    for (Edge* edge1 : edges) {
+        // Skip if already processed or marked for removal
+        if (processed_edges.find(edge1) != processed_edges.end()) {
             continue;
-
-        edges_visited.push_back(edge_id);
-        reverse_edge = {edges[edge_id].second, edges[edge_id].first};
-
-        // reverse_edge_id = std::find(edges.begin(), edges.end(), reverse_edge) - edges.begin();
-
-        int reverse_edge_id = -1;
-        for (const auto& pair : edges) {
-            if (pair.second == reverse_edge)
-                reverse_edge_id = pair.first;
         }
 
-        // no reverse reaction
-        if (reverse_edge_id == -1)
+        Edge* edge2 = get_edge(edge1->target, edge1->source);
+
+        if (edge2 == nullptr) {
             continue;
-
-        // found reverse reaction
-        reaction_count_diff = edge_reaction_counts[edge_id] - edge_reaction_counts[reverse_edge_id];
-        atom_transfer_count_diff = edge_atom_transfer_counts[edge_id] - edge_atom_transfer_counts[reverse_edge_id];
-
-        if (reaction_count_diff > 0) {
-            // Keep the net forward reaction count
-            edge_reaction_counts[edge_id] = reaction_count_diff;
-            edge_reaction_counts[reverse_edge_id] = 0;
-        } else if (reaction_count_diff < 0) {
-            // Keep the net reverse reaction count
-            edge_reaction_counts[edge_id] = 0;
-            edge_reaction_counts[reverse_edge_id] = -reaction_count_diff;
-        } else {
-            // cancel each other
-            edge_reaction_counts[edge_id] = 0;
-            edge_reaction_counts[reverse_edge_id] = 0;
         }
 
-        if (atom_transfer_count_diff > 0) {
-            // Keep the net forward reaction count
-            edge_atom_transfer_counts[edge_id] = atom_transfer_count_diff;
-            edge_atom_transfer_counts[reverse_edge_id] = 0;
-        } else if (atom_transfer_count_diff < 0) {
-            // Keep the net reverse reaction count
-            edge_atom_transfer_counts[edge_id] = 0;
-            edge_atom_transfer_counts[reverse_edge_id] = -atom_transfer_count_diff;
-        } else {
-            // cancel each other
-            edge_atom_transfer_counts[edge_id] = 0;
-            edge_atom_transfer_counts[reverse_edge_id] = 0;
+        // Skip if edge2 is already processed or marked for removal
+        if (processed_edges.find(edge2) != processed_edges.end()) {
+            continue;
+        }
+
+        // Check if these are reverse edges
+        if (edge1->source == edge2->target && edge1->target == edge2->source) {
+            int reaction_count_diff = edge1->count - edge2->count;
+            int atom_transfer_count_diff = edge1->atom_transfer - edge2->atom_transfer;
+
+            if (reaction_count_diff > 0) {
+                // Keep edge1, remove edge2
+                edge1->count = reaction_count_diff;
+                edge1->atom_transfer = atom_transfer_count_diff;
+                edges_to_remove.push_back(edge2);
+                processed_edges.insert(edge1);
+                processed_edges.insert(edge2);
+            }
+            else if (reaction_count_diff < 0) {
+                // Keep edge2, remove edge1
+                edge2->count = -reaction_count_diff;
+                edge2->atom_transfer = -atom_transfer_count_diff;
+                edges_to_remove.push_back(edge1);
+                processed_edges.insert(edge1);
+                processed_edges.insert(edge2);
+            }
+            else {
+                // Both cancel each other, remove both
+                edges_to_remove.push_back(edge1);
+                edges_to_remove.push_back(edge2);
+                processed_edges.insert(edge1);
+                processed_edges.insert(edge2);
+            }
         }
     }
 
-    // Create new vectors for non-zero reactions
-
-    // std::vector<std::pair<int, int>> new_edges;
-    // std::vector<int> new_edge_reaction_counts;
-    // std::vector<int> new_edge_atom_transfer_counts;
-
-    std::unordered_map<int, std::pair<int, int>> new_edges;
-    std::unordered_map<int, int> new_edge_reaction_counts;
-    std::unordered_map<int, int> new_edge_atom_transfer_counts;
-
-    new_edges.reserve(edges.size());
-    new_edge_reaction_counts.reserve(edge_reaction_counts.size());
-    new_edge_atom_transfer_counts.reserve(edge_atom_transfer_counts.size());
-
-    for (size_t tmp_id = 0; tmp_id < edge_reaction_counts.size(); tmp_id++) {
-        if (edge_reaction_counts[tmp_id] == 0 || edge_atom_transfer_counts[tmp_id] == 0)
-            continue;
-        new_edges[tmp_id] = edges[tmp_id];
-        new_edge_reaction_counts[tmp_id] = edge_reaction_counts[tmp_id];
-        new_edge_atom_transfer_counts[tmp_id] = edge_atom_transfer_counts[tmp_id];
+    // Remove edges marked for removal
+    for (Edge* edge : edges_to_remove) {
+        edges.erase(edge);
+        edge_hash_to_edge.erase(edge->hash);
+        delete edge;
     }
-
-    edges.clear();
-    edge_reaction_counts.clear();
-    edge_atom_transfer_counts.clear();
-
-    edges = std::move(new_edges);
-    edge_reaction_counts = std::move(new_edge_reaction_counts);
-    edge_atom_transfer_counts = std::move(new_edge_atom_transfer_counts);
 }
 
 /**
- * @brief Generates a brief report of the reaction flow
+ * @brief Sorts nodes and edges by their degree/count for efficient reporting
+ * @note Calls calc_node_degrees() to ensure degree data is current
+ * @note Clears and rebuilds sorted_nodes and sorted_edges vectors
+ * @note Sorts in descending order (highest degree/count first)
  */
-void ReaxFlow::brief_report() { return; }
+void ReaxFlow::update_graph() {
+    // Clear all adjacency relationships
+    for (auto& node : nodes) {
+        node->degree = 0;
+        node->degree_at = 0;
+        node->in_degree = 0;
+        node->in_degree_at = 0;
+        node->out_degree = 0;
+        node->out_degree_at = 0;
+        node->from_nodes.clear();
+        node->to_nodes.clear();
+    }
+
+    // Build adjacency relationships and calculate degrees
+    for (const auto& edge : edges) {
+        edge->source->add_degrees(true, edge->count, edge->atom_transfer);
+        edge->target->add_degrees(false, edge->count, edge->atom_transfer);
+
+        // Build adjacency relationships
+        edge->source->to_nodes.insert(edge->target);
+        edge->target->from_nodes.insert(edge->source);
+    }
+
+    sorted_nodes.clear();
+    sorted_edges.clear();
+
+    for (const auto& node : nodes) {
+        sorted_nodes.emplace_back(std::pair(node, node->degree));
+    }
+    std::sort(sorted_nodes.begin(), sorted_nodes.end(),
+        [](const auto& a, const auto& b) { return a.second > b.second; });
+
+    for (const auto& edge : edges) {
+        sorted_edges.emplace_back(std::pair(edge, edge->count));
+    }
+    std::sort(sorted_edges.begin(), sorted_edges.end(),
+        [](const auto& a, const auto& b) { return a.second > b.second; });
+}
 
 /**
- * @brief Writes the reaction flow graph to a DOT file
- * @param output_file Path to the output DOT file
- * @param edge_indices Indices of edges to include in the graph
- * @param write_atom_transfer Whether to use atom transfer counts as edge weights
- * @param layout Graph layout algorithm to use
+ * @brief Generates a brief report of the reaction flow statistics
+ * @note Displays top 10 molecules by degree and top 20 reactions by count
+ * @note Shows in-degree and out-degree for molecules, reaction counts and atom
+ * transfers for edges
+ * @note Automatically calls sort_nodes_and_edges() to ensure data is current
  */
-void ReaxFlow::write_dot_file(std::string basename, const std::vector<int>& edge_indices, bool write_atom_transfer,
-                              std::string layout) {
-    FILE* fp = create_file(basename);
-    std::set<int> node_indices;
+void ReaxFlow::brief_report() {
+    update_graph();
 
-    for (const auto& edge_id : edge_indices) {
-        node_indices.insert(edges[edge_id].first);
-        node_indices.insert(edges[edge_id].second);
+    unsigned int max_node_display = std::min(10, int(sorted_nodes.size()));
+    unsigned int max_edge_display = std::min(20, int(sorted_edges.size()));
+
+    fmt::print("=== Reaction Flow Report ===\n");
+    fmt::print("Top {} key molecules:\n", max_node_display);
+    fmt::print("{:<12s}{:<12s}{:<12s}\n", "molecule", "in degree", "out degree");
+    Node* tmp_node = nullptr;
+    for (size_t i = 0; i < max_node_display; i++) {
+        tmp_node = sorted_nodes[i].first;
+        fmt::print("{:<12s}{:<12d}{:<12d}\n", tmp_node->molecule->formula, tmp_node->in_degree, tmp_node->out_degree);
+    }
+
+    fmt::print("\n");
+    fmt::print("Top {} key reactions:\n", max_edge_display);
+    fmt::print("{:<12s}{:<12s}{:<8s}{:<15s}\n", "from", "to", "count", "atom transfered");
+    Node* tmp_source = nullptr;
+    Node* tmp_target = nullptr;
+    for (size_t i = 0; i < max_edge_display; i++) {
+        tmp_source = sorted_edges[i].first->source;
+        tmp_target = sorted_edges[i].first->target;
+        fmt::print("{} -> {} = R:{} AT:{}\n", tmp_source->molecule->formula, tmp_target->molecule->formula,
+            sorted_edges[i].second, sorted_edges[i].first->atom_transfer);
+    }
+
+    tmp_node = nullptr;
+    tmp_source = nullptr;
+    tmp_target = nullptr;
+}
+
+/**
+ * @brief Writes the reaction flow graph to a DOT file for visualization
+ * @param basename Path to the output DOT file
+ * @param edges_to_write Set of edges to include in the graph
+ * @param write_atom_transfer Whether to use atom transfer counts as edge
+ * weights
+ * @param layout Graph layout algorithm to use (e.g., "circo", "dot", "neato")
+ * @note Creates a directed graph with nodes representing molecules and edges
+ * representing reactions
+ * @note Edge thickness is proportional to reaction count (logarithmic scale)
+ * @note Highlights top 25% of edges in goldenrod color
+ */
+void ReaxFlow::write_dot_file(std::string basename, const std::vector<Edge*>& edges_to_write,
+    bool write_atom_transfer, std::string layout) {
+    FILE* fp = create_file(basename);
+
+    std::unordered_set<Node*> nodes_to_write;
+    for (const auto& edge : edges_to_write) {
+        nodes_to_write.insert(edge->source);
+        nodes_to_write.insert(edge->target);
     }
 
     // Dot file header.
     fmt::print(fp, "digraph ReactionFlow {{\n");
     fmt::print(fp, "  rankdir=LR;\n");
     fmt::print(fp, "  layout={};\n", layout);
-    fmt::print(fp, "  node [shape=box, style=filled, fillcolor=azure2, height=0.5, width=1.5];\n");
+    fmt::print(fp,
+        "  node [shape=box, style=filled, fillcolor=azure2, height=0.5, "
+        "width=1.5];\n");
     fmt::print(fp, "  edge [color=dimgray];\n");
     fmt::print(fp, "\n");
 
     // Write nodes
-    for (const auto& node_id : node_indices) {
-        fmt::print(fp, "  node{} [label=\"{}\"];\n", node_id, nodes[node_id]->formula);
+    Node* node = nullptr;
+    for (const auto& node : nodes_to_write) {
+        fmt::print(fp, "  node{} [label=\"{}\"];\n", node->hash, node->molecule->formula);
     }
     fmt::print(fp, "\n");
 
     // Write edges, some of them are high-lighted because of bigger counts
     float penwidth = 1.0f;
-    int max_highlights = edge_indices.size() / 4;
+    int max_highlights = edges_to_write.size() / 4;
     int curr_highlights = 0;
-    int reaction_weights = 0;
-
-    // std::sort(sorted_edge_id_count.begin(), sorted_edge_id_count.end(),
-    //           [](const auto &a, const auto &b) { return a.second > b.second; });
-    std::vector<std::pair<int, int>> sorted_edge_id_weight;
-    for (const auto& edge_id : edge_indices) {
-        reaction_weights = edge_reaction_counts[edge_id];
-        sorted_edge_id_weight.emplace_back(std::pair(edge_id, reaction_weights));
-    }
-    std::sort(sorted_edge_id_weight.begin(), sorted_edge_id_weight.end(),
-              [](const auto& a, const auto& b) { return a.second > b.second; });
 
     // Write edges based on sorted reaction counts
     std::string edge_line;
-    for (const auto& id_weight : sorted_edge_id_weight) {
-        penwidth = std::min(5.0, 2.0 + log(id_weight.second));
+
+    for (const auto& edge : edges_to_write) {
+        penwidth = std::min(5.0, 2.0 + log(edge->count));
 
         if (write_atom_transfer) {
-            edge_line = fmt::format(" node{} -> node{} [label=\"R={} AT={}\", penwidth={}",
-                                    edges[id_weight.first].first, edges[id_weight.first].second, id_weight.second,
-                                    edge_atom_transfer_counts[id_weight.first], penwidth);
-        } else {
-            edge_line = fmt::format(" node{} -> node{} [label=\"{}\", penwidth={}", edges[id_weight.first].first,
-                                    edges[id_weight.first].second, id_weight.second, penwidth);
+            edge_line = fmt::format(" node{} -> node{} [label=\"R={} AT={}\", penwidth={}", edge->source->hash,
+                edge->target->hash, edge->count, edge->atom_transfer, penwidth);
+        }
+        else {
+            edge_line = fmt::format(" node{} -> node{} [label=\"{}\", penwidth={}", edge->source->hash,
+                edge->target->hash, edge->count, penwidth);
         }
 
         if (curr_highlights < max_highlights) {
             edge_line += ", color=goldenrod];\n";
-        } else {
+        }
+        else {
             edge_line += "];\n";
         }
         fmt::print(fp, edge_line);
@@ -280,208 +489,275 @@ void ReaxFlow::write_dot_file(std::string basename, const std::vector<int>& edge
 }
 
 /**
+ * @brief Writes a DOT file for the most significant nodes in the reaction
+ * graph
+ * @param basename Path to the output DOT file
+ * @param max_nodes Maximum number of top nodes to include based on degree
+ * @param write_atom_transfer Whether to use atom transfer counts as edge
+ * weights
+ * @param layout Graph layout algorithm to use (e.g., "circo", "dot", "neato")
+ * @note Selects top nodes by degree and includes their connecting edges
+ * @note Calls write_dot_file() internally to generate the DOT file
+ */
+void ReaxFlow::write_dot_file_significant_nodes(std::string basename, int max_nodes,
+    bool write_atom_transfer, std::string layout) {
+
+    max_nodes = std::min(max_nodes, int(sorted_nodes.size()));
+    int max_depth = 2 * max_nodes;
+
+    std::vector<Node*> selected_nodes;
+    std::vector<std::pair<Edge*, int>> organized_connections;
+
+    // Organized connections: find paths between node pairs in full graph, 
+    // for each path, the weight is the min count along the path
+    // for the final connection, sum all weights if multiple paths exist.
+    for (int i = 0; i < max_nodes; i++) {
+        selected_nodes.push_back(sorted_nodes[i].first);
+    }
+
+    std::vector<std::pair<Node*, Node*>> possible_node_pairs;
+    for (const auto& left_node : selected_nodes) {
+        for (const auto& right_node : selected_nodes) {
+            if (left_node == right_node) {
+                continue;
+            }
+            possible_node_pairs.push_back(std::make_pair(left_node, right_node));
+        }
+    }
+
+    for (const auto& node_pair : possible_node_pairs) {
+        Node* left_node = node_pair.first;
+        Node* right_node = node_pair.second;
+        if (left_node == nullptr || right_node == nullptr) {
+            continue;
+        }
+        // Use DFS to find all paths from left_node to right_node
+        std::vector<std::vector<Edge*>> all_paths;
+        std::vector<Edge*> current_path;
+        std::unordered_set<Node*> visited;
+
+        std::function<void(Node*)> dfs = [&](Node* current_node) {
+            if (current_node == right_node) {
+                all_paths.push_back(current_path);
+                return;
+            }
+
+            if (visited.find(current_node) != visited.end()) {
+                return;
+            }
+
+            if (visited.size() >= max_depth || visited.find(current_node) != visited.end()) {
+                return;
+            }
+
+            visited.insert(current_node);
+
+            for (const auto& neighbor : current_node->to_nodes) {
+                Edge* edge = get_edge(current_node, neighbor);
+                if (edge != nullptr && visited.find(neighbor) == visited.end()) {
+                    current_path.push_back(edge);
+                    dfs(neighbor);
+                    current_path.pop_back();
+                }
+            }
+            visited.erase(current_node);
+            };
+
+        dfs(left_node);
+
+        if (all_paths.empty()) {
+            continue;
+        }
+
+        // Process all found paths to get edge weights
+        int connection_weight = 0;
+        for (const auto& path : all_paths) {
+            int path_min = std::numeric_limits<int>::max();
+            for (const auto& edge : path) {
+                path_min = std::min(path_min, edge->count);
+            }
+            connection_weight = std::max(connection_weight, path_min);
+        }
+
+        // Create connection
+        Edge* this_connection = new Edge(left_node, right_node);
+        this_connection->count = connection_weight;
+        this_connection->atom_transfer = connection_weight; // not used here, just placeholder
+
+        organized_connections.push_back(std::make_pair(this_connection, connection_weight));
+    }
+
+    // Sort connections by weight
+    std::sort(organized_connections.begin(), organized_connections.end(),
+        [](const auto& a, const auto& b) { return a.second > b.second; });
+
+    std::vector<Edge*> edges_to_write;
+    for (const auto& pair : organized_connections) {
+        edges_to_write.push_back(pair.first);
+    }
+
+    write_dot_file(basename, edges_to_write, write_atom_transfer, layout);
+
+    for (const auto& conn : organized_connections) {
+        delete conn.first;
+    }
+}
+
+/**
  * @brief Saves the reaction flow graph and related visualizations
- * @param output_dir Directory to save the output files
- * @param max_reactions Maximum number of reactions to include
- * @param draw_molecules Whether to draw molecular structures
- * @param reduce_reactions Whether to reduce the reaction graph
+ * @note Conditionally calls reduce_graph() unless FLAG_NO_REDUCE_REACTIONS is
+ * set
+ * @note Generates both full and simplified graph files if graph is too complex
+ * @note Creates molecule-centered subgraphs for detailed analysis
+ * @note Automatically sorts nodes and edges before saving
  */
 void ReaxFlow::save_graph() {
+    // if (!MERGE_TARGET.empty() && !MERGE_RANGES.empty()) {
+    //     merge_by_element(MERGE_TARGET, MERGE_RANGES);
+    // }
     if (!FLAG_NO_REDUCE_REACTIONS) {
         reduce_graph();
     }
 
-    // Sort edges by reaction count
-    std::vector<std::pair<int, int>> sorted_edge_id_count;
-    for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
-        if (edge_reaction_counts[edge_id] > 0) { // only consider reactions with positive counts
-            sorted_edge_id_count.push_back({edge_id, edge_reaction_counts[edge_id]});
+    update_graph();
+    brief_report();
+
+    std::vector<Edge*> all_edges;
+
+    for (size_t i = 0; i < sorted_edges.size(); i++) {
+        all_edges.push_back(sorted_edges[i].first);
+    }
+
+    if (all_edges.size() > MAX_REACTIONS) {
+        std::vector<Edge*> selected_edges;
+        for (size_t i = 0; i < MAX_REACTIONS; i++) {
+            selected_edges.push_back(sorted_edges[i].first);
         }
+        write_dot_file("reactions_simplified.dot", selected_edges, false);
+        write_dot_file("reactions_full.dot", all_edges, false);
+        fmt::print(
+            "Note: Graphs too complex, write full graph (*full.dot) and default "
+            "subgraph seperately.\n");
     }
-    std::sort(sorted_edge_id_count.begin(), sorted_edge_id_count.end(),
-              [](const auto& a, const auto& b) { return a.second > b.second; });
-
-    // Resize the graph by max reactions
-    if (MAX_REACTIONS > 0 && MAX_REACTIONS < sorted_edge_id_count.size()) {
-        sorted_edge_id_count.resize(MAX_REACTIONS);
-    }
-
-    std::vector<int> selected_edge_indices;
-    for (const auto& pair : sorted_edge_id_count) {
-        selected_edge_indices.push_back(pair.first);
+    else {
+        write_dot_file("reactions_full.dot", all_edges, false);
     }
 
-    // Display the topmost frequent reactions
-    fmt::print("Note: To avoid too much screen output, only the top 20 reactions are printed.");
-    fmt::print("=== Reaction Flow Report ===\n");
-    fmt::print("Total key molecules: {}\n", nodes.size());
-    fmt::print("Total reactions: {}\n", edges.size());
+    // write_dot_file_significant_nodes("reactions_main_nodes.dot", 20, true);
 
-    int max_display = std::min(20, int(selected_edge_indices.size()));
-    int tmp_edge_id = 0;
-    int tmp_reaction_count = 0;
-    int tmp_atom_transfer_count = 0;
-    std::string tmp_source_formula = "";
-    std::string tmp_target_formula = "";
-
-    std::string display_header = fmt::format("{:<12s}{:<12s}{:<8s}{:<15s}", "from", "to", "count", "atom transfered");
-    fmt::print("{}\n", display_header);
-
-    for (size_t tmp_display_id = 0; tmp_display_id < max_display; tmp_display_id++) {
-        tmp_edge_id = selected_edge_indices[tmp_display_id];
-        tmp_source_formula = nodes[edges[tmp_edge_id].first]->formula;
-        tmp_target_formula = nodes[edges[tmp_edge_id].second]->formula;
-        tmp_reaction_count = edge_reaction_counts[tmp_edge_id];
-        tmp_atom_transfer_count = edge_atom_transfer_counts[tmp_edge_id];
-
-        fmt::print("{:<12s}{:<12s}{:<8d}{:<15d}\n", tmp_source_formula, tmp_target_formula, tmp_reaction_count,
-                   tmp_atom_transfer_count);
-    }
-
-    // Write main dot file.
-
-    if (selected_edge_indices.size() < edges.size()) {
-        std::vector<int> all_edge_indices;
-        for (int tmp_id = 0; tmp_id < edges.size(); tmp_id++) {
-            all_edge_indices.push_back(tmp_id);
-        }
-        write_dot_file("reactions.dot", selected_edge_indices, true);
-        write_dot_file("reactions_full.dot", all_edge_indices, false);
-        fmt::print("Note: Graphs too complex, write full graph (*full.dot) and default subgraph seperately.\n");
-    } else {
-        write_dot_file("reactions.dot", selected_edge_indices, true);
-        fmt::print("Note: write reactions to reactions.dot.\n");
-    }
-
-    save_molecule_centered_subgraphs();
-    // fmt::print("Reaction graphs centered on key moleulces saved to {}\n", output_dir);
+    save_molecule_centered_subgraphs(false, false, false);
+    // save_molecule_centered_subgraphs(false, false, true);
 }
 
 /**
  * @brief Saves molecule-centered subgraphs of the reaction network
- * @param output_dir Directory to save the output files
- * @param write_atom_transfer Whether to write atom transfer counts in graph file and csv file
- * @details Generates subgraphs centered on key molecules, showing their reactions with other molecules
+ * @param write_atom_transfer Whether to write atom transfer counts in graph
+ * file and csv file
+ * @param csv_only Whether to only generate CSV output (currently unused
+ * parameter)
+ * @details Generates subgraphs centered on key molecules, showing their
+ * reactions with other molecules
+ * @note Creates CSV file with detailed reaction statistics for top molecules
+ * @note Automatically sorts nodes by degree before processing
+ * @note Limits output to top 10 molecules by degree
  */
-void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool csv_only) {
-    std::map<int, int> node_degrees;
-    std::map<int, int> node_in_degrees;
-    std::map<int, int> node_out_degrees;
+void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool csv_only, bool use_hash) {
+    update_graph();
 
-    std::map<int, int> node_degrees_at;
-    std::map<int, int> node_in_degrees_at;
-    std::map<int, int> node_out_degrees_at;
-
-    int max_key_molecules = 20;
-    int max_molecule_size = 100;
-
-    int source_id = -1;
-    int target_id = -1;
-
-    int curr_degree;
-    int curr_degree_at;
-
-    for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
-        source_id = edges[edge_id].first;
-        target_id = edges[edge_id].second;
-
-        curr_degree = edge_reaction_counts[edge_id];
-        curr_degree_at = edge_atom_transfer_counts[edge_id];
-
-        node_degrees[source_id] += curr_degree;
-        node_degrees[target_id] += curr_degree;
-        node_in_degrees[target_id] += curr_degree;
-        node_out_degrees[source_id] += curr_degree;
-
-        node_degrees_at[source_id] += curr_degree_at;
-        node_degrees_at[target_id] += curr_degree_at;
-        node_in_degrees_at[target_id] += curr_degree_at;
-        node_out_degrees_at[source_id] += curr_degree_at;
+    if (sorted_nodes.size() > MAX_KEY_MOLECULES) {
+        sorted_nodes.resize(MAX_KEY_MOLECULES);
     }
 
-    // Sort nodes by degree in descending order
-    // Only output molecules smaller than max_molecule_size, we don't consider big polymers as a "main character"
-    std::vector<std::pair<int, int>> sort_nodes;
-    for (int node_id = 0; node_id < node_degrees.size(); node_id++) {
-        if (nodes[node_id]->atom_ids.size() > max_molecule_size)
-            continue;
-        sort_nodes.emplace_back(std::pair(node_id, node_degrees[node_id]));
+    std::string save_path;
+    if (use_hash) {
+        save_path = "key_molecules_reactions_hash.csv";
     }
-
-    std::sort(sort_nodes.begin(), sort_nodes.end(),
-              [](const std::pair<int, int>& a, const std::pair<int, int>& b) { return a.second > b.second; });
-
-    if (sort_nodes.size() > max_key_molecules) {
-        sort_nodes.resize(max_key_molecules);
+    else {
+        save_path = "key_molecules_reactions.csv";
     }
-
-    // Write molecule-centered graph dot files
-    FILE* fp_csv = create_file("key_molecules_reactions.csv");
+    FILE* fp_csv = create_file(save_path);
 
     std::string csv_header = "";
     if (write_atom_transfer) {
-        csv_header = "molecule,total reactions,in reaction,out reaction,total atom transfer,in atom transfer,out atom "
-                     "transfer,from 1,from 2,from 3,from 4,from 5,to 1,to 2,to 3,to 4,to 5,\n";
-    } else {
-        csv_header = "molecule,total reactions,in reaction,out reaction,from 1,from 2,from 3,from 4,from 5,to 1,to "
-                     "2,to 3,to 4,to 5,\n";
+        csv_header =
+            "molecule,total reactions,in reaction,out reaction,total atom "
+            "transfer,in atom transfer,out atom "
+            "transfer,from 1,from 2,from 3,from 4,from 5,to 1,to 2,to 3,to 4,to "
+            "5,\n";
+    }
+    else {
+        csv_header =
+            "molecule,total reactions,in reaction,out reaction,from 1,from 2,from "
+            "3,from 4,from 5,to 1,to "
+            "2,to 3,to 4,to 5,\n";
     }
     fmt::print(fp_csv, csv_header);
 
-    for (const auto& pair : sort_nodes) {
-        std::vector<int> subgraph_edge_indices;
-        std::vector<std::pair<int, int>> from_nodes;
-        std::vector<std::pair<int, int>> to_nodes;
-        // Build molecule centered subgraph
-        for (size_t edge_id = 0; edge_id < edges.size(); edge_id++) {
-            if (edges[edge_id].first == pair.first) {
-                to_nodes.emplace_back(std::pair(edges[edge_id].second, edge_reaction_counts[edge_id]));
-                subgraph_edge_indices.emplace_back(edge_id);
-            } else if (edges[edge_id].second == pair.first) {
-                from_nodes.emplace_back(std::pair(edges[edge_id].first, edge_reaction_counts[edge_id]));
-                subgraph_edge_indices.emplace_back(edge_id);
+    for (const auto& [node, degree] : sorted_nodes) {
+        std::vector<Edge*> subgraph_edge_indices;
+        std::vector<std::pair<std::string, int>> from_nodes;
+        std::vector<std::pair<std::string, int>> to_nodes;
+        std::string molecule_identifier;
+
+        for (const auto& other_node : node->from_nodes) {
+            if (use_hash) {
+                molecule_identifier = std::to_string(other_node->molecule->hash);
             }
+            else {
+                molecule_identifier = other_node->molecule->formula;
+            }
+            from_nodes.emplace_back(std::pair(molecule_identifier, other_node->degree));
+        }
+        for (const auto& other_node : node->to_nodes) {
+            if (use_hash) {
+                molecule_identifier = std::to_string(other_node->molecule->hash);
+            }
+            else {
+                molecule_identifier = other_node->molecule->formula;
+            }
+            to_nodes.emplace_back(std::pair(molecule_identifier, other_node->degree));
         }
 
-        std::string curr_formula = nodes[pair.first]->formula;
-        // Write dot file.
-        if (!csv_only) {
-            std::string basename = fmt::format("reactions_centered_on_{}.dot", curr_formula);
-            write_dot_file(basename, subgraph_edge_indices, write_atom_transfer, "dot");
-        }
-        // Sort from nodes and to nodes by reaction weight;
         std::sort(from_nodes.begin(), from_nodes.end(),
-                  [](const std::pair<int, int>& a, const std::pair<int, int>& b) { return a.second > b.second; });
+            [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) {
+                return a.second > b.second;
+            });
         std::sort(to_nodes.begin(), to_nodes.end(),
-                  [](const std::pair<int, int>& a, const std::pair<int, int>& b) { return a.second > b.second; });
+            [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) {
+                return a.second > b.second;
+            });
 
         size_t max_neigh_to_output = 5;
+        from_nodes.resize(max_neigh_to_output);
+        to_nodes.resize(max_neigh_to_output);
+
         std::string from_string;
         std::string to_string;
+
         for (size_t tmp_id = 0; tmp_id < max_neigh_to_output; tmp_id++) {
-            if (tmp_id < from_nodes.size())
-                from_string += fmt::format("{},", nodes[from_nodes[tmp_id].first]->formula);
-            else
-                from_string += ",";
+            from_string += fmt::format(",{}", from_nodes[tmp_id].first);
         }
+
         for (size_t tmp_id = 0; tmp_id < max_neigh_to_output; tmp_id++) {
-            if (tmp_id < to_nodes.size())
-                to_string += fmt::format("{},", nodes[to_nodes[tmp_id].first]->formula);
-            else
-                to_string += ",";
+            to_string += fmt::format(",{}", to_nodes[tmp_id].first);
         }
 
         std::string csv_record_string = "";
-
+        std::string this_molecule_identifier;
+        if (use_hash) {
+            this_molecule_identifier = std::to_string(node->molecule->hash);
+        }
+        else {
+            this_molecule_identifier = node->molecule->formula;
+        }
         if (write_atom_transfer) {
-            csv_record_string =
-                fmt::format("{},{},{},{},{},{},{},{}{}\n", curr_formula, node_degrees[pair.first],
-                            node_in_degrees[pair.first], node_out_degrees[pair.first], node_degrees_at[pair.first],
-                            node_in_degrees_at[pair.first], node_out_degrees_at[pair.first], from_string, to_string);
-        } else {
-            csv_record_string =
-                fmt::format("{},{},{},{},{}{}\n", curr_formula, node_degrees[pair.first], node_in_degrees[pair.first],
-                            node_out_degrees[pair.first], from_string, to_string);
+            csv_record_string = fmt::format("{},{},{},{},{},{},{},{}{}\n", this_molecule_identifier, node->degree,
+                node->in_degree, node->out_degree, node->degree_at, node->in_degree_at,
+                node->out_degree_at, from_string, to_string);
+        }
+        else {
+            csv_record_string = fmt::format("{},{},{},{},{}{}\n", this_molecule_identifier, node->degree,
+                node->in_degree, node->out_degree, from_string, to_string);
         }
 
         fmt::print(fp_csv, csv_record_string);
@@ -489,11 +765,152 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
     fclose(fp_csv);
 }
 
+/**
+ * @brief Merges molecules by element count ranges for simplified analysis
+ * @param target_element Element symbol to group by (e.g., "C", "H", "O")
+ * @param ranges Vector of range boundaries for grouping (e.g., {0, 5, 10}
+ * creates groups 0-4, 5-9, 10+)
+ * @note Creates grouped molecules with formula prefix "grp_" followed by
+ * element and range
+ * @note Molecules with target element count in each range are merged into a
+ * single node
+ * @note Useful for simplifying complex reaction networks by grouping similar
+ * molecules
+ */
+void ReaxFlow::merge_by_element(std::string target_element, std::vector<int> ranges) {
+    std::unordered_set<std::string> all_formulas;
+    std::unordered_map<std::string, std::unordered_set<std::string>> formulas_map;
+    std::map<std::string, int> elements_weights;
+
+    for (const auto& node : nodes) {
+        all_formulas.insert(node->molecule->formula);
+    }
+
+    for (size_t i = 0; i < ranges.size(); i++) {
+        int start;
+        int end;
+        std::string new_formula;
+
+        if (i < ranges.size() - 1) {
+            start = ranges[i];
+            end = ranges[i + 1] - 1;
+            new_formula = fmt::format("grp_{}{}-{}", target_element, start, end);
+        }
+        else {
+            start = ranges[i];
+            end = 100000;  // If a molecule have > 10000 atoms, that's user's bad input,
+            // will not provide anything makes sense from the beginning.
+            new_formula = fmt::format("grp_{}{}-max", target_element, start);
+        }
+
+        formulas_map[new_formula] = {};
+
+        for (const auto& formula : all_formulas) {
+            if (starts_with("grp_", formula)) {
+                continue;
+            }
+
+            elements_weights = parse_formula(formula);
+            for (const auto& [elem, weight] : elements_weights) {
+                if (target_element == elem && weight >= start && weight <= end) {
+                    formulas_map[new_formula].insert(formula);
+                }
+            }
+        }
+    }
+
+    for (const auto& [new_formula, old_formulas_set] : formulas_map) {
+        merge_formulas(old_formulas_set, new_formula);
+    }
+}
+
+/**
+ * @brief Merges multiple molecules into a single representative node
+ * @param formulas_set Set of formula strings to merge
+ * @param new_formula New formula string for the merged node
+ * @note Combines all nodes with formulas in formulas_set into a single node
+ * @note Updates all edges to connect to the new merged node
+ * @note Preserves reaction counts and atom transfer data
+ * @note Deallocates old nodes and edges to prevent memory leaks
+ */
+void ReaxFlow::merge_formulas(const std::unordered_set<std::string>& formulas_set, const std::string& new_formula) {
+    // Get target nodes to merge
+    std::vector<Node*> nodes_to_merge;
+    for (const auto& node : nodes) {
+        if (formulas_set.count(node->molecule->formula)) {
+            nodes_to_merge.push_back(node);
+        }
+    }
+
+    // Nothing to merge
+    if (nodes_to_merge.size() < 1) return;
+
+    // Create a new merged node
+    Node* merged_node = new Node(nodes_to_merge[0]->molecule);
+    merged_node->molecule->formula = new_formula;
+    merged_node->hash = std::hash<std::string>()(new_formula);
+
+    // Add the merged node
+    nodes.insert(merged_node);
+    molecule_hash_to_node[merged_node->hash] = merged_node;
+
+    // Collect all edges involving the nodes to be merged
+    std::vector<Edge*> edges_to_remove;
+    std::vector<Edge*> edges_to_add;
+
+    for (const auto& node_to_merge : nodes_to_merge) {
+        // Find all edges involving this node
+        for (auto it = edges.begin(); it != edges.end(); ++it) {
+            Edge* edge = *it;
+
+            if (edge->source == node_to_merge || edge->target == node_to_merge) {
+                edges_to_remove.push_back(edge);
+
+                // Create new edge with merged node
+                Node* other_node = (edge->source == node_to_merge) ? edge->target : edge->source;
+                Edge* new_edge = new Edge((edge->source == node_to_merge) ? merged_node : other_node,
+                    (edge->target == node_to_merge) ? merged_node : other_node);
+                new_edge->count = edge->count;
+                new_edge->atom_transfer = edge->atom_transfer;
+                edges_to_add.push_back(new_edge);
+            }
+        }
+
+        // Remove the node
+        nodes.erase(node_to_merge);
+        molecule_hash_to_node.erase(node_to_merge->hash);
+        delete node_to_merge;
+    }
+
+    // Remove old edges
+    for (Edge* edge : edges_to_remove) {
+        edges.erase(edges.find(edge));
+        delete edge;
+    }
+
+    // Add new edges
+    for (Edge* edge : edges_to_add) {
+        edges.insert(edge);
+    }
+}
+
 #ifndef WASM_MODE
+/**
+ * @brief Dumps SMILES representations of all molecules to a CSV file
+ * @note Only processes molecules that don't start with "grp_" prefix
+ * @note Creates molecules_smiles.csv with formula and SMILES columns
+ * @note Requires RDKit library (only available when not in WASM mode)
+ */
 void ReaxFlow::dump_smiles() {
     FILE* fp = create_file("molecules_smiles.csv");
-    for (const auto& pair : nodes) {
-        fmt::print(fp, "{},{}\n", pair.second->formula, rdkit_smiles(*pair.second));
+    for (const auto& node : nodes) {
+        if (starts_with(node->molecule->formula, "grp_")) continue;
+        try {
+            fmt::print(fp, "{},{},{}\n", node->hash, node->molecule->formula, rdkit_smiles(*node->molecule));
+        }
+        catch (const std::exception& e) {
+            fmt::print(fp, "Warning: SMILES of {} can not be solved.\n", node->molecule->formula);
+        }
     }
 
     fclose(fp);
@@ -501,9 +918,282 @@ void ReaxFlow::dump_smiles() {
 #endif
 
 #ifndef WASM_MODE
+/**
+ * @brief Draws molecular structures for all molecules in the reaction network
+ * @note Only processes molecules that don't start with "grp_" prefix
+ * @note Uses RDKit to generate molecular structure images
+ * @note Requires RDKit library (only available when not in WASM mode)
+ * @note Creates individual image files for each molecule
+ */
 void ReaxFlow::draw_molecules() {
-    for (const auto& pair : nodes) {
-        rdkit_draw_molecule(*pair.second);
+    for (const auto& node : nodes) {
+        try {
+            if (starts_with(node->molecule->formula, "grp_")) continue;
+            rdkit_draw_molecule(*node->molecule);
+        }
+        catch (...) {
+            fmt::print("Note: Molecule {} can not be drawn.\n", node->molecule->formula);
+        }
     }
 }
 #endif
+
+/**
+ * @brief Imports molecules into the reaction network
+ * @param initial_or_final True if importing initial molecules, false if final
+ * @param mol_hashes Set of molecule hashes to import
+ * @note Caches the hash values and delays actual node retrieval until
+ * identify_candidates()
+ * @note Only valid nodes are added to reactant_candidates or product_candidates
+ */
+void ReaxFlow::import_molecules(bool initial_or_final, const std::unordered_set<unsigned int>& mol_hashes) {
+    // In this function just cache the hash,delay get_node() until the graph work
+    // is done.
+
+    if (initial_or_final) {
+        reactant_candidates_hash = mol_hashes;
+    }
+    else {
+        product_candidates_hash = mol_hashes;
+    }
+}
+
+/**
+ * @brief Identifies and selects candidate reactants and products
+ * @note Sorts nodes and edges, then identifies valid candidates
+ * @note Only valid nodes are added to reactant_candidates or product_candidates
+ */
+void ReaxFlow::identify_candidates() {
+    update_graph();
+    Node* node_to_insert = nullptr;
+    for (const auto& hash : reactant_candidates_hash) {
+        node_to_insert = get_node(hash);
+        if (node_to_insert != nullptr) {
+            reactant_candidates.insert(node_to_insert);
+        }
+    }
+
+    for (const auto& hash : product_candidates_hash) {
+        node_to_insert = get_node(hash);
+        if (node_to_insert != nullptr) {
+            product_candidates.insert(node_to_insert);
+        }
+    }
+
+    /********** decide good candidates **********/
+    float balance_factor = 0.0f;
+    float reactant_threshold = 1.0f;
+    float product_threshold = 1.0f;
+
+    // use iterator to safe remove
+    for (auto it = reactant_candidates.begin(); it != reactant_candidates.end();) {
+        balance_factor = float((*it)->in_degree) / float((*it)->out_degree);
+        if (balance_factor > reactant_threshold) {
+            it = reactant_candidates.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+
+    for (auto it = product_candidates.begin(); it != product_candidates.end();) {
+        balance_factor = float((*it)->in_degree) / float((*it)->out_degree);
+        if (balance_factor < product_threshold) {
+            it = product_candidates.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+
+    fmt::print("\n=== Network Flow Analysis ===\n");
+    fmt::print("{} reactant candidates\n", reactant_candidates.size());
+    for (const auto& node : reactant_candidates) {
+        fmt::print("{} ", node->molecule->formula);
+    }
+    fmt::print("\n");
+
+    fmt::print("{} product candidates\n", product_candidates.size());
+    for (const auto& node : product_candidates) {
+        fmt::print("{} ", node->molecule->formula);
+    }
+    fmt::print("\n");
+}
+
+/**
+ * @brief Solves the network flow problem
+ * @note Implements a network flow algorithm
+ * @note Uses a graph representation for the network
+ * @note Applies tarjan's algorithm to find strongly connected components and
+ * calculate flow.
+ */
+void ReaxFlow::network_flow_solve() {
+    /*
+    algorithm tarjan is
+        input: graph G = (V, E)
+        output: set of strongly connected components (sets of vertices)
+
+        index := 0
+        S := empty stack
+        for each v in V do
+            if v.index is undefined then
+                strongconnect(v)
+
+        function strongconnect(v)
+            // Set the depth index for v to the smallest unused index
+            v.index := index
+            v.lowlink := index
+            index := index + 1
+            S.push(v)
+            v.onStack := true
+
+            // Consider successors of v
+            for each (v, w) in E do
+                if w.index is undefined then
+                    // Successor w has not yet been visited; recurse on it
+                    strongconnect(w)
+                    v.lowlink := min(v.lowlink, w.lowlink)
+                else if w.onStack then
+                    // Successor w is in stack S and hence in the current SCC
+                    // If w is not on stack, then (v, w) is an edge pointing to an
+    SCC already found and must be ignored
+                    // See below regarding the next line
+                    v.lowlink := min(v.lowlink, w.index)
+
+            // If v is a root node, pop the stack and generate an SCC
+            if v.lowlink = v.index then
+                start a new strongly connected component
+                repeat
+                    w := S.pop()
+                    w.onStack := false
+                    add w to current strongly connected component
+                while w ≠ v
+                output the current strongly connected component
+    */
+
+    // Step 1: BFS to find all possible paths from reactant_candidates to
+    // product_candidates
+
+    struct Path {
+        Node* reactant;
+        Node* product;
+        int significance = 0;
+        unsigned int signature = 0;
+        std::vector<Node*> nodes;
+        int max_flow = 0;
+
+        /**
+         * @brief Checks if there is a path from reactant to product
+         * @return true if there is a path, false otherwise
+         * @note complexity: O(V + E)
+         */
+        bool connected() {
+            std::queue<Node*> queue;
+            std::unordered_set<Node*> visited;
+            Node* current_node = reactant;
+
+            queue.push(reactant);
+            visited.insert(reactant);
+
+            while (!queue.empty()) {
+                current_node = queue.front();
+                queue.pop();
+
+                if (current_node == product) {
+                    return true;
+                }
+
+                for (const auto& next_node : current_node->to_nodes) {
+                    if (visited.find(next_node) == visited.end()) {
+                        visited.insert(next_node);
+                        queue.push(next_node);
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * @brief Finds the maximum flow using Dinic's algorithm
+         * @return The maximum flow
+         * @note complexity: O(V^2 * E)
+         */
+        int Dinic_max_flow() {
+            // TODO: Implement Dinic's algorithm
+
+            max_flow = 0;
+            return max_flow;
+        }
+    };
+
+    // Decide important reactants and products
+    // std::vector<Node*> reactant_candidates_copy(reactant_candidates.begin(),
+    // reactant_candidates.end()); std::vector<Node*>
+    // product_candidates_copy(product_candidates.begin(),
+    // product_candidates.end());
+
+    // std::sort(reactant_candidates_copy.begin(), reactant_candidates_copy.end(),
+    //           [](const Node* a, const Node* b) { return a->out_degree >
+    //           b->out_degree; });
+    // std::sort(product_candidates_copy.begin(), product_candidates_copy.end(),
+    //           [](const Node* a, const Node* b) { return a->in_degree >
+    //           b->in_degree; });
+
+    // if (reactant_candidates_copy.size() > NETWORK_FLOW_MAX_REACTANTS) {
+    //     reactant_candidates_copy.resize(NETWORK_FLOW_MAX_REACTANTS);
+    // }
+    // if (product_candidates_copy.size() > NETWORK_FLOW_MAX_PRODUCTS) {
+    //     product_candidates_copy.resize(NETWORK_FLOW_MAX_PRODUCTS);
+    // }
+
+    // Find all possible paths
+    std::vector<Path> all_paths;
+    std::vector<Path> valid_paths;
+
+    for (const auto& reactant : reactant_candidates) {
+        for (const auto& product : product_candidates) {
+            if (reactant->out_degree == 0 || product->in_degree == 0) {
+                continue;
+            }
+            if (reactant->hash == product->hash) {
+                continue;
+            }
+
+            Path path;
+            path.reactant = reactant;
+            path.product = product;
+            path.significance = reactant->out_degree * product->in_degree;
+            all_paths.push_back(path);
+        }
+    }
+
+    // complexity: O(NETWORK_FLOW_MAX_REACTANTS * NETWORK_FLOW_MAX_PRODUCTS * (V +
+    // E))
+    for (auto& path : all_paths) {
+        bool connected = path.connected();
+        if (connected) {
+            valid_paths.push_back(path);
+        }
+    }
+    all_paths.clear();
+
+    // std::sort(valid_paths.begin(), valid_paths.end(),
+    //           [](const Path& a, const Path& b) { return a.significance >
+    //           b.significance; });
+
+    // for (const auto& path : valid_paths) {
+    //     fmt::print("{} -> {} (significance: {})\n",
+    //     path.reactant->molecule->formula, path.product->molecule->formula,
+    //                path.significance);
+    // }
+
+    for (auto& path : valid_paths) {
+        path.Dinic_max_flow();
+    }
+
+    // TODO: Step 2: Solve the max flow problem using the selected pairs as source
+    // and sink, Dinic's algorithm
+    // TODO: Step 3: Output results, like P -> T1 -> T2 -> ... -> Tn -> P (70% ->
+    // 50% -> 30% -> 20% -> ...)
+}

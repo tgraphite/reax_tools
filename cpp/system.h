@@ -19,6 +19,12 @@ struct Bond;
 struct Molecule;
 class System;
 
+struct pair_hash {
+    std::size_t operator()(const std::pair<unsigned int, unsigned int>& p) const noexcept {
+        return std::hash<unsigned int>()(p.first) ^ (std::hash<unsigned int>()(p.second) << 1);
+    }
+};
+
 struct Atom {
     // Initialize order. Do not move.
     int id;
@@ -52,16 +58,17 @@ struct Atom {
 
     inline std::string info() {
         return fmt::format("{:6} {:3} {} {:>6.2f} {:>6.2f} {:>6.2f}\n", id, type_id, type_name, coord[0], coord[1],
-                           coord[2]);
+            coord[2]);
     };
 };
 
 // Make hash of id as atom hash for build unordered_set
 namespace std {
-template <> struct hash<Atom> {
-    std::size_t operator()(const Atom& atom) const noexcept { return std::hash<int>()(atom.id); }
-};
-} // namespace std
+    template <>
+    struct hash<Atom> {
+        std::size_t operator()(const Atom& atom) const noexcept { return std::hash<int>()(atom.id); }
+    };
+}  // namespace std
 inline bool operator==(const Atom& lhs, const Atom& rhs) { return lhs.id == rhs.id; }
 
 struct Bond {
@@ -79,7 +86,7 @@ struct Bond {
 
 inline bool operator==(const Bond& lhs, const Bond& rhs) {
     return (lhs.atom_i == rhs.atom_i && lhs.atom_j == rhs.atom_j) ||
-           (lhs.atom_i == rhs.atom_j && lhs.atom_j == rhs.atom_i);
+        (lhs.atom_i == rhs.atom_j && lhs.atom_j == rhs.atom_i);
 }
 
 struct Molecule {
@@ -94,7 +101,11 @@ struct Molecule {
 
     Molecule(int _mol_id) : id(_mol_id) {};
     Molecule(const Molecule& other)
-        : id(other.id), atom_ids(other.atom_ids), formula(other.formula), types_nums(other.types_nums) {
+        : id(other.id),
+        hash(other.hash),
+        atom_ids(other.atom_ids),
+        formula(other.formula),
+        types_nums(other.types_nums) {
         // Map from old Atom* to new Atom*
         std::map<const Atom*, Atom*> atom_map;
 
@@ -134,8 +145,7 @@ struct Molecule {
     };
 
     inline std::string info() {
-        if (formula.empty())
-            update_topology();
+        if (formula.empty()) update_topology();
         return fmt::format("Mol: {} Atoms:{} Bonds:{}\n", formula, mol_atoms.size(), mol_bonds.size());
     };
 
@@ -151,24 +161,28 @@ struct Molecule {
         }
         formula = rename_formula(mol_formula, ELEMENT_DISPLAY_ORDER);
 
-        // Hash
-        unsigned int mol_hash = 1;
-        for (const auto& atom : mol_atoms) {
-            unsigned int atom_hash = BIGGER_PRIME_NUMBERS[atom->type_id];
-            unsigned int bonded_hash = 1;
+        // Downgrading: make hash equivalent to formula string hash
+        std::hash<std::string> str_hash;
+        hash = str_hash(formula);
 
-            for (const auto& bonded : atom->bonded_atoms) {
-                bonded_hash ^= PRIME_NUMBERS[bonded->type_id]; // XOR is commutative
-            }
-            // Combine atom and its bonded environment, order independent
-            atom_hash ^= bonded_hash;
-            mol_hash += atom_hash; // Addition is commutative
-        }
-        // Final mixing for better distribution
-        mol_hash ^= (mol_hash >> 16);
-        mol_hash *= 0x85ebca6b;
-        mol_hash ^= (mol_hash >> 13);
-        hash = mol_hash;
+        // // Hash
+        // unsigned int mol_hash = 1;
+        // for (const auto& atom : mol_atoms) {
+        //     unsigned int atom_hash = BIGGER_PRIME_NUMBERS[atom->type_id];
+        //     unsigned int bonded_hash = 1;
+
+        //     for (const auto& bonded : atom->bonded_atoms) {
+        //         bonded_hash *= PRIME_NUMBERS[bonded->type_id];  // XOR is commutative
+        //     }
+        //     // Combine atom and its bonded environment, order independent
+        //     atom_hash ^= bonded_hash;
+        //     mol_hash += atom_hash;  // Addition is commutative
+        // }
+        // // Final mixing for better distribution
+        // mol_hash ^= (mol_hash >> 16);
+        // mol_hash *= 0x85ebca6b;
+        // mol_hash ^= (mol_hash >> 13);
+        // hash = mol_hash;
 
         for (auto& atom : mol_atoms) {
             atom->belong_molecule = this;
@@ -179,9 +193,12 @@ struct Molecule {
 inline bool operator==(const Molecule& lhs, const Molecule& rhs) { return (lhs.hash == rhs.hash); };
 
 class System {
-  public:
+public:
     bool to_destroy = false;
     bool has_boundaries = false;
+
+    bool is_first_frame = false;
+    bool is_last_frame = false;
 
     int total_atoms = 0;
     int total_types = 0;
@@ -208,11 +225,12 @@ class System {
 
     System* prev_sys = nullptr;
     ReaxFlow* reax_flow;
-    ReaxCounter* reax_counter;
+    SpeciesCounter* species_counter;
 
     Counter<int>* bond_counter;
     Counter<int>* ring_counter;
     Counter<int>* atom_bonded_num_counter;
+    Counter<int>* hash_counter;
 
     System();
     ~System();
@@ -234,18 +252,19 @@ class System {
     void process_counters();
     void process_reax_flow();
 
-    void set_counters(ReaxCounter* _reax_counter, Counter<int>* _bond_counter, Counter<int>* _ring_counter,
-                      Counter<int>* _atom_bonded_num_counter) {
-        reax_counter = _reax_counter;
+    void set_counters(SpeciesCounter* _species_counter, Counter<int>* _bond_counter, Counter<int>* _ring_counter,
+        Counter<int>* _atom_bonded_num_counter, Counter<int>* _hash_counter) {
+        species_counter = _species_counter;
         bond_counter = _bond_counter;
         ring_counter = _ring_counter;
         atom_bonded_num_counter = _atom_bonded_num_counter;
+        hash_counter = _hash_counter;
     };
 
     void compute_ring_counts();
     void find_rings_from_atom(Atom* current, Atom* start, int depth, std::unordered_set<Atom*>& visited,
-                              std::unordered_set<std::unordered_set<Atom*>*>& current_rings,
-                              std::vector<Atom*>& current_path);
+        std::unordered_set<std::unordered_set<Atom*>*>& current_rings,
+        std::vector<Atom*>& current_path);
 
     void dump_lammps_data();
 

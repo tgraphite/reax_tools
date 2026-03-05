@@ -11,11 +11,14 @@ int MAX_NEIGH = 10;
 
 int NUM_THREADS = 4;
 int MAX_REACTIONS = 60;
+int MAX_KEY_MOLECULES = 60;
 int DUMP_STEPS = 10;
+int NETWORK_FLOW_MAX_REACTANTS = 10;
+int NETWORK_FLOW_MAX_PRODUCTS = 10;
 
 std::string INPUT_FILE = "";
 std::string OUTPUT_DIR = "reax_tools_output/";
-std::vector<std::string> INPUT_ELEMENT_TYPES;
+std::vector<std::string> INPUT_ELEMENT_TYPES = {};
 float RVDW_FACTOR = 1.2;
 
 bool FLAG_DUMP_STRUCTURE = false;
@@ -107,21 +110,44 @@ std::vector<unsigned int> BIGGER_PRIME_NUMBERS = {
     1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373, 1381, 1399,
     1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499};
 
+std::map<std::string, float> ELEMENT_MASS = {
+    {"H", 1.0080},      {"He", 4.00260},   {"Li", 7.0},        {"Be", 9.012183},   {"B", 10.81},
+    {"C", 12.011},      {"N", 14.007},     {"O", 15.999},      {"F", 18.99840316}, {"Ne", 20.180},
+    {"Na", 22.9897693}, {"Mg", 24.305},    {"Al", 26.981538},  {"Si", 28.085},     {"P", 30.97376200},
+    {"S", 32.07},       {"Cl", 35.45},     {"Ar", 39.9},       {"K", 39.0983},     {"Ca", 40.08},
+    {"Sc", 44.95591},   {"Ti", 47.867},    {"V", 50.9415},     {"Cr", 51.996},     {"Mn", 54.93804},
+    {"Fe", 55.84},      {"Co", 58.93319},  {"Ni", 58.693},     {"Cu", 63.55},      {"Zn", 65.4},
+    {"Ga", 69.723},     {"Ge", 72.63},     {"As", 74.92159},   {"Se", 78.97},      {"Br", 79.90},
+    {"Kr", 83.80},      {"Rb", 85.468},    {"Sr", 87.62},      {"Y", 88.90584},    {"Zr", 91.22},
+    {"Nb", 92.90637},   {"Mo", 95.95},     {"Tc", 96.90636},   {"Ru", 101.1},      {"Rh", 102.9055},
+    {"Pd", 106.42},     {"Ag", 107.868},   {"Cd", 112.41},     {"In", 114.818},    {"Sn", 118.71},
+    {"Sb", 121.760},    {"Te", 127.6},     {"I", 126.9045},    {"Xe", 131.29},     {"Cs", 132.9054520},
+    {"Ba", 137.33},     {"La", 138.9055},  {"Ce", 140.116},    {"Pr", 140.90766},  {"Nd", 144.24},
+    {"Pm", 144.91276},  {"Sm", 150.4},     {"Eu", 151.964},    {"Gd", 157.25},     {"Tb", 158.92535},
+    {"Dy", 162.500},    {"Ho", 164.93033}, {"Er", 167.26},     {"Tm", 168.93422},  {"Yb", 173.05},
+    {"Lu", 174.9667},   {"Hf", 178.49},    {"Ta", 180.9479},   {"W", 183.84},      {"Re", 186.207},
+    {"Os", 190.2},      {"Ir", 192.22},    {"Pt", 195.08},     {"Au", 196.96657},  {"Hg", 200.59},
+    {"Tl", 204.383},    {"Pb", 207},       {"Bi", 208.98040},  {"Po", 208.98243},  {"At", 209.98715},
+    {"Rn", 222.01758},  {"Fr", 223.01973}, {"Ra", 226.02541},  {"Ac", 227.02775},  {"Th", 232.038},
+    {"Pa", 231.03588},  {"U", 238.0289},   {"Np", 237.048172}, {"Pu", 244.06420},  {"Am", 243.061380},
+    {"Cm", 247.07035},  {"Bk", 247.07031}, {"Cf", 251.07959},  {"Es", 252.0830},   {"Fm", 257.09511},
+    {"Md", 258.09843},  {"No", 259.10100}, {"Lr", 266.120},    {"Rf", 267.122},    {"Db", 268.126},
+    {"Sg", 269.128},    {"Bh", 270.133},   {"Hs", 269.1336},   {"Mt", 277.154},    {"Ds", 282.166},
+    {"Rg", 282.169},    {"Cn", 286.179},   {"Nh", 286.182},    {"Fl", 290.192},    {"Mc", 290.196},
+    {"Lv", 293.205},    {"Ts", 294.211},   {"Og", 295.216}};
+
 bool operation_set_file(std::vector<std::string> input_string) {
-    if (input_string.size() != 1)
-        return false;
+    if (input_string.size() != 1) return false;
     INPUT_FILE = input_string[0];
     return true;
 }
 bool operation_set_output_dir(std::vector<std::string> input_string) {
-    if (input_string.size() != 1)
-        return false;
+    if (input_string.size() != 1) return false;
     OUTPUT_DIR = input_string[0];
     return true;
 }
 bool operation_set_rvdw_factor(std::vector<std::string> input_string) {
-    if (input_string.size() != 1)
-        return false;
+    if (input_string.size() != 1) return false;
     RVDW_FACTOR = std::stof(input_string[0]);
     return true;
 }
@@ -167,14 +193,12 @@ bool operation_set_type_valence(std::vector<std::string> input_string) {
     return true;
 }
 bool operation_set_num_threads(std::vector<std::string> input_string) {
-    if (input_string.size() != 1)
-        return false;
+    if (input_string.size() != 1) return false;
     NUM_THREADS = std::stoi(input_string[0]);
     return true;
 }
 bool operation_set_flag_dump_structure(std::vector<std::string> input_string) {
-    if (input_string.size() != 1)
-        return false;
+    if (input_string.size() != 1) return false;
     FLAG_DUMP_STRUCTURE = true;
     DUMP_STEPS = std::stoi(input_string[0]);
     return true;
@@ -196,14 +220,12 @@ bool operation_set_flag_no_reduce_reactions(std::vector<std::string> input_strin
     return true;
 }
 bool operation_set_max_reactions(std::vector<std::string> input_string) {
-    if (input_string.size() != 1)
-        return false;
+    if (input_string.size() != 1) return false;
     MAX_REACTIONS = std::stoi(input_string[0]);
     return true;
 }
 bool operation_set_merge_target(std::vector<std::string> input_string) {
-    if (input_string.size() != 1)
-        return false;
+    if (input_string.size() != 1) return false;
     MERGE_TARGET = input_string[0];
     FLAG_MERGE_ELEMENTS = true;
     return true;
@@ -246,7 +268,7 @@ bool operation_set_element_order(std::vector<std::string> input_string) {
 ArgParser init_argparser() {
     ArgParser parser("reax_tools", "ReaxTools: High performance reactive MD post-processer");
 
-    parser.add_argument("--input", "-f", "input trajectory file (.xyz/.lammpstrj)", "key input", false,
+    parser.add_argument("--traj", "-f", "input trajectory file (.xyz/.lammpstrj)", "key input", false,
                         operation_set_file);
     parser.add_argument("--output", "-o", "output directory", "key input", false, operation_set_output_dir);
     parser.add_argument("--rescale-vdw", "-r", "rescale vdw radii by factor (default=1.2)", "key input", false,

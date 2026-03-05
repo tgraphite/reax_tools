@@ -78,7 +78,7 @@ template <typename T> class Counter {
     }
 };
 
-class ReaxCounter {
+class SpeciesCounter {
   private:
     std::string file_path;
     std::string save_path;
@@ -92,11 +92,11 @@ class ReaxCounter {
 
   public:
     // When read from Lammps reax/c/bonds file.
-    ReaxCounter(const std::string& file_path);
+    SpeciesCounter(const std::string& file_path);
 
     // For import data from class Universe.
-    ReaxCounter();
-    ~ReaxCounter();
+    SpeciesCounter();
+    ~SpeciesCounter();
 
     void get_formulas();
     void get_nums();

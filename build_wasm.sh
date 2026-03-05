@@ -3,7 +3,6 @@ rm -f web/wasm_main.*
 # Collect all source files (excluding fmt.cc, only compile format.cc and os.cc)
 SRC_FILES=$(find cpp -name '*.cpp')
 SRC_FILES="$SRC_FILES cpp/fmt/format.cc cpp/fmt/os.cc"
-# SRC_FILES=${SRC_FILES/}
 
 # 编译
 emcc $SRC_FILES -o web/wasm_main.js \

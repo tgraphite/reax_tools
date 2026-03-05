@@ -3,3 +3,5 @@ test/
 bin/
 node_modules/
 archived/
+web/
+build/
