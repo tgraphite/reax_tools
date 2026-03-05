@@ -7,6 +7,8 @@
 #include <iostream>
 #include <mutex>
 #include <queue>
+#include <random>
+#include <stack>
 #include <unordered_map>
 
 #include "argparser.h"
@@ -618,6 +620,9 @@ void ReaxFlow::save_graph() {
     if (!FLAG_NO_REDUCE_REACTIONS) {
         reduce_graph();
     }
+    
+    // New: Atom economy filtering
+    filter_by_atom_economy(0.3);
 
     update_graph();
     brief_report();
@@ -1196,4 +1201,234 @@ void ReaxFlow::network_flow_solve() {
     // and sink, Dinic's algorithm
     // TODO: Step 3: Output results, like P -> T1 -> T2 -> ... -> Tn -> P (70% ->
     // 50% -> 30% -> 20% -> ...)
+}
+
+// ============================================================================
+// Reaction Network Improvement Methods
+// ============================================================================
+
+/**
+ * @brief Calculate atom economy for all reactions
+ * @note Atom economy = atom_transfer / min(source_atoms, target_atoms)
+ */
+void ReaxFlow::calculate_atom_economy() {
+    for (auto& edge : edges) {
+        int src_atoms = edge->source->molecule->mol_atoms.size();
+        int tgt_atoms = edge->target->molecule->mol_atoms.size();
+        int min_atoms = std::min(src_atoms, tgt_atoms);
+        
+        if (min_atoms > 0) {
+            edge->atom_economy = (double)edge->atom_transfer / min_atoms;
+        } else {
+            edge->atom_economy = 0.0;
+        }
+    }
+}
+
+/**
+ * @brief Filter reactions by atom economy threshold
+ * @param threshold Minimum atom economy ratio (default 0.3)
+ * @note Preserves dissociation and association reactions with lower threshold
+ */
+void ReaxFlow::filter_by_atom_economy(double threshold) {
+    calculate_atom_economy();
+    
+    std::vector<Edge*> edges_to_remove;
+    int preserved_dissociation = 0;
+    int preserved_association = 0;
+    
+    for (auto& edge : edges) {
+        // Keep high atom economy reactions
+        if (edge->atom_economy >= threshold) {
+            continue;
+        }
+        
+        // Special handling for dissociation/association
+        int src_size = edge->source->molecule->mol_atoms.size();
+        int tgt_size = edge->target->molecule->mol_atoms.size();
+        
+        bool is_dissociation = (src_size > tgt_size * 2);
+        bool is_association = (tgt_size > src_size * 2);
+        
+        // Dissociation: large -> small (e.g., C10H20 -> C5H10 + C5H10)
+        if (is_dissociation && edge->atom_economy > 0.15) {
+            preserved_dissociation++;
+            continue;
+        }
+        
+        // Association: small -> large (e.g., 2CH3 -> C2H6)
+        if (is_association && edge->atom_economy > 0.15) {
+            preserved_association++;
+            continue;
+        }
+        
+        edges_to_remove.push_back(edge);
+    }
+    
+    // Remove marked edges
+    for (auto& edge : edges_to_remove) {
+        edges.erase(edge);
+        edge_hash_to_edge.erase(edge->hash);
+        delete edge;
+    }
+    
+    // Always print statistics for evaluation
+    fmt::print("\n=== Atom Economy Filter ===\n");
+    fmt::print("Total reactions: {}\n", edges.size() + edges_to_remove.size());
+    fmt::print("Threshold: {:.2f}\n", threshold);
+    fmt::print("Removed: {} reactions ({:.1f}%)\n", 
+               edges_to_remove.size(),
+               100.0 * edges_to_remove.size() / (edges.size() + edges_to_remove.size()));
+    fmt::print("Preserved dissociations (AE>0.15): {}\n", preserved_dissociation);
+    fmt::print("Preserved associations (AE>0.15): {}\n", preserved_association);
+    
+    // Calculate atom economy distribution
+    int high_ae = 0, mid_ae = 0, low_ae = 0;
+    for (auto& edge : edges) {
+        if (edge->atom_economy >= 0.5) high_ae++;
+        else if (edge->atom_economy >= 0.3) mid_ae++;
+        else low_ae++;
+    }
+    fmt::print("Distribution of kept reactions:\n");
+    fmt::print("  High AE (>=0.5): {}\n", high_ae);
+    fmt::print("  Mid AE (0.3-0.5): {}\n", mid_ae);
+    fmt::print("  Low AE (<0.3, special): {}\n", low_ae);
+}
+
+/**
+ * @brief Calculate edge betweenness centrality using Brandes algorithm
+ * @note Uses sampling for large networks (max 100 source nodes)
+ */
+void ReaxFlow::calculate_edge_betweenness() {
+    // Initialize
+    for (auto& edge : edges) {
+        edge->betweenness = 0.0;
+    }
+    
+    if (nodes.empty()) return;
+    
+    // Convert to vector for sampling
+    std::vector<Node*> node_list(nodes.begin(), nodes.end());
+    
+    // Sample at most 100 source nodes for efficiency
+    int sample_size = std::min((int)node_list.size(), 100);
+    std::shuffle(node_list.begin(), node_list.end(), std::mt19937(42));
+    
+    for (int i = 0; i < sample_size; i++) {
+        Node* s = node_list[i];
+        
+        // BFS data structures
+        std::stack<Node*> S;
+        std::queue<Node*> Q;
+        std::unordered_map<Node*, std::vector<Node*>> pred;
+        std::unordered_map<Node*, int> sigma;
+        std::unordered_map<Node*, int> dist;
+        
+        for (auto& w : nodes) {
+            sigma[w] = 0;
+            dist[w] = -1;
+        }
+        sigma[s] = 1;
+        dist[s] = 0;
+        Q.push(s);
+        
+        // BFS
+        while (!Q.empty()) {
+            Node* v = Q.front(); Q.pop();
+            S.push(v);
+            
+            for (auto& w : v->to_nodes) {
+                if (dist[w] < 0) {
+                    dist[w] = dist[v] + 1;
+                    Q.push(w);
+                }
+                if (dist[w] == dist[v] + 1) {
+                    sigma[w] += sigma[v];
+                    pred[w].push_back(v);
+                }
+            }
+        }
+        
+        // Back-propagation
+        std::unordered_map<Node*, double> delta;
+        for (auto& v : nodes) delta[v] = 0.0;
+        
+        while (!S.empty()) {
+            Node* w = S.top(); S.pop();
+            
+            for (auto& v : pred[w]) {
+                Edge* e = get_edge(v, w);
+                if (!e) continue;
+                
+                double c = ((double)sigma[v] / sigma[w]) * (1.0 + delta[w]);
+                e->betweenness += c;
+                delta[v] += c;
+            }
+        }
+    }
+    
+    // Normalize for sampling
+    double norm_factor = (double)nodes.size() / sample_size;
+    for (auto& edge : edges) {
+        edge->betweenness *= norm_factor;
+    }
+}
+
+/**
+ * @brief Filter reactions by betweenness centrality
+ * @param target_edge_count Target number of edges to keep
+ * @note Combines betweenness, count, and atom_transfer criteria
+ */
+void ReaxFlow::filter_by_betweenness(int target_edge_count) {
+    calculate_edge_betweenness();
+    
+    // Create set of edges to keep
+    std::unordered_set<Edge*> edges_to_keep;
+    
+    // Sort by different criteria
+    std::vector<Edge*> by_bc(edges.begin(), edges.end());
+    std::sort(by_bc.begin(), by_bc.end(),
+        [](Edge* a, Edge* b) { return a->betweenness > b->betweenness; });
+    
+    std::vector<Edge*> by_count(edges.begin(), edges.end());
+    std::sort(by_count.begin(), by_count.end(),
+        [](Edge* a, Edge* b) { return a->count > b->count; });
+    
+    std::vector<Edge*> by_transfer(edges.begin(), edges.end());
+    std::sort(by_transfer.begin(), by_transfer.end(),
+        [](Edge* a, Edge* b) { return a->atom_transfer > b->atom_transfer; });
+    
+    // Keep top from each category
+    int n_bc = target_edge_count / 2;
+    int n_count = target_edge_count / 3;
+    int n_transfer = target_edge_count - n_bc - n_count;
+    
+    for (int i = 0; i < std::min(n_bc, (int)by_bc.size()); i++) {
+        edges_to_keep.insert(by_bc[i]);
+    }
+    for (int i = 0; i < std::min(n_count, (int)by_count.size()); i++) {
+        edges_to_keep.insert(by_count[i]);
+    }
+    for (int i = 0; i < std::min(n_transfer, (int)by_transfer.size()); i++) {
+        edges_to_keep.insert(by_transfer[i]);
+    }
+    
+    // Remove edges not in keep set
+    std::vector<Edge*> edges_to_remove;
+    for (auto& edge : edges) {
+        if (edges_to_keep.find(edge) == edges_to_keep.end()) {
+            edges_to_remove.push_back(edge);
+        }
+    }
+    
+    for (auto& edge : edges_to_remove) {
+        edges.erase(edge);
+        edge_hash_to_edge.erase(edge->hash);
+        delete edge;
+    }
+    
+    fmt::print("\n=== Betweenness Filter ===\n");
+    fmt::print("Target edges: {}\n", target_edge_count);
+    fmt::print("Kept: {}\n", edges_to_keep.size());
+    fmt::print("Removed: {}\n", edges_to_remove.size());
 }

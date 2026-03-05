@@ -52,6 +52,10 @@ struct Edge {
     unsigned int hash = 0;
     int count = 0;
     int atom_transfer = 0;
+    
+    // New fields for reaction importance analysis
+    double atom_economy = 0.0;  // Atom economy ratio
+    double betweenness = 0.0;   // Edge betweenness centrality
 
     Edge(Node* from_node, Node* to_node);
     ~Edge();
@@ -140,4 +144,10 @@ public:
     void save_molecule_centered_subgraphs(bool write_atom_transfer = true, bool csv_only = true, bool use_hash = false);
     void draw_molecules();
     void dump_smiles();
+    
+    // New methods for reaction network improvement
+    void calculate_atom_economy();
+    void filter_by_atom_economy(double threshold = 0.3);
+    void calculate_edge_betweenness();
+    void filter_by_betweenness(int target_edge_count = 60);
 };
