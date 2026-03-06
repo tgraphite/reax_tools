@@ -4,6 +4,11 @@
   <b>高性能 | 多格式支持 | 反应网络分析 | 在线即用</b>
 </p>
 
+<p align="center">
+  <a href="https://github.com/tgraphite/reax_tools/releases"><img src="https://img.shields.io/badge/version-1.98-blue" alt="Version"></a>
+  <a href="http://cc-portal.xyz/reax_tools_pro"><img src="https://img.shields.io/badge/web-在线试用-green" alt="Web"></a>
+</p>
+
 ReaxTools 是一款专为反应分子动力学（ReaxFF/AIMD/MLP-MD）模拟数据设计的高性能后处理分析工具，支持 LAMMPS、GPUMD、CP2K 等主流分子动力学软件产生的轨迹文件。
 
 ---
@@ -243,7 +248,7 @@ https://github.com/tgraphite/reax_tools
 ## 项目统计
 
 - ✅ 30+ 个验证项目和论文
-- ✅ 5-10 篇社区发表论文
+- ✅ 10+ 篇社区发表论文
 - ✅ 200+ 社区成员（持续增长中）
 
 ---
