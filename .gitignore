@@ -1,7 +1,4 @@
-test/
-.vscode/
-bin/
+*.xyz
 node_modules/
-archived/
 web/
-build/
+archived/
