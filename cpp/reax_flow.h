@@ -150,4 +150,5 @@ public:
     void filter_by_atom_economy(double threshold = 0.3);
     void calculate_edge_betweenness();
     void filter_by_betweenness(int target_edge_count = 60);
+    void cleanup_isolated_nodes();
 };

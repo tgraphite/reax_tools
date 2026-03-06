@@ -452,7 +452,9 @@ void ReaxFlow::write_dot_file(std::string basename, const std::vector<Edge*>& ed
     // Write nodes
     Node* node = nullptr;
     for (const auto& node : nodes_to_write) {
-        fmt::print(fp, "  node{} [label=\"{}\"];\n", node->hash, node->molecule->formula);
+        // Use formula_hash format for unique but readable IDs
+        fmt::print(fp, "  \"{}_{}\" [label=\"{}\"];\n", 
+                   node->molecule->formula, node->hash, node->molecule->formula);
     }
     fmt::print(fp, "\n");
 
@@ -467,13 +469,17 @@ void ReaxFlow::write_dot_file(std::string basename, const std::vector<Edge*>& ed
     for (const auto& edge : edges_to_write) {
         penwidth = std::min(5.0, 2.0 + log(edge->count));
 
+        // Use formula_hash format for node references
+        std::string src_id = fmt::format("{}_{}", edge->source->molecule->formula, edge->source->hash);
+        std::string tgt_id = fmt::format("{}_{}", edge->target->molecule->formula, edge->target->hash);
+
         if (write_atom_transfer) {
-            edge_line = fmt::format(" node{} -> node{} [label=\"R={} AT={}\", penwidth={}", edge->source->hash,
-                edge->target->hash, edge->count, edge->atom_transfer, penwidth);
+            edge_line = fmt::format(" \"{}\" -> \"{}\" [label=\"R={} AT={}\", penwidth={}", 
+                src_id, tgt_id, edge->count, edge->atom_transfer, penwidth);
         }
         else {
-            edge_line = fmt::format(" node{} -> node{} [label=\"{}\", penwidth={}", edge->source->hash,
-                edge->target->hash, edge->count, penwidth);
+            edge_line = fmt::format(" \"{}\" -> \"{}\" [label=\"{}\", penwidth={}", 
+                src_id, tgt_id, edge->count, penwidth);
         }
 
         if (curr_highlights < max_highlights) {
@@ -614,20 +620,28 @@ void ReaxFlow::write_dot_file_significant_nodes(std::string basename, int max_no
  * @note Automatically sorts nodes and edges before saving
  */
 void ReaxFlow::save_graph() {
-    // if (!MERGE_TARGET.empty() && !MERGE_RANGES.empty()) {
-    //     merge_by_element(MERGE_TARGET, MERGE_RANGES);
-    // }
+    // Integrated filtering workflow
+    fmt::print("\n=== Integrated Reaction Network Filtering ===\n");
+    
+    // Step 1: Reduce reversible reactions
     if (!FLAG_NO_REDUCE_REACTIONS) {
+        fmt::print("Step 1: Reducing reversible reactions...\n");
         reduce_graph();
     }
     
-    // New: Atom economy filtering
+    // Step 2: Atom economy filtering
+    fmt::print("Step 2: Atom economy filtering...\n");
     filter_by_atom_economy(0.3);
     
-    // New: Edge betweenness ranking if still too many edges
+    // Step 3: Edge betweenness ranking if still too many edges
     if (edges.size() > MAX_REACTIONS) {
+        fmt::print("Step 3: Edge betweenness ranking ({} > {})...\n", edges.size(), MAX_REACTIONS);
         filter_by_betweenness(MAX_REACTIONS);
     }
+    
+    // Step 4: Clean up isolated nodes and invalid edges
+    fmt::print("Step 4: Cleaning up isolated nodes...\n");
+    cleanup_isolated_nodes();
 
     update_graph();
     brief_report();
@@ -911,20 +925,46 @@ void ReaxFlow::merge_formulas(const std::unordered_set<std::string>& formulas_se
  * @note Creates molecules_smiles.csv with formula and SMILES columns
  * @note Requires RDKit library (only available when not in WASM mode)
  */
+#ifndef WASM_MODE
+/**
+ * @brief Dumps SMILES representations of all molecules to a CSV file
+ * @note Only processes molecules that don't start with "grp_" prefix
+ * @note Creates molecules_smiles.csv with formula and SMILES columns
+ * @note Sorted by node degree (highest first)
+ * @note Requires RDKit library (only available when not in WASM mode)
+ */
 void ReaxFlow::dump_smiles() {
+    // Ensure degrees are calculated
+    update_graph();
+    
+    // Sort nodes by degree (descending)
+    std::vector<Node*> sorted_nodes_vec(nodes.begin(), nodes.end());
+    std::sort(sorted_nodes_vec.begin(), sorted_nodes_vec.end(),
+        [](Node* a, Node* b) { return a->degree > b->degree; });
+    
     FILE* fp = create_file("molecules_smiles.csv");
-    for (const auto& node : nodes) {
+    // Header with degree info
+    fmt::print(fp, "hash,formula,smiles,degree,in_degree,out_degree\n");
+    
+    for (const auto& node : sorted_nodes_vec) {
         if (starts_with(node->molecule->formula, "grp_")) continue;
         try {
-            fmt::print(fp, "{},{},{}\n", node->hash, node->molecule->formula, rdkit_smiles(*node->molecule));
+            fmt::print(fp, "{},{},{},{},{},{}\n", 
+                node->hash, 
+                node->molecule->formula, 
+                rdkit_smiles(*node->molecule),
+                node->degree,
+                node->in_degree,
+                node->out_degree);
         }
         catch (const std::exception& e) {
             fmt::print(fp, "Warning: SMILES of {} can not be solved.\n", node->molecule->formula);
         }
     }
-
+    
     fclose(fp);
 }
+#endif
 #endif
 
 #ifndef WASM_MODE
@@ -1447,5 +1487,45 @@ void ReaxFlow::filter_by_betweenness(int target_edge_count) {
                    by_bc[i]->target->molecule->formula,
                    by_bc[i]->betweenness,
                    by_bc[i]->count);
+    }
+}
+
+
+/**
+ * @brief Clean up isolated nodes (nodes with degree = 0)
+ * @note Called after filtering to remove nodes that are no longer connected
+ */
+void ReaxFlow::cleanup_isolated_nodes() {
+    std::vector<Node*> nodes_to_remove;
+    
+    for (auto& node : nodes) {
+        // Check if node has any connected edges
+        bool has_incoming = false;
+        bool has_outgoing = false;
+        
+        for (auto& edge : edges) {
+            if (edge->target == node) {
+                has_incoming = true;
+            }
+            if (edge->source == node) {
+                has_outgoing = true;
+            }
+            if (has_incoming && has_outgoing) break;
+        }
+        
+        // Remove node with no connections
+        if (!has_incoming && !has_outgoing) {
+            nodes_to_remove.push_back(node);
+        }
+    }
+    
+    for (auto& node : nodes_to_remove) {
+        nodes.erase(node);
+        molecule_hash_to_node.erase(node->hash);
+        delete node;
+    }
+    
+    if (!nodes_to_remove.empty()) {
+        fmt::print("Removed {} isolated nodes\n", nodes_to_remove.size());
     }
 }
