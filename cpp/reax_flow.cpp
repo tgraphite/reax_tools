@@ -72,7 +72,7 @@ void Node::add_degrees(bool source_or_target, unsigned int count, unsigned int a
         precursor_reactions += count;           // weighted
         precursor_atom_transfer += atom_transfer_count;
     }
-    
+
     // Update totals
     degree = precursor_count + derivative_count;
     reaction_count = precursor_reactions + derivative_reactions;
@@ -352,17 +352,17 @@ void ReaxFlow::update_graph() {
         node->degree = 0;
         node->precursor_count = 0;
         node->derivative_count = 0;
-        
+
         // Weighted degrees (reaction counts)
         node->reaction_count = 0;
         node->precursor_reactions = 0;
         node->derivative_reactions = 0;
-        
+
         // Atom transfers
         node->atom_transfer = 0;
         node->precursor_atom_transfer = 0;
         node->derivative_atom_transfer = 0;
-        
+
         // Adjacency (precursors and derivatives)
         node->from_nodes.clear();
         node->to_nodes.clear();
@@ -469,8 +469,8 @@ void ReaxFlow::write_dot_file(std::string basename, const std::vector<Edge*>& ed
     Node* node = nullptr;
     for (const auto& node : nodes_to_write) {
         // Use formula_hash format for unique but readable IDs
-        fmt::print(fp, "  \"{}_{}\" [label=\"{}\"];\n", 
-                   node->molecule->formula, node->hash, node->molecule->formula);
+        fmt::print(fp, "  \"{}_{}\" [label=\"{}\"];\n",
+            node->molecule->formula, node->hash, node->molecule->formula);
     }
     fmt::print(fp, "\n");
 
@@ -490,11 +490,11 @@ void ReaxFlow::write_dot_file(std::string basename, const std::vector<Edge*>& ed
         std::string tgt_id = fmt::format("{}_{}", edge->target->molecule->formula, edge->target->hash);
 
         if (write_atom_transfer) {
-            edge_line = fmt::format(" \"{}\" -> \"{}\" [label=\"R={} AT={}\", penwidth={}", 
+            edge_line = fmt::format(" \"{}\" -> \"{}\" [label=\"R={} AT={}\", penwidth={}",
                 src_id, tgt_id, edge->count, edge->atom_transfer, penwidth);
         }
         else {
-            edge_line = fmt::format(" \"{}\" -> \"{}\" [label=\"{}\", penwidth={}", 
+            edge_line = fmt::format(" \"{}\" -> \"{}\" [label=\"{}\", penwidth={}",
                 src_id, tgt_id, edge->count, penwidth);
         }
 
@@ -638,23 +638,23 @@ void ReaxFlow::write_dot_file_significant_nodes(std::string basename, int max_no
 void ReaxFlow::save_graph() {
     // Integrated filtering workflow
     fmt::print("\n=== Integrated Reaction Network Filtering ===\n");
-    
+
     // Step 1: Reduce reversible reactions
     if (!FLAG_NO_REDUCE_REACTIONS) {
         fmt::print("Step 1: Reducing reversible reactions...\n");
         reduce_graph();
     }
-    
+
     // Step 2: Atom economy filtering
     fmt::print("Step 2: Atom economy filtering...\n");
     filter_by_atom_economy(0.3);
-    
+
     // Step 3: Edge betweenness ranking if still too many edges
     if (edges.size() > MAX_REACTIONS) {
         fmt::print("Step 3: Edge betweenness ranking ({} > {})...\n", edges.size(), MAX_REACTIONS);
         filter_by_betweenness(MAX_REACTIONS);
     }
-    
+
     // Step 4: Clean up isolated nodes and invalid edges
     fmt::print("Step 4: Cleaning up isolated nodes...\n");
     cleanup_isolated_nodes();
@@ -722,16 +722,16 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
     int mol_index = 1;
     for (const auto& [node, degree] : sorted_nodes) {
         std::string species_name = node->molecule->formula;
-        
+
         // Species header
         fmt::print(fp_md, "## {}. Species: **{}**\n\n", mol_index++, species_name);
-        
+
         // Topology statistics
         fmt::print(fp_md, "### Network Statistics\n\n");
         fmt::print(fp_md, "- **Total connections**: {}\n", node->degree);
-        fmt::print(fp_md, "- **Precursors**: {} (sources)\n", node->precursor_count);
-        fmt::print(fp_md, "- **Derivatives**: {} (targets)\n", node->derivative_count);
-        
+        fmt::print(fp_md, "- **Precursors**: {}\n", node->precursor_count);
+        fmt::print(fp_md, "- **Derivatives**: {}\n", node->derivative_count);
+
         if (write_atom_transfer) {
             fmt::print(fp_md, "- **Total reaction count**: {}\n", node->reaction_count);
             fmt::print(fp_md, "- **Precursor reactions**: {}\n", node->precursor_reactions);
@@ -743,50 +743,73 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
         // Precursors section
         fmt::print(fp_md, "### Precursors ({} total)\n\n", node->precursor_count);
         if (!node->from_nodes.empty()) {
-            fmt::print(fp_md, "Top precursors:\n\n");
-            // Sort precursors by their degree
-            std::vector<Node*> precursors(node->from_nodes.begin(), node->from_nodes.end());
-            std::sort(precursors.begin(), precursors.end(),
-                [](Node* a, Node* b) { return a->degree > b->degree; });
+            fmt::print(fp_md, "Top precursors (sorted by reaction count):\n\n");
+            
+            // Get edges from precursors to this node
+            std::vector<std::pair<Node*, Edge*>> precursor_edges;
+            for (auto* precursor : node->from_nodes) {
+                Edge* edge = get_edge(precursor, node);
+                if (edge) {
+                    precursor_edges.emplace_back(precursor, edge);
+                }
+            }
+            
+            // Sort by reaction count (edge->count)
+            std::sort(precursor_edges.begin(), precursor_edges.end(),
+                [](const auto& a, const auto& b) { return a.second->count > b.second->count; });
             
             int count = 0;
-            for (auto* precursor : precursors) {
+            for (auto& [precursor, edge] : precursor_edges) {
                 if (++count > 5) break;
-                fmt::print(fp_md, "- **{}** (degree: {})\n", 
-                    precursor->molecule->formula, precursor->degree);
+                fmt::print(fp_md, "- **{}** → {} (reactions: {})\n", 
+                    precursor->molecule->formula, 
+                    node->molecule->formula,
+                    edge->count);
             }
             fmt::print(fp_md, "\n");
-        } else {
+        }
+        else {
             fmt::print(fp_md, "_No precursors (initial species)_\n\n");
         }
 
         // Derivatives section
         fmt::print(fp_md, "### Derivatives ({} total)\n\n", node->derivative_count);
         if (!node->to_nodes.empty()) {
-            fmt::print(fp_md, "Top derivatives:\n\n");
-            // Sort derivatives by their degree
-            std::vector<Node*> derivatives(node->to_nodes.begin(), node->to_nodes.end());
-            std::sort(derivatives.begin(), derivatives.end(),
-                [](Node* a, Node* b) { return a->degree > b->degree; });
+            fmt::print(fp_md, "Top derivatives (sorted by reaction count):\n\n");
             
+            // Get edges from this node to derivatives
+            std::vector<std::pair<Node*, Edge*>> derivative_edges;
+            for (auto* derivative : node->to_nodes) {
+                Edge* edge = get_edge(node, derivative);
+                if (edge) {
+                    derivative_edges.emplace_back(derivative, edge);
+                }
+            }
+            
+            // Sort by reaction count (edge->count)
+            std::sort(derivative_edges.begin(), derivative_edges.end(),
+                [](const auto& a, const auto& b) { return a.second->count > b.second->count; });
+
             int count = 0;
-            for (auto* derivative : derivatives) {
+            for (auto& [derivative, edge] : derivative_edges) {
                 if (++count > 5) break;
-                fmt::print(fp_md, "- **{}** (degree: {})\n", 
-                    derivative->molecule->formula, derivative->degree);
+                fmt::print(fp_md, "- **{}** → {} (reactions: {})\n",
+                    node->molecule->formula,
+                    derivative->molecule->formula,
+                    edge->count);
             }
             fmt::print(fp_md, "\n");
-        } else {
+        }
+        else {
             fmt::print(fp_md, "_No derivatives (terminal species)_\n\n");
         }
-
         fmt::print(fp_md, "---\n\n");
     }
 
     // Add reaction pathways section
     fmt::print(fp_md, "# Reaction Pathways\n\n");
     fmt::print(fp_md, "This section shows the longest continuous reaction pathways in the network.\n\n");
-    
+
     find_and_print_pathways(fp_md);
 
     fclose(fp_md);
@@ -929,32 +952,32 @@ void ReaxFlow::merge_formulas(const std::unordered_set<std::string>& formulas_se
  * @note Requires RDKit library (only available when not in WASM mode)
  */
 #ifndef WASM_MODE
-/**
- * @brief Dumps SMILES representations of all molecules to a CSV file
- * @note Only processes molecules that don't start with "grp_" prefix
- * @note Creates molecules_smiles.csv with formula and SMILES columns
- * @note Sorted by node degree (highest first)
- * @note Requires RDKit library (only available when not in WASM mode)
- */
+ /**
+  * @brief Dumps SMILES representations of all molecules to a CSV file
+  * @note Only processes molecules that don't start with "grp_" prefix
+  * @note Creates molecules_smiles.csv with formula and SMILES columns
+  * @note Sorted by node degree (highest first)
+  * @note Requires RDKit library (only available when not in WASM mode)
+  */
 void ReaxFlow::dump_smiles() {
     // Ensure degrees are calculated
     update_graph();
-    
+
     // Sort nodes by degree (descending)
     std::vector<Node*> sorted_nodes_vec(nodes.begin(), nodes.end());
     std::sort(sorted_nodes_vec.begin(), sorted_nodes_vec.end(),
         [](Node* a, Node* b) { return a->degree > b->degree; });
-    
+
     FILE* fp = create_file("molecules_smiles.csv");
     // Header with precursor/derivative naming
     fmt::print(fp, "hash,formula,smiles,total_connections,precursors,derivatives\n");
-    
+
     for (const auto& node : sorted_nodes_vec) {
         if (starts_with(node->molecule->formula, "grp_")) continue;
         try {
-            fmt::print(fp, "{},{},{},{},{},{}\n", 
-                node->hash, 
-                node->molecule->formula, 
+            fmt::print(fp, "{},{},{},{},{},{}\n",
+                node->hash,
+                node->molecule->formula,
                 rdkit_smiles(*node->molecule),
                 node->degree,
                 node->precursor_count,
@@ -964,7 +987,7 @@ void ReaxFlow::dump_smiles() {
             fmt::print(fp, "Warning: SMILES of {} can not be solved.\n", node->molecule->formula);
         }
     }
-    
+
     fclose(fp);
 }
 #endif
@@ -1264,10 +1287,11 @@ void ReaxFlow::calculate_atom_economy() {
         int src_atoms = edge->source->molecule->mol_atoms.size();
         int tgt_atoms = edge->target->molecule->mol_atoms.size();
         int min_atoms = std::min(src_atoms, tgt_atoms);
-        
+
         if (min_atoms > 0) {
             edge->atom_economy = (double)edge->atom_transfer / min_atoms;
-        } else {
+        }
+        else {
             edge->atom_economy = 0.0;
         }
     }
@@ -1280,56 +1304,56 @@ void ReaxFlow::calculate_atom_economy() {
  */
 void ReaxFlow::filter_by_atom_economy(double threshold) {
     calculate_atom_economy();
-    
+
     std::vector<Edge*> edges_to_remove;
     int preserved_dissociation = 0;
     int preserved_association = 0;
-    
+
     for (auto& edge : edges) {
         // Keep high atom economy reactions
         if (edge->atom_economy >= threshold) {
             continue;
         }
-        
+
         // Special handling for dissociation/association
         int src_size = edge->source->molecule->mol_atoms.size();
         int tgt_size = edge->target->molecule->mol_atoms.size();
-        
+
         bool is_dissociation = (src_size > tgt_size * 2);
         bool is_association = (tgt_size > src_size * 2);
-        
+
         // Dissociation: large -> small (e.g., C10H20 -> C5H10 + C5H10)
         if (is_dissociation && edge->atom_economy > 0.15) {
             preserved_dissociation++;
             continue;
         }
-        
+
         // Association: small -> large (e.g., 2CH3 -> C2H6)
         if (is_association && edge->atom_economy > 0.15) {
             preserved_association++;
             continue;
         }
-        
+
         edges_to_remove.push_back(edge);
     }
-    
+
     // Remove marked edges
     for (auto& edge : edges_to_remove) {
         edges.erase(edge);
         edge_hash_to_edge.erase(edge->hash);
         delete edge;
     }
-    
+
     // Always print statistics for evaluation
     fmt::print("\n=== Atom Economy Filter ===\n");
     fmt::print("Total reactions: {}\n", edges.size() + edges_to_remove.size());
     fmt::print("Threshold: {:.2f}\n", threshold);
-    fmt::print("Removed: {} reactions ({:.1f}%)\n", 
-               edges_to_remove.size(),
-               100.0 * edges_to_remove.size() / (edges.size() + edges_to_remove.size()));
+    fmt::print("Removed: {} reactions ({:.1f}%)\n",
+        edges_to_remove.size(),
+        100.0 * edges_to_remove.size() / (edges.size() + edges_to_remove.size()));
     fmt::print("Preserved dissociations (AE>0.15): {}\n", preserved_dissociation);
     fmt::print("Preserved associations (AE>0.15): {}\n", preserved_association);
-    
+
     // Calculate atom economy distribution
     int high_ae = 0, mid_ae = 0, low_ae = 0;
     for (auto& edge : edges) {
@@ -1352,26 +1376,26 @@ void ReaxFlow::calculate_edge_betweenness() {
     for (auto& edge : edges) {
         edge->betweenness = 0.0;
     }
-    
+
     if (nodes.empty()) return;
-    
+
     // Convert to vector for sampling
     std::vector<Node*> node_list(nodes.begin(), nodes.end());
-    
+
     // Sample at most 100 source nodes for efficiency
     int sample_size = std::min((int)node_list.size(), 100);
     std::shuffle(node_list.begin(), node_list.end(), std::mt19937(42));
-    
+
     for (int i = 0; i < sample_size; i++) {
         Node* s = node_list[i];
-        
+
         // BFS data structures
         std::stack<Node*> S;
         std::queue<Node*> Q;
         std::unordered_map<Node*, std::vector<Node*>> pred;
         std::unordered_map<Node*, int> sigma;
         std::unordered_map<Node*, int> dist;
-        
+
         for (auto& w : nodes) {
             sigma[w] = 0;
             dist[w] = -1;
@@ -1379,12 +1403,12 @@ void ReaxFlow::calculate_edge_betweenness() {
         sigma[s] = 1;
         dist[s] = 0;
         Q.push(s);
-        
+
         // BFS
         while (!Q.empty()) {
             Node* v = Q.front(); Q.pop();
             S.push(v);
-            
+
             for (auto& w : v->to_nodes) {
                 if (dist[w] < 0) {
                     dist[w] = dist[v] + 1;
@@ -1396,25 +1420,25 @@ void ReaxFlow::calculate_edge_betweenness() {
                 }
             }
         }
-        
+
         // Back-propagation
         std::unordered_map<Node*, double> delta;
         for (auto& v : nodes) delta[v] = 0.0;
-        
+
         while (!S.empty()) {
             Node* w = S.top(); S.pop();
-            
+
             for (auto& v : pred[w]) {
                 Edge* e = get_edge(v, w);
                 if (!e) continue;
-                
+
                 double c = ((double)sigma[v] / sigma[w]) * (1.0 + delta[w]);
                 e->betweenness += c;
                 delta[v] += c;
             }
         }
     }
-    
+
     // Normalize for sampling
     double norm_factor = (double)nodes.size() / sample_size;
     for (auto& edge : edges) {
@@ -1429,28 +1453,28 @@ void ReaxFlow::calculate_edge_betweenness() {
  */
 void ReaxFlow::filter_by_betweenness(int target_edge_count) {
     calculate_edge_betweenness();
-    
+
     // Create set of edges to keep
     std::unordered_set<Edge*> edges_to_keep;
-    
+
     // Sort by different criteria
     std::vector<Edge*> by_bc(edges.begin(), edges.end());
     std::sort(by_bc.begin(), by_bc.end(),
         [](Edge* a, Edge* b) { return a->betweenness > b->betweenness; });
-    
+
     std::vector<Edge*> by_count(edges.begin(), edges.end());
     std::sort(by_count.begin(), by_count.end(),
         [](Edge* a, Edge* b) { return a->count > b->count; });
-    
+
     std::vector<Edge*> by_transfer(edges.begin(), edges.end());
     std::sort(by_transfer.begin(), by_transfer.end(),
         [](Edge* a, Edge* b) { return a->atom_transfer > b->atom_transfer; });
-    
+
     // Keep top from each category
     int n_bc = target_edge_count / 2;
     int n_count = target_edge_count / 3;
     int n_transfer = target_edge_count - n_bc - n_count;
-    
+
     for (int i = 0; i < std::min(n_bc, (int)by_bc.size()); i++) {
         edges_to_keep.insert(by_bc[i]);
     }
@@ -1460,7 +1484,7 @@ void ReaxFlow::filter_by_betweenness(int target_edge_count) {
     for (int i = 0; i < std::min(n_transfer, (int)by_transfer.size()); i++) {
         edges_to_keep.insert(by_transfer[i]);
     }
-    
+
     // Remove edges not in keep set
     std::vector<Edge*> edges_to_remove;
     for (auto& edge : edges) {
@@ -1468,28 +1492,28 @@ void ReaxFlow::filter_by_betweenness(int target_edge_count) {
             edges_to_remove.push_back(edge);
         }
     }
-    
+
     for (auto& edge : edges_to_remove) {
         edges.erase(edge);
         edge_hash_to_edge.erase(edge->hash);
         delete edge;
     }
-    
+
     fmt::print("\n=== Edge Betweenness Filter ===\n");
     fmt::print("Target edges: {}\n", target_edge_count);
     fmt::print("Total before: {}\n", edges.size() + edges_to_remove.size());
-    fmt::print("Kept: {} (BC top {} + count top {} + transfer top {})\n", 
-               edges_to_keep.size(), n_bc, n_count, n_transfer);
+    fmt::print("Kept: {} (BC top {} + count top {} + transfer top {})\n",
+        edges_to_keep.size(), n_bc, n_count, n_transfer);
     fmt::print("Removed: {}\n", edges_to_remove.size());
-    
+
     // Print top 5 highest betweenness edges
     fmt::print("\nTop 5 by betweenness centrality:\n");
     for (int i = 0; i < std::min(5, (int)by_bc.size()); i++) {
         fmt::print("  {} -> {} (BC={:.2f}, count={})\n",
-                   by_bc[i]->source->molecule->formula,
-                   by_bc[i]->target->molecule->formula,
-                   by_bc[i]->betweenness,
-                   by_bc[i]->count);
+            by_bc[i]->source->molecule->formula,
+            by_bc[i]->target->molecule->formula,
+            by_bc[i]->betweenness,
+            by_bc[i]->count);
     }
 }
 
@@ -1500,12 +1524,12 @@ void ReaxFlow::filter_by_betweenness(int target_edge_count) {
  */
 void ReaxFlow::cleanup_isolated_nodes() {
     std::vector<Node*> nodes_to_remove;
-    
+
     for (auto& node : nodes) {
         // Check if node has any connected edges
         bool has_incoming = false;
         bool has_outgoing = false;
-        
+
         for (auto& edge : edges) {
             if (edge->target == node) {
                 has_incoming = true;
@@ -1515,19 +1539,19 @@ void ReaxFlow::cleanup_isolated_nodes() {
             }
             if (has_incoming && has_outgoing) break;
         }
-        
+
         // Remove node with no connections
         if (!has_incoming && !has_outgoing) {
             nodes_to_remove.push_back(node);
         }
     }
-    
+
     for (auto& node : nodes_to_remove) {
         nodes.erase(node);
         molecule_hash_to_node.erase(node->hash);
         delete node;
     }
-    
+
     if (!nodes_to_remove.empty()) {
         fmt::print("Removed {} isolated nodes\n", nodes_to_remove.size());
     }
@@ -1544,7 +1568,7 @@ void ReaxFlow::find_and_print_pathways(FILE* fp) {
     // Find source nodes (no precursors) and target nodes (no derivatives)
     std::vector<Node*> sources;
     std::vector<Node*> targets;
-    
+
     for (auto& node : nodes) {
         if (node->precursor_count == 0 && node->derivative_count > 0) {
             sources.push_back(node);
@@ -1553,59 +1577,59 @@ void ReaxFlow::find_and_print_pathways(FILE* fp) {
             targets.push_back(node);
         }
     }
-    
+
     if (sources.empty() || targets.empty()) {
         fmt::print(fp, "No clear reaction pathways found (no distinct sources or targets).\n\n");
         return;
     }
-    
+
     fmt::print(fp, "Found {} source species and {} target species.\n\n", sources.size(), targets.size());
-    
+
     // Find paths from each source to each target
     std::vector<std::vector<Node*>> all_paths;
-    
+
     for (auto* source : sources) {
         for (auto* target : targets) {
             if (source == target) continue;
-            
+
             std::vector<Node*> path;
             std::unordered_set<Node*> visited;
             dfs_pathways(source, target, path, visited, all_paths, 10);
         }
     }
-    
+
     // Sort paths by length (longest first)
     std::sort(all_paths.begin(), all_paths.end(),
         [](const std::vector<Node*>& a, const std::vector<Node*>& b) {
             return a.size() > b.size();
         });
-    
+
     // Remove duplicate paths (same start and end)
     std::vector<std::vector<Node*>> unique_paths;
     std::set<std::pair<std::string, std::string>> seen_endpoints;
-    
+
     for (auto& path : all_paths) {
         if (path.size() < 2) continue;
-        
+
         std::string start = path.front()->molecule->formula;
         std::string end = path.back()->molecule->formula;
         auto key = std::make_pair(start, end);
-        
+
         if (seen_endpoints.find(key) == seen_endpoints.end()) {
             seen_endpoints.insert(key);
             unique_paths.push_back(path);
         }
     }
-    
+
     // Print top pathways
     fmt::print(fp, "## Top Reaction Pathways\n\n");
-    
+
     int pathway_count = 0;
     for (auto& path : unique_paths) {
         if (++pathway_count > 10) break;  // Limit to top 10
-        
+
         fmt::print(fp, "### Pathway {} ({} steps)\n\n", pathway_count, path.size() - 1);
-        
+
         // Print path
         fmt::print(fp, "**Path**: ");
         for (size_t i = 0; i < path.size(); i++) {
@@ -1615,21 +1639,22 @@ void ReaxFlow::find_and_print_pathways(FILE* fp) {
             }
         }
         fmt::print(fp, "\n\n");
-        
+
         // Print details
         fmt::print(fp, "**Details**:\n\n");
         for (size_t i = 0; i < path.size() - 1; i++) {
             Node* from = path[i];
-            Node* to = path[i+1];
-            
+            Node* to = path[i + 1];
+
             // Find the edge
             Edge* edge = get_edge(from, to);
             if (edge) {
-                fmt::print(fp, "- {} → {} (count: {})\n", 
-                    from->molecule->formula, 
+                fmt::print(fp, "- {} → {} (count: {})\n",
+                    from->molecule->formula,
                     to->molecule->formula,
                     edge->count);
-            } else {
+            }
+            else {
                 fmt::print(fp, "- {} → {}\n", from->molecule->formula, to->molecule->formula);
             }
         }
@@ -1646,13 +1671,13 @@ void ReaxFlow::find_and_print_pathways(FILE* fp) {
  * @param all_paths Vector to store all found paths
  * @param max_depth Maximum search depth to prevent infinite recursion
  */
-void ReaxFlow::dfs_pathways(Node* current, Node* target, std::vector<Node*>& path, 
-                            std::unordered_set<Node*>& visited, std::vector<std::vector<Node*>>& all_paths,
-                            int max_depth) {
+void ReaxFlow::dfs_pathways(Node* current, Node* target, std::vector<Node*>& path,
+    std::unordered_set<Node*>& visited, std::vector<std::vector<Node*>>& all_paths,
+    int max_depth) {
     // Add current node to path
     path.push_back(current);
     visited.insert(current);
-    
+
     // Check if we reached the target
     if (current == target) {
         all_paths.push_back(path);
@@ -1661,21 +1686,21 @@ void ReaxFlow::dfs_pathways(Node* current, Node* target, std::vector<Node*>& pat
         visited.erase(current);
         return;
     }
-    
+
     // Stop if max depth reached
     if (path.size() >= (size_t)max_depth) {
         path.pop_back();
         visited.erase(current);
         return;
     }
-    
+
     // Explore derivatives (outgoing edges)
     for (auto* next_node : current->to_nodes) {
         if (visited.find(next_node) == visited.end()) {
             dfs_pathways(next_node, target, path, visited, all_paths, max_depth);
         }
     }
-    
+
     // Backtrack
     path.pop_back();
     visited.erase(current);
