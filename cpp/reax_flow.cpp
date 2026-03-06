@@ -55,22 +55,28 @@ Node::~Node() {
  * @param count Number of reactions involving this node
  * @param atom_transfer_count Total number of atoms transferred in reactions
  * involving this node
- * @note Updates both total degrees and directional degrees (in/out) based on
- * reaction direction
+ * @note Updates topological degrees (edge counts) and weighted degrees (reaction counts)
+ * @note degree = in_degree + out_degree (topological)
+ * @note reaction_count = in_reaction_count + out_reaction_count (weighted)
  */
 void Node::add_degrees(bool source_or_target, unsigned int count, unsigned int atom_transfer_count) {
     if (source_or_target) {
-        degree += count;
-        degree_at += atom_transfer_count;
-        out_degree++;
-        out_degree_at += atom_transfer_count;
+        // Outgoing (as source/reactant)
+        out_degree++;                           // topological
+        out_reaction_count += count;            // weighted
+        out_atom_transfer += atom_transfer_count;
     }
     else {
-        degree += count;
-        degree_at += atom_transfer_count;
-        in_degree++;
-        in_degree_at += atom_transfer_count;
+        // Incoming (as target/product)
+        in_degree++;                            // topological
+        in_reaction_count += count;             // weighted
+        in_atom_transfer += atom_transfer_count;
     }
+    
+    // Update totals
+    degree = in_degree + out_degree;
+    reaction_count = in_reaction_count + out_reaction_count;
+    atom_transfer = in_atom_transfer + out_atom_transfer;
 }
 
 /**
@@ -340,14 +346,24 @@ void ReaxFlow::reduce_graph() {
  * @note Sorts in descending order (highest degree/count first)
  */
 void ReaxFlow::update_graph() {
-    // Clear all adjacency relationships
+    // Clear all degree statistics and adjacency relationships
     for (auto& node : nodes) {
+        // Topological degrees
         node->degree = 0;
-        node->degree_at = 0;
         node->in_degree = 0;
-        node->in_degree_at = 0;
         node->out_degree = 0;
-        node->out_degree_at = 0;
+        
+        // Weighted degrees
+        node->reaction_count = 0;
+        node->in_reaction_count = 0;
+        node->out_reaction_count = 0;
+        
+        // Atom transfers
+        node->atom_transfer = 0;
+        node->in_atom_transfer = 0;
+        node->out_atom_transfer = 0;
+        
+        // Adjacency
         node->from_nodes.clear();
         node->to_nodes.clear();
     }
@@ -775,9 +791,10 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
             this_molecule_identifier = node->molecule->formula;
         }
         if (write_atom_transfer) {
-            csv_record_string = fmt::format("{},{},{},{},{},{},{},{}{}\n", this_molecule_identifier, node->degree,
-                node->in_degree, node->out_degree, node->degree_at, node->in_degree_at,
-                node->out_degree_at, from_string, to_string);
+            csv_record_string = fmt::format("{},{},{},{},{},{},{},{},{},{}{}\n", this_molecule_identifier, node->degree,
+                node->in_degree, node->out_degree, node->reaction_count, node->in_reaction_count,
+                node->out_reaction_count, node->atom_transfer, node->in_atom_transfer,
+                node->out_atom_transfer, from_string, to_string);
         }
         else {
             csv_record_string = fmt::format("{},{},{},{},{}{}\n", this_molecule_identifier, node->degree,

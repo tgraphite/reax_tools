@@ -28,13 +28,20 @@ struct Node {
 
     unsigned int hash = 0;
 
-    int degree = 0;
-    int in_degree = 0;
-    int out_degree = 0;
+    // Topological degrees (edge counts)
+    int degree = 0;         // in_degree + out_degree
+    int in_degree = 0;      // number of incoming edges
+    int out_degree = 0;     // number of outgoing edges
 
-    int degree_at = 0;
-    int in_degree_at = 0;
-    int out_degree_at = 0;
+    // Weighted degrees (reaction counts)
+    int reaction_count = 0;     // total reaction count (sum of edge->count)
+    int in_reaction_count = 0;  // incoming reaction count
+    int out_reaction_count = 0; // outgoing reaction count
+
+    // Atom transfer counts
+    int atom_transfer = 0;      // total atom transfer
+    int in_atom_transfer = 0;   // incoming atom transfer
+    int out_atom_transfer = 0;  // outgoing atom transfer
 
     std::unordered_set<Node*> from_nodes;
     std::unordered_set<Node*> to_nodes;
