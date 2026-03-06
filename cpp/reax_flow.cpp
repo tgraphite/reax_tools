@@ -56,27 +56,27 @@ Node::~Node() {
  * @param atom_transfer_count Total number of atoms transferred in reactions
  * involving this node
  * @note Updates topological degrees (edge counts) and weighted degrees (reaction counts)
- * @note degree = in_degree + out_degree (topological)
+ * @note degree = precursor_count + derivative_count (topological)
  * @note reaction_count = in_reaction_count + out_reaction_count (weighted)
  */
 void Node::add_degrees(bool source_or_target, unsigned int count, unsigned int atom_transfer_count) {
     if (source_or_target) {
-        // Outgoing (as source/reactant)
-        out_degree++;                           // topological
-        out_reaction_count += count;            // weighted
-        out_atom_transfer += atom_transfer_count;
+        // As reactant/source: forms derivatives
+        derivative_count++;                     // topological
+        derivative_reactions += count;          // weighted
+        derivative_atom_transfer += atom_transfer_count;
     }
     else {
-        // Incoming (as target/product)
-        in_degree++;                            // topological
-        in_reaction_count += count;             // weighted
-        in_atom_transfer += atom_transfer_count;
+        // As product/target: has precursors
+        precursor_count++;                      // topological
+        precursor_reactions += count;           // weighted
+        precursor_atom_transfer += atom_transfer_count;
     }
     
     // Update totals
-    degree = in_degree + out_degree;
-    reaction_count = in_reaction_count + out_reaction_count;
-    atom_transfer = in_atom_transfer + out_atom_transfer;
+    degree = precursor_count + derivative_count;
+    reaction_count = precursor_reactions + derivative_reactions;
+    atom_transfer = precursor_atom_transfer + derivative_atom_transfer;
 }
 
 /**
@@ -348,22 +348,22 @@ void ReaxFlow::reduce_graph() {
 void ReaxFlow::update_graph() {
     // Clear all degree statistics and adjacency relationships
     for (auto& node : nodes) {
-        // Topological degrees
+        // Topological degrees (precursors and derivatives)
         node->degree = 0;
-        node->in_degree = 0;
-        node->out_degree = 0;
+        node->precursor_count = 0;
+        node->derivative_count = 0;
         
-        // Weighted degrees
+        // Weighted degrees (reaction counts)
         node->reaction_count = 0;
-        node->in_reaction_count = 0;
-        node->out_reaction_count = 0;
+        node->precursor_reactions = 0;
+        node->derivative_reactions = 0;
         
         // Atom transfers
         node->atom_transfer = 0;
-        node->in_atom_transfer = 0;
-        node->out_atom_transfer = 0;
+        node->precursor_atom_transfer = 0;
+        node->derivative_atom_transfer = 0;
         
-        // Adjacency
+        // Adjacency (precursors and derivatives)
         node->from_nodes.clear();
         node->to_nodes.clear();
     }
@@ -409,11 +409,11 @@ void ReaxFlow::brief_report() {
 
     fmt::print("=== Reaction Flow Report ===\n");
     fmt::print("Top {} key molecules:\n", max_node_display);
-    fmt::print("{:<12s}{:<12s}{:<12s}\n", "molecule", "in degree", "out degree");
+    fmt::print("{:<12s}{:<12s}{:<12s}\n", "molecule", "precursors", "derivatives");
     Node* tmp_node = nullptr;
     for (size_t i = 0; i < max_node_display; i++) {
         tmp_node = sorted_nodes[i].first;
-        fmt::print("{:<12s}{:<12d}{:<12d}\n", tmp_node->molecule->formula, tmp_node->in_degree, tmp_node->out_degree);
+        fmt::print("{:<12s}{:<12d}{:<12d}\n", tmp_node->molecule->formula, tmp_node->precursor_count, tmp_node->derivative_count);
     }
 
     fmt::print("\n");
@@ -708,102 +708,88 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
         sorted_nodes.resize(MAX_KEY_MOLECULES);
     }
 
-    std::string save_path;
-    if (use_hash) {
-        save_path = "key_molecules_reactions_hash.csv";
-    }
-    else {
-        save_path = "key_molecules_reactions.csv";
-    }
-    FILE* fp_csv = create_file(save_path);
+    // Output as Markdown instead of CSV
+    std::string save_path = "key_molecules_reactions.md";
+    FILE* fp_md = create_file(save_path);
 
-    std::string csv_header = "";
-    if (write_atom_transfer) {
-        csv_header =
-            "molecule,total reactions,in reaction,out reaction,total atom "
-            "transfer,in atom transfer,out atom "
-            "transfer,from 1,from 2,from 3,from 4,from 5,to 1,to 2,to 3,to 4,to "
-            "5,\n";
-    }
-    else {
-        csv_header =
-            "molecule,total reactions,in reaction,out reaction,from 1,from 2,from "
-            "3,from 4,from 5,to 1,to "
-            "2,to 3,to 4,to 5,\n";
-    }
-    fmt::print(fp_csv, csv_header);
+    // Markdown header
+    fmt::print(fp_md, "# Key Molecules Reaction Network\n\n");
+    fmt::print(fp_md, "This report shows the most important molecules in the reaction network and their relationships.\n\n");
+    fmt::print(fp_md, "- **Precursors**: Molecules that react to form this species (incoming)\n");
+    fmt::print(fp_md, "- **Derivatives**: Molecules formed from this species (outgoing)\n\n");
+    fmt::print(fp_md, "---\n\n");
 
+    int mol_index = 1;
     for (const auto& [node, degree] : sorted_nodes) {
-        std::vector<Edge*> subgraph_edge_indices;
-        std::vector<std::pair<std::string, int>> from_nodes;
-        std::vector<std::pair<std::string, int>> to_nodes;
-        std::string molecule_identifier;
-
-        for (const auto& other_node : node->from_nodes) {
-            if (use_hash) {
-                molecule_identifier = std::to_string(other_node->molecule->hash);
-            }
-            else {
-                molecule_identifier = other_node->molecule->formula;
-            }
-            from_nodes.emplace_back(std::pair(molecule_identifier, other_node->degree));
-        }
-        for (const auto& other_node : node->to_nodes) {
-            if (use_hash) {
-                molecule_identifier = std::to_string(other_node->molecule->hash);
-            }
-            else {
-                molecule_identifier = other_node->molecule->formula;
-            }
-            to_nodes.emplace_back(std::pair(molecule_identifier, other_node->degree));
-        }
-
-        std::sort(from_nodes.begin(), from_nodes.end(),
-            [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) {
-                return a.second > b.second;
-            });
-        std::sort(to_nodes.begin(), to_nodes.end(),
-            [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) {
-                return a.second > b.second;
-            });
-
-        size_t max_neigh_to_output = 5;
-        from_nodes.resize(max_neigh_to_output);
-        to_nodes.resize(max_neigh_to_output);
-
-        std::string from_string;
-        std::string to_string;
-
-        for (size_t tmp_id = 0; tmp_id < max_neigh_to_output; tmp_id++) {
-            from_string += fmt::format(",{}", from_nodes[tmp_id].first);
-        }
-
-        for (size_t tmp_id = 0; tmp_id < max_neigh_to_output; tmp_id++) {
-            to_string += fmt::format(",{}", to_nodes[tmp_id].first);
-        }
-
-        std::string csv_record_string = "";
-        std::string this_molecule_identifier;
-        if (use_hash) {
-            this_molecule_identifier = std::to_string(node->molecule->hash);
-        }
-        else {
-            this_molecule_identifier = node->molecule->formula;
-        }
+        std::string species_name = node->molecule->formula;
+        
+        // Species header
+        fmt::print(fp_md, "## {}. Species: **{}**\n\n", mol_index++, species_name);
+        
+        // Topology statistics
+        fmt::print(fp_md, "### Network Statistics\n\n");
+        fmt::print(fp_md, "- **Total connections**: {}\n", node->degree);
+        fmt::print(fp_md, "- **Precursors**: {} (sources)\n", node->precursor_count);
+        fmt::print(fp_md, "- **Derivatives**: {} (targets)\n", node->derivative_count);
+        
         if (write_atom_transfer) {
-            csv_record_string = fmt::format("{},{},{},{},{},{},{},{},{},{}{}\n", this_molecule_identifier, node->degree,
-                node->in_degree, node->out_degree, node->reaction_count, node->in_reaction_count,
-                node->out_reaction_count, node->atom_transfer, node->in_atom_transfer,
-                node->out_atom_transfer, from_string, to_string);
+            fmt::print(fp_md, "- **Total reaction count**: {}\n", node->reaction_count);
+            fmt::print(fp_md, "- **Precursor reactions**: {}\n", node->precursor_reactions);
+            fmt::print(fp_md, "- **Derivative reactions**: {}\n", node->derivative_reactions);
+            fmt::print(fp_md, "- **Total atom transfer**: {}\n", node->atom_transfer);
         }
-        else {
-            csv_record_string = fmt::format("{},{},{},{},{}{}\n", this_molecule_identifier, node->degree,
-                node->in_degree, node->out_degree, from_string, to_string);
+        fmt::print(fp_md, "\n");
+
+        // Precursors section
+        fmt::print(fp_md, "### Precursors ({} total)\n\n", node->precursor_count);
+        if (!node->from_nodes.empty()) {
+            fmt::print(fp_md, "Top precursors:\n\n");
+            // Sort precursors by their degree
+            std::vector<Node*> precursors(node->from_nodes.begin(), node->from_nodes.end());
+            std::sort(precursors.begin(), precursors.end(),
+                [](Node* a, Node* b) { return a->degree > b->degree; });
+            
+            int count = 0;
+            for (auto* precursor : precursors) {
+                if (++count > 5) break;
+                fmt::print(fp_md, "- **{}** (degree: {})\n", 
+                    precursor->molecule->formula, precursor->degree);
+            }
+            fmt::print(fp_md, "\n");
+        } else {
+            fmt::print(fp_md, "_No precursors (initial species)_\n\n");
         }
 
-        fmt::print(fp_csv, csv_record_string);
+        // Derivatives section
+        fmt::print(fp_md, "### Derivatives ({} total)\n\n", node->derivative_count);
+        if (!node->to_nodes.empty()) {
+            fmt::print(fp_md, "Top derivatives:\n\n");
+            // Sort derivatives by their degree
+            std::vector<Node*> derivatives(node->to_nodes.begin(), node->to_nodes.end());
+            std::sort(derivatives.begin(), derivatives.end(),
+                [](Node* a, Node* b) { return a->degree > b->degree; });
+            
+            int count = 0;
+            for (auto* derivative : derivatives) {
+                if (++count > 5) break;
+                fmt::print(fp_md, "- **{}** (degree: {})\n", 
+                    derivative->molecule->formula, derivative->degree);
+            }
+            fmt::print(fp_md, "\n");
+        } else {
+            fmt::print(fp_md, "_No derivatives (terminal species)_\n\n");
+        }
+
+        fmt::print(fp_md, "---\n\n");
     }
-    fclose(fp_csv);
+
+    // Add reaction pathways section
+    fmt::print(fp_md, "# Reaction Pathways\n\n");
+    fmt::print(fp_md, "This section shows the longest continuous reaction pathways in the network.\n\n");
+    
+    find_and_print_pathways(fp_md);
+
+    fclose(fp_md);
 }
 
 /**
@@ -960,8 +946,8 @@ void ReaxFlow::dump_smiles() {
         [](Node* a, Node* b) { return a->degree > b->degree; });
     
     FILE* fp = create_file("molecules_smiles.csv");
-    // Header with degree info
-    fmt::print(fp, "hash,formula,smiles,degree,in_degree,out_degree\n");
+    // Header with precursor/derivative naming
+    fmt::print(fp, "hash,formula,smiles,total_connections,precursors,derivatives\n");
     
     for (const auto& node : sorted_nodes_vec) {
         if (starts_with(node->molecule->formula, "grp_")) continue;
@@ -971,8 +957,8 @@ void ReaxFlow::dump_smiles() {
                 node->molecule->formula, 
                 rdkit_smiles(*node->molecule),
                 node->degree,
-                node->in_degree,
-                node->out_degree);
+                node->precursor_count,
+                node->derivative_count);
         }
         catch (const std::exception& e) {
             fmt::print(fp, "Warning: SMILES of {} can not be solved.\n", node->molecule->formula);
@@ -1054,7 +1040,7 @@ void ReaxFlow::identify_candidates() {
 
     // use iterator to safe remove
     for (auto it = reactant_candidates.begin(); it != reactant_candidates.end();) {
-        balance_factor = float((*it)->in_degree) / float((*it)->out_degree);
+        balance_factor = float((*it)->precursor_count) / float((*it)->derivative_count);
         if (balance_factor > reactant_threshold) {
             it = reactant_candidates.erase(it);
         }
@@ -1064,7 +1050,7 @@ void ReaxFlow::identify_candidates() {
     }
 
     for (auto it = product_candidates.begin(); it != product_candidates.end();) {
-        balance_factor = float((*it)->in_degree) / float((*it)->out_degree);
+        balance_factor = float((*it)->precursor_count) / float((*it)->derivative_count);
         if (balance_factor < product_threshold) {
             it = product_candidates.erase(it);
         }
@@ -1220,7 +1206,7 @@ void ReaxFlow::network_flow_solve() {
 
     for (const auto& reactant : reactant_candidates) {
         for (const auto& product : product_candidates) {
-            if (reactant->out_degree == 0 || product->in_degree == 0) {
+            if (reactant->derivative_count == 0 || product->precursor_count == 0) {
                 continue;
             }
             if (reactant->hash == product->hash) {
@@ -1230,7 +1216,7 @@ void ReaxFlow::network_flow_solve() {
             Path path;
             path.reactant = reactant;
             path.product = product;
-            path.significance = reactant->out_degree * product->in_degree;
+            path.significance = reactant->derivative_count * product->precursor_count;
             all_paths.push_back(path);
         }
     }
@@ -1545,4 +1531,152 @@ void ReaxFlow::cleanup_isolated_nodes() {
     if (!nodes_to_remove.empty()) {
         fmt::print("Removed {} isolated nodes\n", nodes_to_remove.size());
     }
+}
+
+
+/**
+ * @brief Find and print the longest reaction pathways in the network
+ * @param fp File pointer for output
+ * @note Uses DFS to find paths from sources (no precursors) to targets (no derivatives)
+ * @note Handles cycles by tracking visited nodes
+ */
+void ReaxFlow::find_and_print_pathways(FILE* fp) {
+    // Find source nodes (no precursors) and target nodes (no derivatives)
+    std::vector<Node*> sources;
+    std::vector<Node*> targets;
+    
+    for (auto& node : nodes) {
+        if (node->precursor_count == 0 && node->derivative_count > 0) {
+            sources.push_back(node);
+        }
+        if (node->derivative_count == 0 && node->precursor_count > 0) {
+            targets.push_back(node);
+        }
+    }
+    
+    if (sources.empty() || targets.empty()) {
+        fmt::print(fp, "No clear reaction pathways found (no distinct sources or targets).\n\n");
+        return;
+    }
+    
+    fmt::print(fp, "Found {} source species and {} target species.\n\n", sources.size(), targets.size());
+    
+    // Find paths from each source to each target
+    std::vector<std::vector<Node*>> all_paths;
+    
+    for (auto* source : sources) {
+        for (auto* target : targets) {
+            if (source == target) continue;
+            
+            std::vector<Node*> path;
+            std::unordered_set<Node*> visited;
+            dfs_pathways(source, target, path, visited, all_paths, 10);
+        }
+    }
+    
+    // Sort paths by length (longest first)
+    std::sort(all_paths.begin(), all_paths.end(),
+        [](const std::vector<Node*>& a, const std::vector<Node*>& b) {
+            return a.size() > b.size();
+        });
+    
+    // Remove duplicate paths (same start and end)
+    std::vector<std::vector<Node*>> unique_paths;
+    std::set<std::pair<std::string, std::string>> seen_endpoints;
+    
+    for (auto& path : all_paths) {
+        if (path.size() < 2) continue;
+        
+        std::string start = path.front()->molecule->formula;
+        std::string end = path.back()->molecule->formula;
+        auto key = std::make_pair(start, end);
+        
+        if (seen_endpoints.find(key) == seen_endpoints.end()) {
+            seen_endpoints.insert(key);
+            unique_paths.push_back(path);
+        }
+    }
+    
+    // Print top pathways
+    fmt::print(fp, "## Top Reaction Pathways\n\n");
+    
+    int pathway_count = 0;
+    for (auto& path : unique_paths) {
+        if (++pathway_count > 10) break;  // Limit to top 10
+        
+        fmt::print(fp, "### Pathway {} ({} steps)\n\n", pathway_count, path.size() - 1);
+        
+        // Print path
+        fmt::print(fp, "**Path**: ");
+        for (size_t i = 0; i < path.size(); i++) {
+            fmt::print(fp, "{}", path[i]->molecule->formula);
+            if (i < path.size() - 1) {
+                fmt::print(fp, " → ");
+            }
+        }
+        fmt::print(fp, "\n\n");
+        
+        // Print details
+        fmt::print(fp, "**Details**:\n\n");
+        for (size_t i = 0; i < path.size() - 1; i++) {
+            Node* from = path[i];
+            Node* to = path[i+1];
+            
+            // Find the edge
+            Edge* edge = get_edge(from, to);
+            if (edge) {
+                fmt::print(fp, "- {} → {} (count: {})\n", 
+                    from->molecule->formula, 
+                    to->molecule->formula,
+                    edge->count);
+            } else {
+                fmt::print(fp, "- {} → {}\n", from->molecule->formula, to->molecule->formula);
+            }
+        }
+        fmt::print(fp, "\n---\n\n");
+    }
+}
+
+/**
+ * @brief DFS helper for finding pathways
+ * @param current Current node
+ * @param target Target node to reach
+ * @param path Current path being explored
+ * @param visited Set of visited nodes to avoid cycles
+ * @param all_paths Vector to store all found paths
+ * @param max_depth Maximum search depth to prevent infinite recursion
+ */
+void ReaxFlow::dfs_pathways(Node* current, Node* target, std::vector<Node*>& path, 
+                            std::unordered_set<Node*>& visited, std::vector<std::vector<Node*>>& all_paths,
+                            int max_depth) {
+    // Add current node to path
+    path.push_back(current);
+    visited.insert(current);
+    
+    // Check if we reached the target
+    if (current == target) {
+        all_paths.push_back(path);
+        // Backtrack
+        path.pop_back();
+        visited.erase(current);
+        return;
+    }
+    
+    // Stop if max depth reached
+    if (path.size() >= (size_t)max_depth) {
+        path.pop_back();
+        visited.erase(current);
+        return;
+    }
+    
+    // Explore derivatives (outgoing edges)
+    for (auto* next_node : current->to_nodes) {
+        if (visited.find(next_node) == visited.end()) {
+            dfs_pathways(next_node, target, path, visited, all_paths, max_depth);
+        }
+    }
+    
+    // Backtrack
+    path.pop_back();
+    visited.erase(current);
 }

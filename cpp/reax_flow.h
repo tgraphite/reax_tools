@@ -28,23 +28,23 @@ struct Node {
 
     unsigned int hash = 0;
 
-    // Topological degrees (edge counts)
-    int degree = 0;         // in_degree + out_degree
-    int in_degree = 0;      // number of incoming edges
-    int out_degree = 0;     // number of outgoing edges
+    // Topological degrees (edge counts) - renamed for chemical intuition
+    int degree = 0;             // total connections (precursor_count + derivative_count)
+    int precursor_count = 0;    // in_degree: number of precursors (incoming edges)
+    int derivative_count = 0;   // out_degree: number of derivatives (outgoing edges)
 
     // Weighted degrees (reaction counts)
-    int reaction_count = 0;     // total reaction count (sum of edge->count)
-    int in_reaction_count = 0;  // incoming reaction count
-    int out_reaction_count = 0; // outgoing reaction count
+    int reaction_count = 0;         // total reaction count
+    int precursor_reactions = 0;    // reactions as product (incoming)
+    int derivative_reactions = 0;   // reactions as reactant (outgoing)
 
     // Atom transfer counts
-    int atom_transfer = 0;      // total atom transfer
-    int in_atom_transfer = 0;   // incoming atom transfer
-    int out_atom_transfer = 0;  // outgoing atom transfer
+    int atom_transfer = 0;          // total atom transfer
+    int precursor_atom_transfer = 0;    // incoming atom transfer
+    int derivative_atom_transfer = 0;   // outgoing atom transfer
 
-    std::unordered_set<Node*> from_nodes;
-    std::unordered_set<Node*> to_nodes;
+    std::unordered_set<Node*> from_nodes;  // precursors
+    std::unordered_set<Node*> to_nodes;    // derivatives
 
     Node(Molecule* mol);
     ~Node();
@@ -158,4 +158,10 @@ public:
     void calculate_edge_betweenness();
     void filter_by_betweenness(int target_edge_count = 60);
     void cleanup_isolated_nodes();
+    
+    // Pathway analysis
+    void find_and_print_pathways(FILE* fp);
+    void dfs_pathways(Node* current, Node* target, std::vector<Node*>& path, 
+                      std::unordered_set<Node*>& visited, std::vector<std::vector<Node*>>& all_paths,
+                      int max_depth = 10);
 };
