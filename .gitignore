@@ -1,4 +1,5 @@
 *.xyz
+!test/*.xyz
 node_modules/
 web/
 archived/
