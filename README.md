@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tgraphite/reax_tools/releases"><img src="https://img.shields.io/badge/version-1.98-blue" alt="Version"></a>
+  <a href="https://github.com/tgraphite/reax_tools/releases"><img src="https://img.shields.io/badge/version-2.0-blue" alt="Version"></a>
   <a href="http://cc-portal.xyz/reax_tools_pro"><img src="https://img.shields.io/badge/web-在线试用-green" alt="Web"></a>
 </p>
 
@@ -280,3 +280,6 @@ https://github.com/tgraphite/reax_tools
 
 ### 环数量统计
 ![环数量](https://github.com/user-attachments/assets/892d0f0c-2ea6-464f-b467-23ba884dc984)
+
+### 化学反应式
+![化学反应式](https://github.com/user-attachments/assets/3abf882b-bb9c-4cba-a07b-38086e4f91e2)
