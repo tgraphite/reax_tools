@@ -138,10 +138,10 @@ void parallel_for_each(std::vector<T*>& objects, Func func) {
             (a->obj->*(a->func))();
         }
         return nullptr;
-    };
+        };
 
     for (size_t i = 0; i < n; ++i) {
-        args[i] = {objects[i], func};
+        args[i] = { objects[i], func };
         if (objects[i]) pthread_create(&threads[i], nullptr, thread_func, &args[i]);
     }
     for (size_t i = 0; i < n; ++i) {
@@ -168,7 +168,8 @@ void Universe::process_traj() {
                 if (it->second->to_destroy) {
                     delete it->second;              // Delete the instance
                     it = frameid_system.erase(it);  // Remove the element from the map and advance iterator
-                } else {
+                }
+                else {
                     ++it;
                 }
             }
@@ -181,7 +182,7 @@ void Universe::process_traj() {
             curr_system->frame_id = curr_frame_id;
             curr_system->reax_flow = reax_flow;
             curr_system->set_counters(this->species_counter, this->bond_counter, this->ring_counter,
-                                      this->atom_bonded_num_counter, this->hash_counter);
+                this->atom_bonded_num_counter, this->hash_counter);
 
             if (ends_with(INPUT_FILE, ".lammpstrj"))
                 curr_system->load_lammpstrj(input_file);
@@ -195,7 +196,8 @@ void Universe::process_traj() {
 
             if (curr_frame_id == 1) {
                 curr_system->is_first_frame = true;
-            } else {
+            }
+            else {
                 curr_system->is_last_frame = true;
             }
 
@@ -218,12 +220,12 @@ void Universe::process_traj() {
         if (!FLAG_NO_REACTIONS) {
             parallel_for_each<System>(systems_to_process, &System::process_reax_flow);
         }
-        
+
         // Process reaction tracking (must be sequential by frame)
         if (FLAG_TRACK_REACTIONS && reaction_tracker != nullptr) {
             // Sort systems by frame_id to ensure correct order
             std::sort(systems_to_process.begin(), systems_to_process.end(),
-                      [](System* a, System* b) { return a->frame_id < b->frame_id; });
+                [](System* a, System* b) { return a->frame_id < b->frame_id; });
             for (auto& curr_system : systems_to_process) {
                 reaction_tracker->process_frame(curr_system->frame_id, curr_system->molecules);
             }
@@ -248,7 +250,7 @@ void Universe::process_traj() {
                 fmt::print("Bond radius: ");
                 for (auto& pair : curr_system->bond_radius_sq) {
                     fmt::print("{}-{} {:.3f}, ", curr_system->type_itos[pair.first.first],
-                               curr_system->type_itos[pair.first.second], std::sqrt(pair.second));
+                        curr_system->type_itos[pair.first.second], std::sqrt(pair.second));
                 }
 
                 fmt::print("\n");
@@ -274,14 +276,19 @@ void Universe::process_traj() {
         systems_to_process.clear();
     }
     fmt::print("\n\n");
+
     species_counter->analyze_frame_formulas();
+    species_counter->brief_report();
+    species_counter->save_file();
+
+    reax_flow->save_graph();
 
     // after all batch, free all systems.
     for (auto it = frameid_system.begin(); it != frameid_system.end();) {
         delete it->second;              // Delete the instance
         it = frameid_system.erase(it);  // Remove the element from the map and advance iterator
     }
-    
+
     // Finalize reaction tracking
     if (FLAG_TRACK_REACTIONS && reaction_tracker != nullptr) {
         reaction_tracker->finalize(curr_frame_id - 1);
@@ -310,7 +317,7 @@ void Universe::process_traj() {
         system->frame_id = curr_frame_id;
         system->reax_flow = reax_flow;
         system->set_counters(this->species_counter, this->bond_counter, this->ring_counter,
-                             this->atom_bonded_num_counter, this->hash_counter);
+            this->atom_bonded_num_counter, this->hash_counter);
 
         if (curr_frame_id == 1) {
             system->is_first_frame = true;

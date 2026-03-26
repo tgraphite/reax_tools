@@ -407,7 +407,7 @@ void ReaxFlow::brief_report() {
     unsigned int max_node_display = std::min(10, int(sorted_nodes.size()));
     unsigned int max_edge_display = std::min(20, int(sorted_edges.size()));
 
-    fmt::print("=== Reaction Flow Report ===\n");
+    fmt::print("\n=== Reaction Flow Report ===\n");
     fmt::print("Top {} key molecules:\n", max_node_display);
     fmt::print("{:<12s}{:<12s}{:<12s}\n", "molecule", "precursors", "derivatives");
     Node* tmp_node = nullptr;
@@ -417,7 +417,7 @@ void ReaxFlow::brief_report() {
     }
 
     fmt::print("\n");
-    fmt::print("Top {} key reactions:\n", max_edge_display);
+    fmt::print("Top {} key flows:\n", max_edge_display);
     fmt::print("{:<12s}{:<12s}{:<8s}{:<15s}\n", "from", "to", "count", "atom transfered");
     Node* tmp_source = nullptr;
     Node* tmp_target = nullptr;
@@ -637,7 +637,7 @@ void ReaxFlow::write_dot_file_significant_nodes(std::string basename, int max_no
  */
 void ReaxFlow::save_graph() {
     // Integrated filtering workflow
-    fmt::print("\n=== Integrated Reaction Network Filtering ===\n");
+    fmt::print("=== Integrated Reaction Network Filtering ===\n");
 
     // Step 1: Reduce reversible reactions
     if (!FLAG_NO_REDUCE_REACTIONS) {
@@ -744,7 +744,7 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
         fmt::print(fp_md, "### Precursors ({} total)\n\n", node->precursor_count);
         if (!node->from_nodes.empty()) {
             fmt::print(fp_md, "Top precursors (sorted by reaction count):\n\n");
-            
+
             // Get edges from precursors to this node
             std::vector<std::pair<Node*, Edge*>> precursor_edges;
             for (auto* precursor : node->from_nodes) {
@@ -753,16 +753,16 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
                     precursor_edges.emplace_back(precursor, edge);
                 }
             }
-            
+
             // Sort by reaction count (edge->count)
             std::sort(precursor_edges.begin(), precursor_edges.end(),
                 [](const auto& a, const auto& b) { return a.second->count > b.second->count; });
-            
+
             int count = 0;
             for (auto& [precursor, edge] : precursor_edges) {
                 if (++count > 5) break;
-                fmt::print(fp_md, "- **{}** → {} (reactions: {})\n", 
-                    precursor->molecule->formula, 
+                fmt::print(fp_md, "- **{}** → {} (reactions: {})\n",
+                    precursor->molecule->formula,
                     node->molecule->formula,
                     edge->count);
             }
@@ -776,7 +776,7 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
         fmt::print(fp_md, "### Derivatives ({} total)\n\n", node->derivative_count);
         if (!node->to_nodes.empty()) {
             fmt::print(fp_md, "Top derivatives (sorted by reaction count):\n\n");
-            
+
             // Get edges from this node to derivatives
             std::vector<std::pair<Node*, Edge*>> derivative_edges;
             for (auto* derivative : node->to_nodes) {
@@ -785,7 +785,7 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
                     derivative_edges.emplace_back(derivative, edge);
                 }
             }
-            
+
             // Sort by reaction count (edge->count)
             std::sort(derivative_edges.begin(), derivative_edges.end(),
                 [](const auto& a, const auto& b) { return a.second->count > b.second->count; });
@@ -1345,14 +1345,14 @@ void ReaxFlow::filter_by_atom_economy(double threshold) {
     }
 
     // Always print statistics for evaluation
-    fmt::print("\n=== Atom Economy Filter ===\n");
-    fmt::print("Total reactions: {}\n", edges.size() + edges_to_remove.size());
-    fmt::print("Threshold: {:.2f}\n", threshold);
+    // fmt::print("\n=== Atom Economy Filter ===\n");
+    // fmt::print("Total reactions: {}\n", edges.size() + edges_to_remove.size());
+    // fmt::print("Threshold: {:.2f}\n", threshold);
     fmt::print("Removed: {} reactions ({:.1f}%)\n",
         edges_to_remove.size(),
         100.0 * edges_to_remove.size() / (edges.size() + edges_to_remove.size()));
-    fmt::print("Preserved dissociations (AE>0.15): {}\n", preserved_dissociation);
-    fmt::print("Preserved associations (AE>0.15): {}\n", preserved_association);
+    // fmt::print("Preserved dissociations (AE>0.15): {}\n", preserved_dissociation);
+    // fmt::print("Preserved associations (AE>0.15): {}\n", preserved_association);
 
     // Calculate atom economy distribution
     int high_ae = 0, mid_ae = 0, low_ae = 0;
@@ -1499,22 +1499,22 @@ void ReaxFlow::filter_by_betweenness(int target_edge_count) {
         delete edge;
     }
 
-    fmt::print("\n=== Edge Betweenness Filter ===\n");
-    fmt::print("Target edges: {}\n", target_edge_count);
-    fmt::print("Total before: {}\n", edges.size() + edges_to_remove.size());
+    // fmt::print("\n=== Edge Betweenness Filter ===\n");
+    // fmt::print("Target edges: {}\n", target_edge_count);
+    // fmt::print("Total before: {}\n", edges.size() + edges_to_remove.size());
     fmt::print("Kept: {} (BC top {} + count top {} + transfer top {})\n",
         edges_to_keep.size(), n_bc, n_count, n_transfer);
     fmt::print("Removed: {}\n", edges_to_remove.size());
 
     // Print top 5 highest betweenness edges
-    fmt::print("\nTop 5 by betweenness centrality:\n");
-    for (int i = 0; i < std::min(5, (int)by_bc.size()); i++) {
-        fmt::print("  {} -> {} (BC={:.2f}, count={})\n",
-            by_bc[i]->source->molecule->formula,
-            by_bc[i]->target->molecule->formula,
-            by_bc[i]->betweenness,
-            by_bc[i]->count);
-    }
+    // fmt::print("\nTop 5 by betweenness centrality:\n");
+    // for (int i = 0; i < std::min(5, (int)by_bc.size()); i++) {
+    //     fmt::print("  {} -> {} (BC={:.2f}, count={})\n",
+    //         by_bc[i]->source->molecule->formula,
+    //         by_bc[i]->target->molecule->formula,
+    //         by_bc[i]->betweenness,
+    //         by_bc[i]->count);
+    // }
 }
 
 

@@ -49,10 +49,7 @@ extern "C" int cpp_main(int argc, const char** argv)
         uv.species_counter->merge_by_element(MERGE_TARGET, MERGE_RANGES);
     }
 
-    uv.species_counter->brief_report();
-    uv.species_counter->save_file();
 
-    uv.reax_flow->save_graph();
     // uv.reax_flow->identify_candidates();
     // uv.reax_flow->network_flow_solve();
 
