@@ -26,6 +26,7 @@ class PlotType:
     max_pages: int = 3
     sharex = False
     sharey = False
+    use_subscript: bool = False  # Only apply subscript for species/reaction_track
 
 
 def formula_to_subscript(formula: str) -> str:
@@ -45,6 +46,10 @@ def filter_data_series(
 ) -> tuple[list[str], str]:
 
     notif_dict = {"Trivial": [], "Zeros": [], "Stable": []}
+
+    # drop Frame column if exists
+    if "Frame" in df.columns:
+        df = df.drop(columns=["Frame"])
 
     df = df.reindex(df.mean().sort_values(ascending=False).index, axis=1)
     df_abs = df.abs()
@@ -134,7 +139,7 @@ def plot_line_series(
         math.ceil(len(selected_columns) / plot_type.max_subplots_in_page),
         plot_type.max_pages,
     )
-    figsize = (10, 6)
+    figsize = (8, 5)
     columns_in_pages = list()
 
     for page_id in range(required_pages):
@@ -171,13 +176,14 @@ def plot_line_series(
         ax.xaxis.set_major_locator(MaxNLocator(6))
         ax.yaxis.set_major_locator(MaxNLocator(6))
 
-        # Add legend with subscript formatting
+        # Add legend with optional subscript formatting (only for species)
         handles, labels = ax.get_legend_handles_labels()
-        subscript_labels = [formula_to_subscript(label) for label in labels]
-        ax.legend(handles, subscript_labels, loc='best', framealpha=0.9)
+        if plot_type.use_subscript:
+            labels = [formula_to_subscript(label) for label in labels]
+        ax.legend(handles, labels, loc="best", framealpha=0.9)
 
         # Add grid for better readability
-        ax.grid(True, alpha=0.3, linestyle='--')
+        # ax.grid(True, alpha=0.3, linestyle="--")
 
         series_name = os.path.dirname(output_basename)
         series_name = re.sub("_.*$", "", series_name)
@@ -211,59 +217,65 @@ def plot_reaction_track(input_file: str, output_file: str = None, top_n: int = 2
         return
 
     df = pd.read_csv(input_file)
-    
+
     # Get top N reactions by frequency
     df_top = df.head(top_n).copy()
-    
+
     if len(df_top) == 0:
         print(f"No reaction data to plot.")
         return
 
     # Create reaction equation string
     def format_reaction(row):
-        reactants = row['reactants']
-        products = row['products']
+        reactants = row["reactants"]
+        products = row["products"]
         # Apply subscript formatting
         reactants = formula_to_subscript(str(reactants))
         products = formula_to_subscript(str(products))
         return f"{reactants} → {products}"
 
-    df_top['reaction'] = df_top.apply(format_reaction, axis=1)
-    
+    df_top["reaction"] = df_top.apply(format_reaction, axis=1)
+
     # Reverse order for top-to-bottom display
     df_top = df_top.iloc[::-1]
-    
+
     # Create figure
-    fig, ax = plt.subplots(figsize=(12, max(6, top_n * 0.4)))
-    
+    fig, ax = plt.subplots(figsize=(8, max(4, top_n * 0.3)))
+
     # Colors based on frequency
-    frequencies = df_top['frequency'].values
+    frequencies = df_top["frequency"].values
     colors = plt.cm.viridis(frequencies / frequencies.max())
-    
+
     # Plot horizontal bars
     y_pos = range(len(df_top))
-    bars = ax.barh(y_pos, frequencies, color=colors, edgecolor='black', linewidth=0.5)
-    
+    bars = ax.barh(y_pos, frequencies, color=colors, edgecolor="black", linewidth=0.5)
+
     # Set y-axis labels with reaction equations
     ax.set_yticks(y_pos)
-    ax.set_yticklabels(df_top['reaction'].values, fontsize=9)
-    
+    ax.set_yticklabels(df_top["reaction"].values, fontsize=9)
+
     # Set labels and title
-    ax.set_xlabel('Frequency (count)', fontsize=11)
-    ax.set_ylabel('Reaction', fontsize=11)
-    ax.set_title(f'Top {top_n} Most Frequent Reactions', fontsize=13, fontweight='bold')
-    
+    ax.set_xlabel("Frequency (count)", fontsize=11)
+    ax.set_ylabel("Reaction", fontsize=11)
+    ax.set_title(f"Top {top_n} Most Frequent Reactions", fontsize=13, fontweight="bold")
+
     # Add frequency labels at the end of bars
     for i, (bar, freq) in enumerate(zip(bars, frequencies)):
-        ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height()/2,
-                f'{int(freq)}', va='center', ha='left', fontsize=9)
-    
+        ax.text(
+            bar.get_width() + 0.5,
+            bar.get_y() + bar.get_height() / 2,
+            f"{int(freq)}",
+            va="center",
+            ha="left",
+            fontsize=9,
+        )
+
     # Adjust layout to fit long labels
     plt.tight_layout()
-    
+
     if output_file is None:
         output_file = os.path.splitext(input_file)[0] + ".png"
-    
+
     fig.savefig(output_file, dpi=300, bbox_inches="tight")
     print(f"Reaction track plot saved to {output_file}")
     plt.close()
@@ -301,6 +313,10 @@ def plot_single_file(input_file: str, plot_types: list[PlotType]):
     df = pd.read_csv(input_file)
     plot_type = get_plot_type(input_file, plot_types)
 
+    # Drop Frame column if exists - it's the x-axis, not data
+    if "Frame" in df.columns:
+        df = df.drop(columns=["Frame"])
+
     if plot_type.to_filter:
         selected_columns, notif_string = filter_data_series(df, False, True, True)
         print(notif_string)
@@ -329,6 +345,9 @@ def plot_comparison(input_files: list[str], plot_types: list[PlotType]):
 
     for input_file in input_files:
         df = pd.read_csv(input_file)
+        # Drop Frame column if exists - it's the x-axis, not data
+        if "Frame" in df.columns:
+            df = df.drop(columns=["Frame"])
         dfs.append(df)
         # Use parent directory name + file basename to create unique series name
         abs_path = os.path.abspath(input_file)
@@ -356,12 +375,14 @@ def plot_comparison(input_files: list[str], plot_types: list[PlotType]):
             arr = curr_compare_data[key]
             if len(arr) < max_len:
                 padded = np.full(max_len, np.nan)
-                padded[:len(arr)] = arr
+                padded[: len(arr)] = arr
                 curr_compare_data[key] = padded
 
         curr_compare_df = pd.DataFrame(curr_compare_data)
 
-        plot_type.suptitle = f"{raw_suptitle}, comparison for {formula_to_subscript(column)}."
+        # Apply subscript only for species_count pattern
+        column_label = formula_to_subscript(column) if plot_type.use_subscript else column
+        plot_type.suptitle = f"{raw_suptitle}, comparison for {column_label}."
 
         output_basename = os.path.join(basedir, f"compare_{plot_type.pattern}_{column}")
         plot_line_series(
@@ -399,7 +420,11 @@ def main():
         "--reaction-track", "-r", type=str, help="Plot reaction track events CSV file"
     )
     parser.add_argument(
-        "--top-n", "-n", type=int, help="Number of top reactions to plot (default=20)", default=20
+        "--top-n",
+        "-n",
+        type=int,
+        help="Number of top reactions to plot (default=20)",
+        default=20,
     )
 
     dir = parser.parse_args().dir
@@ -426,6 +451,7 @@ def main():
         filter_trivial=True,
         filter_zeros=True,
         filter_stable=False,
+        use_subscript=True,  # Enable subscript for chemical formulas
     )
 
     plot_type_bond_count = PlotType(
