@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake Build reax_tools_pro",
+            "type": "shell",
+            // Build in Debug mode. Use CMake to configure with Debug type, then build the target.
+            "command": "cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build --target reax_tools -j",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}

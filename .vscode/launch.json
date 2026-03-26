@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug reax_tools_pro",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/reax_tools",
+            "args": [
+                "-f",
+                "pyrolysis.out.lammpstrj",
+                "-t",
+                "C,H,O",
+                "-me",
+                "C",
+                "-mr",
+                "1,4,8,16,32,64,128"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/test",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake Build reax_tools_pro"
+        }
+    ]
+}
