@@ -1,4 +1,4 @@
-# ReaxTools: 高性能反应分子动力学后处理工具
+<img width="2370" height="1767" alt="reaction_track_events" src="https://github.com/user-attachments/assets/53d53d83-c848-4b33-960d-734ab6bc1101" /># ReaxTools: 高性能反应分子动力学后处理工具
 
 <p align="center">
   <b>高性能 | 多格式支持 | 反应网络分析 | 在线即用</b>
@@ -294,4 +294,5 @@ https://github.com/tgraphite/reax_tools
 ![物质转化网络](https://github.com/user-attachments/assets/ed571f01-c24d-403c-aac2-86876443ffaa)
 
 ### 反应跟踪分析
-![反应跟踪分析](https://github.com/user-attachments/assets/3abf882b-bb9c-4cba-a07b-38086e4f91e2)
+![反应跟踪分析]<img width="2370" height="1767" alt="reaction_track_events" src="https://github.com/user-attachments/assets/e1959e5e-8b18-41bd-8d45-75a9156b050b" />
+
