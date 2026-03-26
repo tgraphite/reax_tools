@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ReaxTools Web 1.95(dev)</title>
+    <title>ReaxTools Web 1.98</title>
     <link rel="stylesheet" href="./styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
@@ -14,8 +14,8 @@
 </head>
 
 <body>
-    <h2>ReaxTools Web 1.95(dev)</h2>
-    <div class="container">20250831: Binary package updated, note clear saved data in your browser setting!</div>
+    <h2>ReaxTools Web 1.98</h2>
+    <div class="container">20250306: v1.98 Released! Reaction network filtering & Markdown output. <b>Note:</b> Clear saved data in browser settings if issues occur.</div>
     <!-- 介绍信息 -->
     <div class="container">
         <p>ReaxTools Pro simplifies reactive molecule dynamics analysis, offering seamless compatibility with LAMMPS,
@@ -24,9 +24,10 @@
         <p>The software provides comprehensive visualization tools including:
         <ul>
             <li>Species, bond, atom type, and ring statistics</li>
-            <li>Advanced network analysis capabilities</li>
+            <li><b>Smart reaction network filtering</b> (Atom Economy + Betweenness Centrality)</li>
             <li>Interactive reaction network visualization</li>
             <li>Atom transfer and flow analysis tools</li>
+            <li>SMILES output and molecular structure drawing</li>
         </ul>
         </p>
 
@@ -80,10 +81,10 @@
     <script src="./script.js" defer></script>
 
     <div class="container">
-        <p><b>version 1.95</b>: (For local version): smiles output and molecule hashes.</p>
+        <p><b>version 1.98</b>: Smart reaction network filtering (Atom Economy + Betweenness Centrality), Markdown format report, improved UX with precursor/derivative terminology.</p>
+        <p><b>version 1.95</b>: SMILES output and molecule hashes.</p>
         <p><b>version 1.94</b>: BugFixes</p>
-        <p><b>version 1.93</b>: New parameters: -tv and -tr, can define new element types for atom tracking(see <a
-                href="./inputargs.html">Options</a>)</p>
+        <p><b>version 1.93</b>: New parameters: -tv and -tr, can define new element types for atom tracking</p>
         <p><b>version 1.92</b>: Performance boost, web version now supports systems with >50,000 atoms</p>
         <p>Author: Graphite Mail: chenhx_cpu@163.com</p>
         <p><a href="https://beian.miit.gov.cn">苏ICP备2024131880号</a></p>

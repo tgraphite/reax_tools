@@ -7,7 +7,7 @@ const filename_title = {
 	"atom_bonded_num_count.csv": "Atom type count versus time",
 	"ring_count.csv": "Ring size count versus time",
 	"reactions.dot": "Reaction Network (Main component)",
-	"key_molecules_reactions.csv": "Key molecules analysis",
+	"key_molecules_reactions.md": "Key molecules analysis",
 };
 
 class ReaxToolsPlotter {
@@ -204,7 +204,7 @@ class ReaxToolsPlotter {
 		const { headers, data } = this.parseCSV(csvText);
 
 		// Special handling for key_molecules_reactions.csv
-		if (title === "key_molecules_reactions.csv") {
+		if (title === "key_molecules_reactions.md") {
 			return this.createKeyMoleculesVisualization(csvText, chartId, title);
 		}
 
@@ -217,7 +217,68 @@ class ReaxToolsPlotter {
 		}
 	}
 
-	// Create specialized visualization for key_molecules_reactions.csv
+	// Parse Markdown key molecules report
+	parseKeyMoleculesMarkdown(mdText) {
+		const molecules = [];
+		const sections = mdText.split(/## \d+\. Species: \*\*/);
+		
+		for (let i = 1; i < sections.length; i++) {
+			const section = sections[i];
+			// Extract species name (format: **NAME**...)
+			const nameMatch = section.match(/^([^*]+)\*\*/);
+			if (!nameMatch) continue;
+			
+			const species = nameMatch[1].trim();
+			const molData = {
+				molecule: species,
+				precursors: [],
+				derivatives: [],
+				precursor_count: 0,
+				derivative_count: 0,
+				reaction_count: 0
+			};
+			
+			// Parse network statistics
+			const statsMatch = section.match(/\*\*Total connections\*\*: (\d+)/);
+			if (statsMatch) molData.reaction_count = parseInt(statsMatch[1]);
+			
+			const preCountMatch = section.match(/\*\*Precursors\*\*: (\d+)/);
+			if (preCountMatch) molData.precursor_count = parseInt(preCountMatch[1]);
+			
+			const derCountMatch = section.match(/\*\*Derivatives\*\*: (\d+)/);
+			if (derCountMatch) molData.derivative_count = parseInt(derCountMatch[1]);
+			
+			// Parse precursors (format: - **FORMULA** → TARGET (reactions: COUNT))
+			const precursorsSection = section.match(/### Precursors[\s\S]*?(?=### Derivatives|### Pathways|$)/);
+			if (precursorsSection) {
+				const preMatches = precursorsSection[0].matchAll(/- \*\*([^*]+)\*\* → [^()]+\(reactions: (\d+)\)/g);
+				for (const match of preMatches) {
+					molData.precursors.push({
+						formula: match[1].trim(),
+						reactions: parseInt(match[2])
+					});
+				}
+			}
+			
+			// Parse derivatives (format: - **FORMULA** → TARGET (reactions: COUNT))
+			const derivativesSection = section.match(/### Derivatives[\s\S]*?(?=### Pathways|$)/);
+			if (derivativesSection) {
+				const derMatches = derivativesSection[0].matchAll(/- \*\*([^*]+)\*\* → [^()]+\(reactions: (\d+)\)/g);
+				for (const match of derMatches) {
+					molData.derivatives.push({
+						formula: match[1].trim(),
+						reactions: parseInt(match[2])
+					});
+				}
+			}
+			
+			molecules.push(molData);
+		}
+		
+		return molecules;
+	}
+
+	// Create specialized visualization for key_molecules_reactions.md
 	createKeyMoleculesVisualization(
 		csvText,
 		chartId,
@@ -233,31 +294,18 @@ class ReaxToolsPlotter {
 			// Clear container
 			container.innerHTML = "";
 
-			// Parse CSV data
-			const lines = csvText.trim().split("\n");
-			if (lines.length < 2) {
-				throw new Error("CSV data must have at least header and one data row");
-			}
-
-			const headers = lines[0].split(",");
-			const data = [];
-
-			for (let i = 1; i < lines.length; i++) {
-				const values = lines[i].split(",");
-				if (values.length === headers.length) {
-					const row = {};
-					headers.forEach((header, index) => {
-						row[header.trim()] = values[index] ? values[index].trim() : "";
-					});
-					data.push(row);
-				}
+			// Parse Markdown data
+			const data = this.parseKeyMoleculesMarkdown(csvText);
+			if (data.length === 0) {
+				container.innerHTML = "<p>No key molecules data found in report.</p>";
+				return false;
 			}
 
 			// Create container for charts and table
 			const chartsContainer = document.createElement("div");
 			chartsContainer.className = "key-mol-charts-container";
 
-			// Create bar chart for atom transfers
+			// Create bar chart for connections
 			const chartDiv = document.createElement("div");
 			chartDiv.id = `${chartId}-bar`;
 			chartDiv.className = "key-mol-chart-div";
@@ -268,12 +316,8 @@ class ReaxToolsPlotter {
 
 			// Prepare data for bar chart
 			const molecules = data.map((row) => row.molecule || "Unknown");
-			const inTransfers = data.map(
-				(row) => parseFloat(row["in atom transfer"]) || 0
-			);
-			const outTransfers = data.map(
-				(row) => parseFloat(row["out atom transfer"]) || 0
-			);
+			const precursorCounts = data.map((row) => row.precursor_count || 0);
+			const derivativeCounts = data.map((row) => row.derivative_count || 0);
 
 			const defaultTitleFont = { family: "Consolas", size: 20 };
 			const in_color = "#2980b9";
@@ -282,28 +326,32 @@ class ReaxToolsPlotter {
 			const traces = [
 				{
 					x: molecules,
-					y: inTransfers,
+					y: precursorCounts,
 					type: "bar",
-					name: "In Atom Transfer",
+					name: "Precursors",
 					marker: { color: in_color },
 				},
 				{
 					x: molecules,
-					y: outTransfers,
+					y: derivativeCounts,
 					type: "bar",
-					name: "Out Atom Transfer",
+					name: "Derivatives",
 					marker: { color: out_color },
 				},
 			];
 
 			const layout = {
+				title: {
+					text: "Molecular Connections",
+					font: { family: "Consolas", size: 24 },
+				},
 				xaxis: {
 					title: { text: "Molecules", font: defaultTitleFont },
 					tickfont: defaultTitleFont,
 					tickangle: -45,
 				},
 				yaxis: {
-					title: { text: "Flux", font: defaultTitleFont },
+					title: { text: "Count", font: defaultTitleFont },
 					tickfont: defaultTitleFont
 				},
 				barmode: "group",
@@ -330,7 +378,7 @@ class ReaxToolsPlotter {
 
 			const tableTitle = document.createElement("h4");
 			tableTitle.textContent =
-				"Key Molecules: Reaction Sources and Destinations";
+				"Key Molecules: Precursors and Derivatives";
 			tableTitle.className = "key-mol-table-title";
 			tableContainer.appendChild(tableTitle);
 
@@ -342,16 +390,12 @@ class ReaxToolsPlotter {
 			const headerRow = document.createElement("tr");
 			const headers2 = [
 				"Molecule",
-				"From 1",
-				"From 2",
-				"From 3",
-				"From 4",
-				"From 5",
-				"To 1",
-				"To 2",
-				"To 3",
-				"To 4",
-				"To 5",
+				"Precursor 1",
+				"Precursor 2",
+				"Precursor 3",
+				"Derivative 1",
+				"Derivative 2",
+				"Derivative 3",
 			];
 			headers2.forEach((header) => {
 				const th = document.createElement("th");
@@ -370,19 +414,19 @@ class ReaxToolsPlotter {
 				tdMolecule.textContent = row.molecule || "";
 				tdMolecule.className = "molecule";
 				tr.appendChild(tdMolecule);
-				// Add from columns
-				for (let i = 1; i <= 5; i++) {
+				// Add precursor columns
+				for (let i = 0; i < 3; i++) {
 					const td = document.createElement("td");
-					const value = row[`from ${i}`] || "";
-					td.textContent = value;
+					const precursor = row.precursors[i];
+					td.textContent = precursor ? `${precursor.formula}(${precursor.reactions})` : "";
 					td.className = "from";
 					tr.appendChild(td);
 				}
-				// Add to columns
-				for (let i = 1; i <= 5; i++) {
+				// Add derivative columns
+				for (let i = 0; i < 3; i++) {
 					const td = document.createElement("td");
-					const value = row[`to ${i}`] || "";
-					td.textContent = value;
+					const derivative = row.derivatives[i];
+					td.textContent = derivative ? `${derivative.formula}(${derivative.reactions})` : "";
 					td.className = "to";
 					tr.appendChild(td);
 				}
@@ -497,7 +541,7 @@ class ReaxToolsPlotter {
 						"plot_network.js not loaded or createSigmaGraph not found"
 					);
 				}
-			} else if (file.name === "key_molecules_reactions.csv") {
+			} else if (file.name === "key_molecules_reactions.md") {
 				// 独立 key molecules 容器
 				const keyMolDiv = document.createElement("div");
 				keyMolDiv.id = `chart-${index}-keymol`;

@@ -223,10 +223,10 @@ dot -Tpng reactions.dot -o reactions.png
 
 ## 学习资源
 
-- **详细教程**: http://cc-portal.xyz/reax_tools_pro/tutorial.html
-- **参数说明**: http://cc-portal.xyz/reax_tools_pro/inputargs.html
-- **文件格式**: http://cc-portal.xyz/reax_tools_pro/fileformat.html
-- **常见问题**: http://cc-portal.xyz/reax_tools_pro/faqandhint.html
+- **详细教程**: http://cc-portal.xyz/reax_tools/tutorial.html
+- **参数说明**: http://cc-portal.xyz/reax_tools/inputargs.html
+- **文件格式**: http://cc-portal.xyz/reax_tools/fileformat.html
+- **常见问题**: http://cc-portal.xyz/reax_tools/faqandhint.html
 
 ---
 

@@ -493,7 +493,7 @@ document.getElementById('runBtn').onclick = async function () {
             //
             outputFiles.forEach(fileName => {
                 console.log(`Processing output file: ${fileName}`);
-                if (fileName.toLowerCase().endsWith('count.csv') || fileName.toLowerCase().endsWith('reactions.dot') || fileName === 'key_molecules_reactions.csv') {
+                if (fileName.toLowerCase().endsWith('count.csv') || fileName.toLowerCase().endsWith('reactions.dot') || fileName === 'key_molecules_reactions.md') {
                     try {
                         const fileData = wasmModule.FS.readFile(`/reax_tools_output/${fileName}`);
                         const content = new TextDecoder().decode(fileData);
