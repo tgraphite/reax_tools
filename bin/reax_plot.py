@@ -28,6 +28,15 @@ class PlotType:
     sharey = False
 
 
+def formula_to_subscript(formula: str) -> str:
+    """Convert chemical formula to subscript format (e.g., H2O -> H₂O)"""
+    if not formula:
+        return formula
+    # Replace numbers with subscript characters
+    subscript_map = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+    return formula.translate(subscript_map)
+
+
 def filter_data_series(
     df: pd.DataFrame,
     filter_trivial: bool = False,
@@ -125,9 +134,7 @@ def plot_line_series(
         math.ceil(len(selected_columns) / plot_type.max_subplots_in_page),
         plot_type.max_pages,
     )
-    fig_nrow = math.ceil(plot_type.max_subplots_in_page / 2)
-    fig_ncol = 2
-    figsize = (fig_ncol * 5, fig_nrow * 2)
+    figsize = (10, 6)
     columns_in_pages = list()
 
     for page_id in range(required_pages):
@@ -147,51 +154,30 @@ def plot_line_series(
         f"Trying to plot {size} data series ({repr_columns} ...)  out of {len(selected_columns)}"
     )
 
+    # Color palette for multiple series
+    colors = plt.cm.tab10(np.linspace(0, 1, 10))
+
     for page_id, columns in enumerate(columns_in_pages):
-        fig, axs = plt.subplots(
-            fig_nrow,
-            fig_ncol,
-            figsize=figsize,
-            sharex=plot_type.sharex,
-            sharey=plot_type.sharey,
-        )
+        fig, ax = plt.subplots(figsize=figsize)
         x = df.index * plot_type.timestep
 
-        for column_id, column in enumerate(columns):
+        for idx, column in enumerate(columns):
             y = df[column]
-            ax = axs.flat[column_id]
-            ax.plot(x, y)
-            ax.set_xlabel(f"{plot_type.xlabel} ({plot_type.timeunit})")
-            ax.set_ylabel(plot_type.ylabel)
-            ax.xaxis.set_major_locator(MaxNLocator(5))
-            ax.yaxis.set_major_locator(MaxNLocator(5))
+            color = colors[idx % len(colors)]
+            ax.plot(x, y, label=column, color=color, linewidth=1.5)
 
-            ax.text(0, 1.02, column, ha="left", va="bottom", transform=ax.transAxes)
+        ax.set_xlabel(f"{plot_type.xlabel} ({plot_type.timeunit})")
+        ax.set_ylabel(plot_type.ylabel)
+        ax.xaxis.set_major_locator(MaxNLocator(6))
+        ax.yaxis.set_major_locator(MaxNLocator(6))
 
-            p_5 = np.percentile(y, 5)
-            p_95 = np.percentile(y, 95)
-            avg = np.mean(y)
-            brief_report = (
-                f"Higher 5%: {p_95:.1f} | Avg: {avg:.1f} | Lower 5%: {p_5:.1f} "
-            )
-            ax.text(
-                1, 1.02, brief_report, ha="right", va="bottom", transform=ax.transAxes
-            )
+        # Add legend with subscript formatting
+        handles, labels = ax.get_legend_handles_labels()
+        subscript_labels = [formula_to_subscript(label) for label in labels]
+        ax.legend(handles, subscript_labels, loc='best', framealpha=0.9)
 
-        if len(columns) < plot_type.max_subplots_in_page:
-            for i in range(len(columns), plot_type.max_subplots_in_page):
-                if i > 1:
-                    fig.delaxes(axs.flat[i])
-                    # The canvas will be cutted to half the width if only one subplot.
-                    # In this case, temporary keep a placeholder in the last page.
-
-        if len(columns) == 1:
-            axs.flat[1].text(
-                0.5,
-                0.5,
-                "Placeholder, no data to plot.",
-                transform=axs.flat[1].transAxes,
-            )
+        # Add grid for better readability
+        ax.grid(True, alpha=0.3, linestyle='--')
 
         series_name = os.path.dirname(output_basename)
         series_name = re.sub("_.*$", "", series_name)
@@ -209,10 +195,78 @@ def plot_line_series(
             output_file = output_basename + f".page{page_id+1}.png"
 
         plt.tight_layout()
-        fig.savefig(output_file, dpi=600, bbox_inches="tight")
+        fig.savefig(output_file, dpi=300, bbox_inches="tight")
         print(f"Plot and saved file {output_file}")
 
         plt.close()
+
+
+def plot_reaction_track(input_file: str, output_file: str = None, top_n: int = 20):
+    """
+    Plot reaction track events as horizontal bar chart.
+    Reaction equation on left, frequency bar on right.
+    """
+    if not os.path.isfile(input_file):
+        print(f"{input_file} not found, skip reaction track plot.")
+        return
+
+    df = pd.read_csv(input_file)
+    
+    # Get top N reactions by frequency
+    df_top = df.head(top_n).copy()
+    
+    if len(df_top) == 0:
+        print(f"No reaction data to plot.")
+        return
+
+    # Create reaction equation string
+    def format_reaction(row):
+        reactants = row['reactants']
+        products = row['products']
+        # Apply subscript formatting
+        reactants = formula_to_subscript(str(reactants))
+        products = formula_to_subscript(str(products))
+        return f"{reactants} → {products}"
+
+    df_top['reaction'] = df_top.apply(format_reaction, axis=1)
+    
+    # Reverse order for top-to-bottom display
+    df_top = df_top.iloc[::-1]
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, max(6, top_n * 0.4)))
+    
+    # Colors based on frequency
+    frequencies = df_top['frequency'].values
+    colors = plt.cm.viridis(frequencies / frequencies.max())
+    
+    # Plot horizontal bars
+    y_pos = range(len(df_top))
+    bars = ax.barh(y_pos, frequencies, color=colors, edgecolor='black', linewidth=0.5)
+    
+    # Set y-axis labels with reaction equations
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(df_top['reaction'].values, fontsize=9)
+    
+    # Set labels and title
+    ax.set_xlabel('Frequency (count)', fontsize=11)
+    ax.set_ylabel('Reaction', fontsize=11)
+    ax.set_title(f'Top {top_n} Most Frequent Reactions', fontsize=13, fontweight='bold')
+    
+    # Add frequency labels at the end of bars
+    for i, (bar, freq) in enumerate(zip(bars, frequencies)):
+        ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height()/2,
+                f'{int(freq)}', va='center', ha='left', fontsize=9)
+    
+    # Adjust layout to fit long labels
+    plt.tight_layout()
+    
+    if output_file is None:
+        output_file = os.path.splitext(input_file)[0] + ".png"
+    
+    fig.savefig(output_file, dpi=300, bbox_inches="tight")
+    print(f"Reaction track plot saved to {output_file}")
+    plt.close()
 
 
 def get_plot_type(input_file: str, plot_types: list[PlotType]) -> PlotType:
@@ -224,7 +278,8 @@ def get_plot_type(input_file: str, plot_types: list[PlotType]) -> PlotType:
     all_pt_patterns = ", ".join(all_pt_patterns)
     print(
         f"Error: can not determine plot type for file: {input_file}\n\
-        file name should have one of the patterns in below:\n\
+        file name should have one of the patterns in below:\
+\
         {all_pt_patterns}"
     )
 
@@ -235,6 +290,11 @@ def plot_single_file(input_file: str, plot_types: list[PlotType]):
 
     if not os.path.isfile(input_file):
         print(f"{input_file} not found, skip.")
+        return
+
+    # Handle reaction track events file separately
+    if "reaction_track_events" in input_file:
+        plot_reaction_track(input_file)
         return
 
     output_basename = os.path.splitext(input_file)[0]
@@ -263,15 +323,19 @@ def plot_comparison(input_files: list[str], plot_types: list[PlotType]):
 
     plot_type = get_plot_type(input_files[0], plot_types)
     raw_suptitle = plot_type.suptitle
-    plot_type.max_subplots_in_page = 8
+    plot_type.max_subplots_in_page = 6  # Single plot with up to 6 series
     plot_type.to_filter = False
     plot_type.sharey = True
 
     for input_file in input_files:
         df = pd.read_csv(input_file)
         dfs.append(df)
-        series_name = os.path.basename(input_file)
-        series_name = re.sub("_.*$", "", series_name)
+        # Use parent directory name + file basename to create unique series name
+        abs_path = os.path.abspath(input_file)
+        dir_name = os.path.basename(os.path.dirname(abs_path))
+        base_name = os.path.basename(input_file)
+        base_name = re.sub("_.*$", "", base_name)
+        series_name = f"{dir_name}_{base_name}"
         series_names.append(series_name)
 
     selected_columns = filter_data_series_for_comparison(dfs, False, False, False)
@@ -280,14 +344,24 @@ def plot_comparison(input_files: list[str], plot_types: list[PlotType]):
 
     for column in selected_columns:
         curr_compare_data = dict()
+        max_len = 0
 
         for series_name, df in zip(series_names, dfs):
             if column in df.columns:
                 curr_compare_data[series_name] = df[column].to_numpy()
+                max_len = max(max_len, len(df[column]))
 
-        curr_compare_df = pd.DataFrame(curr_compare_data, index=None)
+        # Handle different length arrays by padding with NaN
+        for key in curr_compare_data:
+            arr = curr_compare_data[key]
+            if len(arr) < max_len:
+                padded = np.full(max_len, np.nan)
+                padded[:len(arr)] = arr
+                curr_compare_data[key] = padded
 
-        plot_type.suptitle = f"{raw_suptitle}, comparison for {column}."
+        curr_compare_df = pd.DataFrame(curr_compare_data)
+
+        plot_type.suptitle = f"{raw_suptitle}, comparison for {formula_to_subscript(column)}."
 
         output_basename = os.path.join(basedir, f"compare_{plot_type.pattern}_{column}")
         plot_line_series(
@@ -321,12 +395,25 @@ def main():
     parser.add_argument(
         "--timeunit", "-u", type=str, help="Time unit of timestep", default="ps"
     )
+    parser.add_argument(
+        "--reaction-track", "-r", type=str, help="Plot reaction track events CSV file"
+    )
+    parser.add_argument(
+        "--top-n", "-n", type=int, help="Number of top reactions to plot (default=20)", default=20
+    )
 
     dir = parser.parse_args().dir
     single_file = parser.parse_args().file
     compare_files = parser.parse_args().compare
     timestep = parser.parse_args().timestep
     timeunit = parser.parse_args().timeunit
+    reaction_track_file = parser.parse_args().reaction_track
+    top_n = parser.parse_args().top_n
+
+    # Handle reaction track plot directly
+    if reaction_track_file:
+        plot_reaction_track(reaction_track_file, top_n=top_n)
+        return
 
     plot_type_species_count = PlotType(
         pattern="species_count",
@@ -388,6 +475,7 @@ def main():
     ]
 
     patterns = [pt.pattern for pt in plot_types]
+    patterns.append("reaction_track_events")  # Add reaction track pattern
 
     if dir:
         files = list()

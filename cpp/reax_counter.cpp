@@ -43,7 +43,8 @@ void SpeciesCounter::get_formulas() {
             for (std::string formula : parts) {
                 if (formula == "#" || formula == "Timestep" || formula == "No_Moles" || formula == "No_Specs") {
                     continue;
-                } else {
+                }
+                else {
                     formulas_set.insert(formula);
                 }
             }
@@ -76,7 +77,8 @@ void SpeciesCounter::get_nums() {
                 std::string formula = parts[i];
                 cur_formulas.push_back(formula);
             }
-        } else {
+        }
+        else {
             cur_step = std::stoi(parts[0]);
             cur_mols = std::stoi(parts[1]);
             cur_spec = std::stoi(parts[2]);
@@ -173,7 +175,8 @@ void SpeciesCounter::merge_by_element(const std::string& target_element, const s
             start = ranges[i];
             end = ranges[i + 1] - 1;
             new_formula = fmt::format("grp_{}{}-{}", target_element, start, end);
-        } else {
+        }
+        else {
             start = ranges[i];
             end = 10000;
             new_formula = fmt::format("grp_{}{}-max", target_element, start);
@@ -200,7 +203,8 @@ void SpeciesCounter::merge_by_element(const std::string& target_element, const s
                         new_nums = add_vectors(new_nums, weighed_nums);
                         formulas_nums[old_formula] = std::vector<float>(nframes, 0.0);
                         formulas_to_erase.push_back(old_formula);
-                    } else {
+                    }
+                    else {
                         new_nums = add_vectors(new_nums, old_nums);
                         formulas_nums[old_formula] = std::vector<float>(nframes, 0.0);
                         formulas_to_erase.push_back(old_formula);
@@ -234,7 +238,7 @@ void SpeciesCounter::brief_report() {
         sorted_formulas_averages.push_back(std::make_pair(pair.first, average));
     }
     std::sort(sorted_formulas_averages.begin(), sorted_formulas_averages.end(),
-              [](const auto& a, const auto& b) { return a.second > b.second; });
+        [](const auto& a, const auto& b) { return a.second > b.second; });
 
     // get formulas going to report
     int max_species_print = 20;
@@ -255,7 +259,8 @@ void SpeciesCounter::brief_report() {
             int mid_frame = nframes / 2;
             fmt::print("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}\n", formula, nums[0], nums[mid_frame], nums[nframes - 1]);
         }
-    } else {
+    }
+    else {
         fmt::print("{}\n", "=== Species Report ===");
         std::string header =
             fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end", "average");
@@ -336,24 +341,31 @@ void SpeciesCounter::analyze_frame_formulas() {
 void SpeciesCounter::save_file() {
     FILE* file = create_file("species_count.csv");
 
+    fmt::print(file, "Frame,");
+
     bool is_first = true;
     for (const auto& pair : formulas_nums) {
         if (is_first) {
             fmt::print(file, "{}", pair.first);
             is_first = false;
-        } else {
+        }
+        else {
             fmt::print(file, ",{}", pair.first);
         }
     }
     fmt::print(file, "\n");
 
     for (size_t i = 0; i < nframes; i++) {
+
+        fmt::print(file, "{},", i + 1);
+
         is_first = true;
         for (const auto& pair : formulas_nums) {
             if (is_first) {
                 fmt::print(file, "{}", (pair.second)[i]);
                 is_first = false;
-            } else {
+            }
+            else {
                 fmt::print(file, ",{}", (pair.second)[i]);
             }
         }

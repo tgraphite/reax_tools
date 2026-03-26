@@ -9,11 +9,11 @@
 #include "string_tools.h"
 
 template <typename T> class Counter {
-  private:
+private:
     std::map<std::string, std::vector<T>> entry_frame_values;
     int nframes = 0;
 
-  public:
+public:
     Counter() = default;
 
     // void import_frame_values(const int& frame_id, const std::map<std::string, T>& entry_values);
@@ -43,6 +43,8 @@ template <typename T> class Counter {
         FILE* fp = create_file(basename);
 
         // Write header
+        fmt::print(fp, "Frame,");
+
         bool first = true;
         for (const auto& pair : entry_frame_values) {
             if (!first)
@@ -61,6 +63,8 @@ template <typename T> class Counter {
 
         // Write each frame
         for (size_t i = 0; i < max_frames; ++i) {
+            fmt::print(fp, "{},", i + 1); // Frame number starts from 1
+
             first = true;
             for (const auto& pair : entry_frame_values) {
                 if (!first)
@@ -79,7 +83,7 @@ template <typename T> class Counter {
 };
 
 class SpeciesCounter {
-  private:
+private:
     std::string file_path;
     std::string save_path;
     std::ifstream file;
@@ -90,7 +94,7 @@ class SpeciesCounter {
     std::vector<std::vector<std::string>> all_frame_formulas;
     int nframes = 0;
 
-  public:
+public:
     // When read from Lammps reax/c/bonds file.
     SpeciesCounter(const std::string& file_path);
 
