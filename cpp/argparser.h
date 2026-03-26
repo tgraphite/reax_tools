@@ -37,6 +37,13 @@ extern bool FLAG_NO_REDUCE_REACTIONS;
 extern bool FLAG_NO_RINGS;
 extern bool FLAG_NO_REACTIONS;
 
+// Reaction tracking flags (ChemTrayzer-like) - ON by default
+extern bool FLAG_TRACK_REACTIONS;
+extern bool FLAG_NO_TRACK_REACTIONS;
+extern int STABLE_TIME_FRAMES;
+extern float TIMESTEP_FS;
+extern int SAMPLING_FREQ;
+
 extern bool MERGE_ELEMENTS;
 extern bool FLAG_RESCALE_MERGE_COUNT;
 extern std::string MERGE_TARGET;

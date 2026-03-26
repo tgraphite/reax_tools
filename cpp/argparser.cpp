@@ -28,6 +28,13 @@ bool FLAG_NO_REDUCE_REACTIONS = false;
 bool FLAG_NO_RINGS = false;
 bool FLAG_NO_REACTIONS = false;
 
+// Reaction tracking flags (ChemTrayzer-like)
+bool FLAG_TRACK_REACTIONS = true;
+bool FLAG_NO_TRACK_REACTIONS = false;
+int STABLE_TIME_FRAMES = 3;
+float TIMESTEP_FS = 0.25f;
+int SAMPLING_FREQ = 10;
+
 bool FLAG_MERGE_ELEMENTS = false;
 bool FLAG_RESCALE_MERGE_COUNT = false;
 std::string MERGE_TARGET = "";
@@ -249,6 +256,26 @@ bool operation_set_rescale_merge_counts(std::vector<std::string> input_string) {
     FLAG_RESCALE_MERGE_COUNT = true;
     return true;
 }
+bool operation_set_flag_no_track_reactions(std::vector<std::string> input_string) {
+    FLAG_TRACK_REACTIONS = false;
+    FLAG_NO_TRACK_REACTIONS = true;
+    return true;
+}
+bool operation_set_stable_time(std::vector<std::string> input_string) {
+    if (input_string.size() != 1) return false;
+    STABLE_TIME_FRAMES = std::stoi(input_string[0]);
+    return true;
+}
+bool operation_set_timestep(std::vector<std::string> input_string) {
+    if (input_string.size() != 1) return false;
+    TIMESTEP_FS = std::stof(input_string[0]);
+    return true;
+}
+bool operation_set_sampling_freq(std::vector<std::string> input_string) {
+    if (input_string.size() != 1) return false;
+    SAMPLING_FREQ = std::stoi(input_string[0]);
+    return true;
+}
 bool operation_set_element_order(std::vector<std::string> input_string) {
     ELEMENT_DISPLAY_ORDER.clear();
     if (input_string.size() == 1) {
@@ -299,6 +326,14 @@ ArgParser init_argparser() {
                         "Species output options", true, operation_set_rescale_merge_counts);
     parser.add_argument("--element-order", "-order", "set element order of outputting formulas",
                         "Species output options", false, operation_set_element_order);
+    parser.add_argument("--no-track-reactions", "", "disable ChemTrayzer-like reaction tracking", "Reaction tracking",
+                        true, operation_set_flag_no_track_reactions);
+    parser.add_argument("--stable-time", "", "minimum frames for molecule to be stable (default=3)", "Reaction tracking",
+                        false, operation_set_stable_time);
+    parser.add_argument("--timestep", "", "MD timestep in fs (default=0.25)", "Reaction tracking", false,
+                        operation_set_timestep);
+    parser.add_argument("--sampling-freq", "", "frame sampling frequency (default=10)", "Reaction tracking", false,
+                        operation_set_sampling_freq);
 
     return parser;
 }

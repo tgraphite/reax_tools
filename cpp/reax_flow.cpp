@@ -673,17 +673,17 @@ void ReaxFlow::save_graph() {
         for (size_t i = 0; i < MAX_REACTIONS; i++) {
             selected_edges.push_back(sorted_edges[i].first);
         }
-        write_dot_file("reactions_simplified.dot", selected_edges, false);
-        write_dot_file("reactions_full.dot", all_edges, false);
+        write_dot_file("reaction_flow_simplified.dot", selected_edges, false);
+        write_dot_file("reaction_flow_full.dot", all_edges, false);
         fmt::print(
             "Note: Graphs too complex, write full graph (*full.dot) and default "
             "subgraph seperately.\n");
     }
     else {
-        write_dot_file("reactions_full.dot", all_edges, false);
+        write_dot_file("reaction_flow_full.dot", all_edges, false);
     }
 
-    // write_dot_file_significant_nodes("reactions_main_nodes.dot", 20, true);
+    // write_dot_file_significant_nodes("reaction_flow_main_nodes.dot", 20, true);
 
     save_molecule_centered_subgraphs(false, false, false);
     // save_molecule_centered_subgraphs(false, false, true);
@@ -709,7 +709,7 @@ void ReaxFlow::save_molecule_centered_subgraphs(bool write_atom_transfer, bool c
     }
 
     // Output as Markdown instead of CSV
-    std::string save_path = "key_molecules_reactions.md";
+    std::string save_path = "key_molecules_flow.md";
     FILE* fp_md = create_file(save_path);
 
     // Markdown header

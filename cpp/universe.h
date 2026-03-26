@@ -3,6 +3,7 @@
 
 #include "reax_counter.h"
 #include "reax_flow.h"
+#include "reax_track.h"
 #include "system.h"
 
 class Universe {
@@ -12,6 +13,7 @@ class Universe {
 
     SpeciesCounter* species_counter = new SpeciesCounter();
     ReaxFlow* reax_flow = new ReaxFlow();
+    ReactionTracker* reaction_tracker = nullptr;
     Counter<int>* bond_counter = new Counter<int>();
     Counter<int>* ring_counter = new Counter<int>();
     Counter<int>* atom_bonded_num_counter = new Counter<int>();

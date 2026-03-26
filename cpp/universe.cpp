@@ -16,7 +16,10 @@
 #include "string_tools.h"
 #include "universe.h"
 
-Universe::Universe() {}
+Universe::Universe() {
+    // FLAG_TRACK_REACTIONS is true by default
+    reaction_tracker = new ReactionTracker(STABLE_TIME_FRAMES, TIMESTEP_FS, SAMPLING_FREQ);
+}
 
 #ifndef WASM_MODE
 Universe::~Universe() {
@@ -48,6 +51,11 @@ Universe::~Universe() {
     if (hash_counter != nullptr) {
         delete hash_counter;
         hash_counter = nullptr;
+    }
+
+    if (reaction_tracker != nullptr) {
+        delete reaction_tracker;
+        reaction_tracker = nullptr;
     }
 }
 
@@ -92,6 +100,11 @@ Universe::~Universe() {
     if (hash_counter != nullptr) {
         delete hash_counter;
         hash_counter = nullptr;
+    }
+
+    if (reaction_tracker != nullptr) {
+        delete reaction_tracker;
+        reaction_tracker = nullptr;
     }
 }
 
@@ -205,6 +218,16 @@ void Universe::process_traj() {
         if (!FLAG_NO_REACTIONS) {
             parallel_for_each<System>(systems_to_process, &System::process_reax_flow);
         }
+        
+        // Process reaction tracking (must be sequential by frame)
+        if (FLAG_TRACK_REACTIONS && reaction_tracker != nullptr) {
+            // Sort systems by frame_id to ensure correct order
+            std::sort(systems_to_process.begin(), systems_to_process.end(),
+                      [](System* a, System* b) { return a->frame_id < b->frame_id; });
+            for (auto& curr_system : systems_to_process) {
+                reaction_tracker->process_frame(curr_system->frame_id, curr_system->molecules);
+            }
+        }
 
         for (auto& curr_system : systems_to_process) {
             if (curr_system->prev_sys)  // prev_sys of the first frame is nullptr
@@ -257,6 +280,14 @@ void Universe::process_traj() {
     for (auto it = frameid_system.begin(); it != frameid_system.end();) {
         delete it->second;              // Delete the instance
         it = frameid_system.erase(it);  // Remove the element from the map and advance iterator
+    }
+    
+    // Finalize reaction tracking
+    if (FLAG_TRACK_REACTIONS && reaction_tracker != nullptr) {
+        reaction_tracker->finalize(curr_frame_id - 1);
+        reaction_tracker->brief_report();
+        reaction_tracker->save_events("reaction_track_events.csv");
+        reaction_tracker->save_molecule_lifetimes("reaction_track_molecules.csv");
     }
 }
 #else
