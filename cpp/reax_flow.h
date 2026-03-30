@@ -107,11 +107,6 @@ private:
     std::vector<std::pair<Node*, unsigned int>> sorted_nodes;
     std::vector<std::pair<Edge*, unsigned int>> sorted_edges;
 
-    std::unordered_set<unsigned int> reactant_candidates_hash;
-    std::unordered_set<unsigned int> product_candidates_hash;
-    std::unordered_set<Node*> reactant_candidates;
-    std::unordered_set<Node*> product_candidates;
-
 public:
     ReaxFlow();
     ~ReaxFlow();
@@ -129,18 +124,6 @@ public:
 
     void merge_formulas(const std::unordered_set<std::string>& formulas, const std::string& new_formula);
     void merge_by_element(std::string target_element, std::vector<int> ranges);
-
-    void import_molecules(bool initial_or_final, const std::unordered_set<unsigned int>& mol_hashes);
-    void identify_candidates();
-    /**
-     * @brief Solves the network flow problem using a multi-step approach
-     * @note Step 1: BFS to find all possible paths from reactant_candidates to product_candidates
-     * @note Step 2: Sort <reactant, product> pairs by min(reactant.out_degree, product.in_degree)
-     * @note Step 3: Select top N pairs
-     * @note Step 4: Solve the max flow problem using the selected pairs as source and sink, Dinic's algorithm
-     * @note Step 5: Output results, like P -> T1 -> T2 -> ... -> Tn -> P (70% -> 50% -> 30% -> 20% -> ...)
-     */
-    void network_flow_solve();
 
     void write_dot_file(std::string basename, const std::vector<Edge*>& edges_to_write,
         bool write_atom_transfer = true, std::string layout = "dot");

@@ -161,28 +161,8 @@ struct Molecule {
         }
         formula = rename_formula(mol_formula, ELEMENT_DISPLAY_ORDER);
 
-        // Downgrading: make hash equivalent to formula string hash
         std::hash<std::string> str_hash;
         hash = str_hash(formula);
-
-        // // Hash
-        // unsigned int mol_hash = 1;
-        // for (const auto& atom : mol_atoms) {
-        //     unsigned int atom_hash = BIGGER_PRIME_NUMBERS[atom->type_id];
-        //     unsigned int bonded_hash = 1;
-
-        //     for (const auto& bonded : atom->bonded_atoms) {
-        //         bonded_hash *= PRIME_NUMBERS[bonded->type_id];  // XOR is commutative
-        //     }
-        //     // Combine atom and its bonded environment, order independent
-        //     atom_hash ^= bonded_hash;
-        //     mol_hash += atom_hash;  // Addition is commutative
-        // }
-        // // Final mixing for better distribution
-        // mol_hash ^= (mol_hash >> 16);
-        // mol_hash *= 0x85ebca6b;
-        // mol_hash ^= (mol_hash >> 13);
-        // hash = mol_hash;
 
         for (auto& atom : mol_atoms) {
             atom->belong_molecule = this;

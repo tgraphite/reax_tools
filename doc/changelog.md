@@ -2,8 +2,39 @@
 
 ## 版本信息
 
-**当前版本**: 1.98 (dev → main merge)
-**发布日期**: 2025-03-06
+**当前版本**: 2.0
+**发布日期**: 2025-03-30
+
+---
+
+## 版本 2.0 更新内容
+
+### 代码质量清理
+
+#### 1. 移除未使用的代码
+- **vec_algorithms.h**: 移除自引用 `#include`、未使用的 `subtract_vectors()`、`vector_add()`、`operator-`、`operator/`
+- **reax_counter**: 移除未使用的 `rename_all_formulas()`、`scale_formula()`、`show_nums()`
+- **reax_flow**: 移除未完成的 `identify_candidates()` 和 `network_flow_solve()`（含 Dinic/Tarjan 算法桩代码），以及仅为这些函数服务的 `import_molecules()`
+- **argparser**: 移除未使用的全局变量 `FLAG_MERGE_ELEMENTS`��与头文件声明 `MERGE_ELEMENTS` 不匹配）、`NETWORK_FLOW_MAX_REACTANTS`、`NETWORK_FLOW_MAX_PRODUCTS`
+
+#### 2. Bug 修复
+- **universe.cpp**: 修复 `#ifndef WSAM_MODE` 拼写错误 → `#ifndef WASM_MODE`（原 bug 导致本地构建跳过 `parallel_for_each`）
+
+#### 3. 代码优化
+- **rdkit_utils.cpp**: 提取 `rdkit_smiles()` 和 `rdkit_draw_molecule()` 的公共分子构建逻辑为 `build_rdkit_mol()` 辅助函数，消除 ~40 行重复代码
+- **reax_flow.cpp**: 修复 `dump_smiles()` 上的嵌套重复 `#ifndef WASM_MODE` 预处理指令
+- **system.cpp**: 移除未使用的局部变量 `id_dist_sq`、`bounds`
+
+#### 4. 清理注释掉的代码块
+- 移除 system.h 中旧 hash 算法的注释块（18 行）
+- 移除 system.cpp 中旧 `process_reax_flow` 方法的注释块（24 行）
+- 移除 main.cpp、reax_counter.cpp、reax_flow.cpp、universe.cpp 中的无效注释代码
+
+#### 5. 文档清理
+- 移除过时的反应网络设计文档（4 份，已实现部分在代码中，未实现部分为远期规划）
+- 移除未实施的 AI Analyst PRD 文档
+- 更新 VERSION 至 2.0
+- 重写 README.md
 
 ---
 
@@ -107,21 +138,7 @@
 
 ---
 
-## 文件变更汇总
-
-### 新增文件
-```
-doc/
-├── changelog.md                                  # 本文件
-├── README_Reaction_Network_Improvements.md
-├── Reaction_Network_Algorithm_Improvements.md
-├── Reaction_Network_Implementation_Guide.md
-├── Reaction_Network_Quick_Reference.md
-
-test/
-├── V3_*/                                         # 测试输出
-└── *_REPORT.md                                   # 测试报告
-```
+## 文件变更汇总 (v1.98)
 
 ### 修改文件
 ```
@@ -134,16 +151,16 @@ cpp/main.cpp          # 移除species_count_hash.csv输出
 
 ## 后续开发计划
 
-### 版本 1.99 (dev分支)
-- [ ] 命令行参数支持自定义AE阈值
+### 版本 2.x
+- [ ] 命令行参数支持自定义 AE 阈值
 - [ ] 多级别过滤选项（宽松/标准/严格）
-- [ ] Web版本动态阈值调整
+- [ ] Web 版本动态阈值调整
 - [ ] 更多测试案例验证
 
-### 版本 2.0 (未来)
+### 长期规划
 - [ ] 实时反应网络可视化
 - [ ] 机器学习辅助反应分类
-- [ ] 跨平台GUI界面
+- [ ] 跨平台 GUI 界面
 
 ---
 
@@ -159,6 +176,6 @@ cpp/main.cpp          # 移除species_count_hash.csv输出
 
 ---
 
-*最后更新: 2025-03-06*  
-*版本: 1.98*  
+*最后更新: 2025-03-30*
+*版本: 2.0*
 *维护者: ReaxTools Dev Team*

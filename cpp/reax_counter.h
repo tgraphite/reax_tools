@@ -16,9 +16,6 @@ private:
 public:
     Counter() = default;
 
-    // void import_frame_values(const int& frame_id, const std::map<std::string, T>& entry_values);
-    // void save_file(const std::string& output_path);
-
     void import_frame_values(const int& frame_id, const std::map<std::string, T>& entry_values) {
         size_t index = frame_id - 1; // frame_id starts from 1
 
@@ -107,18 +104,13 @@ public:
     void import_frame_formulas(int& frame_id, const std::vector<std::string>& frame_formulas);
     void analyze_frame_formulas();
 
-    // The --order option
-    void rename_all_formulas(const std::vector<std::string>& order);
-
     // The -me option
     void merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula);
     void merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool recalc = false);
 
     // The -rc option
-    void scale_formula(const std::string& formula, const float& k);
     void rescale_all_by_element(const std::string& target_element);
 
-    void show_nums();
     void brief_report();
 
     void save_file();

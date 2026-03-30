@@ -22,8 +22,6 @@ extern int NUM_THREADS;
 extern int MAX_REACTIONS;
 extern int MAX_KEY_MOLECULES;
 extern int DUMP_STEPS;
-extern int NETWORK_FLOW_MAX_REACTANTS;
-extern int NETWORK_FLOW_MAX_PRODUCTS;
 
 extern std::string INPUT_FILE;
 extern std::string OUTPUT_DIR;
@@ -44,7 +42,6 @@ extern int STABLE_TIME_FRAMES;
 extern float TIMESTEP_FS;
 extern int SAMPLING_FREQ;
 
-extern bool MERGE_ELEMENTS;
 extern bool FLAG_RESCALE_MERGE_COUNT;
 extern std::string MERGE_TARGET;
 extern std::vector<int> MERGE_RANGES;

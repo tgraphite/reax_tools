@@ -5,9 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #include "argparser.h"
@@ -119,7 +117,7 @@ void Universe::flush() {
 }
 #endif
 
-#ifndef WSAM_MODE
+#ifndef WASM_MODE
 template <typename T, typename Func>
 void parallel_for_each(std::vector<T*>& objects, Func func) {
     size_t n = objects.size();
@@ -254,20 +252,6 @@ void Universe::process_traj() {
                 }
 
                 fmt::print("\n");
-
-                std::unordered_set<unsigned int> initial_mol_hashes;
-                for (auto& mol : curr_system->molecules) {
-                    initial_mol_hashes.insert(mol->hash);
-                }
-                reax_flow->import_molecules(true, initial_mol_hashes);
-            }
-
-            if (curr_system->is_last_frame) {
-                std::unordered_set<unsigned int> final_mol_hashes;
-                for (auto& mol : curr_system->molecules) {
-                    final_mol_hashes.insert(mol->hash);
-                }
-                reax_flow->import_molecules(false, final_mol_hashes);
             }
 
             curr_system->finish();
@@ -303,9 +287,6 @@ void Universe::process_traj() {
     int max_neigh = 10;
 
     std::ifstream file(INPUT_FILE);
-    // std::string bond_count_filepath = output_dir + "bond_count.csv";
-    // std::string ring_count_filepath = output_dir + "ring_count.csv";
-    // std::string atom_bonded_num_count_filepath = output_dir + "atom_bonded_num_count.csv";
 
     // The highest calling stack, only do this once.
     while (file.is_open() && !file.eof()) {

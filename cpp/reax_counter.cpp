@@ -73,7 +73,6 @@ void SpeciesCounter::get_nums() {
             cur_formulas.clear();
 
             for (size_t i = 4; i < parts.size(); i++) {
-                // std::string formula = rename_species(parts[i]);
                 std::string formula = parts[i];
                 cur_formulas.push_back(formula);
             }
@@ -93,29 +92,6 @@ void SpeciesCounter::get_nums() {
     }
 }
 
-void SpeciesCounter::rename_all_formulas(const std::vector<std::string>& order) {
-    // Create a temporary map to store formulas that need to be renamed.
-
-    // First step: collect all formulas that need to be renamed.
-
-    std::string new_formula;
-    std::string old_formula;
-    std::vector<float> nums(nframes);
-    std::map<std::string, std::vector<float>> new_formulas_nums;
-
-    std::map<std::string, std::string> rename_map;
-
-    for (const auto& pair : formulas_nums) {
-        old_formula = pair.first;
-        nums = pair.second;
-        new_formula = rename_formula(old_formula, order);
-        new_formulas_nums[new_formula] = nums;
-    }
-
-    formulas_nums.clear();
-    formulas_nums = std::move(new_formulas_nums);
-}
-
 // User accessable.
 void SpeciesCounter::merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula) {
     std::vector<float> new_nums(nframes, 0.0);
@@ -129,14 +105,6 @@ void SpeciesCounter::merge_formulas(const std::vector<std::string>& formulas, co
     }
 
     formulas_nums[new_formula] = new_nums;
-    return;
-}
-
-// User accessable.
-void SpeciesCounter::scale_formula(const std::string& formula, const float& k) {
-    std::vector<float> new_nums(nframes, 0.0);
-    new_nums = vector_scale(formulas_nums[formula], k);
-    formulas_nums[formula] = new_nums;
     return;
 }
 
@@ -225,11 +193,6 @@ void SpeciesCounter::merge_by_element(const std::string& target_element, const s
 }
 
 void SpeciesCounter::brief_report() {
-    // if (nframes < 40) {
-    //     this->show_nums();
-    //     return;
-    // }
-
     // sort formulas_nums by average in descending order
     std::vector<std::pair<std::string, float>> sorted_formulas_averages;
     float average = 0;

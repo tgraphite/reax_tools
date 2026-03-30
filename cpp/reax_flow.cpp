@@ -683,10 +683,7 @@ void ReaxFlow::save_graph() {
         write_dot_file("reaction_flow_full.dot", all_edges, false);
     }
 
-    // write_dot_file_significant_nodes("reaction_flow_main_nodes.dot", 20, true);
-
     save_molecule_centered_subgraphs(false, false, false);
-    // save_molecule_centered_subgraphs(false, false, true);
 }
 
 /**
@@ -949,16 +946,9 @@ void ReaxFlow::merge_formulas(const std::unordered_set<std::string>& formulas_se
  * @brief Dumps SMILES representations of all molecules to a CSV file
  * @note Only processes molecules that don't start with "grp_" prefix
  * @note Creates molecules_smiles.csv with formula and SMILES columns
+ * @note Sorted by node degree (highest first)
  * @note Requires RDKit library (only available when not in WASM mode)
  */
-#ifndef WASM_MODE
- /**
-  * @brief Dumps SMILES representations of all molecules to a CSV file
-  * @note Only processes molecules that don't start with "grp_" prefix
-  * @note Creates molecules_smiles.csv with formula and SMILES columns
-  * @note Sorted by node degree (highest first)
-  * @note Requires RDKit library (only available when not in WASM mode)
-  */
 void ReaxFlow::dump_smiles() {
     // Ensure degrees are calculated
     update_graph();
@@ -991,7 +981,6 @@ void ReaxFlow::dump_smiles() {
     fclose(fp);
 }
 #endif
-#endif
 
 #ifndef WASM_MODE
 /**
@@ -1013,266 +1002,6 @@ void ReaxFlow::draw_molecules() {
     }
 }
 #endif
-
-/**
- * @brief Imports molecules into the reaction network
- * @param initial_or_final True if importing initial molecules, false if final
- * @param mol_hashes Set of molecule hashes to import
- * @note Caches the hash values and delays actual node retrieval until
- * identify_candidates()
- * @note Only valid nodes are added to reactant_candidates or product_candidates
- */
-void ReaxFlow::import_molecules(bool initial_or_final, const std::unordered_set<unsigned int>& mol_hashes) {
-    // In this function just cache the hash,delay get_node() until the graph work
-    // is done.
-
-    if (initial_or_final) {
-        reactant_candidates_hash = mol_hashes;
-    }
-    else {
-        product_candidates_hash = mol_hashes;
-    }
-}
-
-/**
- * @brief Identifies and selects candidate reactants and products
- * @note Sorts nodes and edges, then identifies valid candidates
- * @note Only valid nodes are added to reactant_candidates or product_candidates
- */
-void ReaxFlow::identify_candidates() {
-    update_graph();
-    Node* node_to_insert = nullptr;
-    for (const auto& hash : reactant_candidates_hash) {
-        node_to_insert = get_node(hash);
-        if (node_to_insert != nullptr) {
-            reactant_candidates.insert(node_to_insert);
-        }
-    }
-
-    for (const auto& hash : product_candidates_hash) {
-        node_to_insert = get_node(hash);
-        if (node_to_insert != nullptr) {
-            product_candidates.insert(node_to_insert);
-        }
-    }
-
-    /********** decide good candidates **********/
-    float balance_factor = 0.0f;
-    float reactant_threshold = 1.0f;
-    float product_threshold = 1.0f;
-
-    // use iterator to safe remove
-    for (auto it = reactant_candidates.begin(); it != reactant_candidates.end();) {
-        balance_factor = float((*it)->precursor_count) / float((*it)->derivative_count);
-        if (balance_factor > reactant_threshold) {
-            it = reactant_candidates.erase(it);
-        }
-        else {
-            ++it;
-        }
-    }
-
-    for (auto it = product_candidates.begin(); it != product_candidates.end();) {
-        balance_factor = float((*it)->precursor_count) / float((*it)->derivative_count);
-        if (balance_factor < product_threshold) {
-            it = product_candidates.erase(it);
-        }
-        else {
-            ++it;
-        }
-    }
-
-    fmt::print("\n=== Network Flow Analysis ===\n");
-    fmt::print("{} reactant candidates\n", reactant_candidates.size());
-    for (const auto& node : reactant_candidates) {
-        fmt::print("{} ", node->molecule->formula);
-    }
-    fmt::print("\n");
-
-    fmt::print("{} product candidates\n", product_candidates.size());
-    for (const auto& node : product_candidates) {
-        fmt::print("{} ", node->molecule->formula);
-    }
-    fmt::print("\n");
-}
-
-/**
- * @brief Solves the network flow problem
- * @note Implements a network flow algorithm
- * @note Uses a graph representation for the network
- * @note Applies tarjan's algorithm to find strongly connected components and
- * calculate flow.
- */
-void ReaxFlow::network_flow_solve() {
-    /*
-    algorithm tarjan is
-        input: graph G = (V, E)
-        output: set of strongly connected components (sets of vertices)
-
-        index := 0
-        S := empty stack
-        for each v in V do
-            if v.index is undefined then
-                strongconnect(v)
-
-        function strongconnect(v)
-            // Set the depth index for v to the smallest unused index
-            v.index := index
-            v.lowlink := index
-            index := index + 1
-            S.push(v)
-            v.onStack := true
-
-            // Consider successors of v
-            for each (v, w) in E do
-                if w.index is undefined then
-                    // Successor w has not yet been visited; recurse on it
-                    strongconnect(w)
-                    v.lowlink := min(v.lowlink, w.lowlink)
-                else if w.onStack then
-                    // Successor w is in stack S and hence in the current SCC
-                    // If w is not on stack, then (v, w) is an edge pointing to an
-    SCC already found and must be ignored
-                    // See below regarding the next line
-                    v.lowlink := min(v.lowlink, w.index)
-
-            // If v is a root node, pop the stack and generate an SCC
-            if v.lowlink = v.index then
-                start a new strongly connected component
-                repeat
-                    w := S.pop()
-                    w.onStack := false
-                    add w to current strongly connected component
-                while w ≠ v
-                output the current strongly connected component
-    */
-
-    // Step 1: BFS to find all possible paths from reactant_candidates to
-    // product_candidates
-
-    struct Path {
-        Node* reactant;
-        Node* product;
-        int significance = 0;
-        unsigned int signature = 0;
-        std::vector<Node*> nodes;
-        int max_flow = 0;
-
-        /**
-         * @brief Checks if there is a path from reactant to product
-         * @return true if there is a path, false otherwise
-         * @note complexity: O(V + E)
-         */
-        bool connected() {
-            std::queue<Node*> queue;
-            std::unordered_set<Node*> visited;
-            Node* current_node = reactant;
-
-            queue.push(reactant);
-            visited.insert(reactant);
-
-            while (!queue.empty()) {
-                current_node = queue.front();
-                queue.pop();
-
-                if (current_node == product) {
-                    return true;
-                }
-
-                for (const auto& next_node : current_node->to_nodes) {
-                    if (visited.find(next_node) == visited.end()) {
-                        visited.insert(next_node);
-                        queue.push(next_node);
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        /**
-         * @brief Finds the maximum flow using Dinic's algorithm
-         * @return The maximum flow
-         * @note complexity: O(V^2 * E)
-         */
-        int Dinic_max_flow() {
-            // TODO: Implement Dinic's algorithm
-
-            max_flow = 0;
-            return max_flow;
-        }
-    };
-
-    // Decide important reactants and products
-    // std::vector<Node*> reactant_candidates_copy(reactant_candidates.begin(),
-    // reactant_candidates.end()); std::vector<Node*>
-    // product_candidates_copy(product_candidates.begin(),
-    // product_candidates.end());
-
-    // std::sort(reactant_candidates_copy.begin(), reactant_candidates_copy.end(),
-    //           [](const Node* a, const Node* b) { return a->out_degree >
-    //           b->out_degree; });
-    // std::sort(product_candidates_copy.begin(), product_candidates_copy.end(),
-    //           [](const Node* a, const Node* b) { return a->in_degree >
-    //           b->in_degree; });
-
-    // if (reactant_candidates_copy.size() > NETWORK_FLOW_MAX_REACTANTS) {
-    //     reactant_candidates_copy.resize(NETWORK_FLOW_MAX_REACTANTS);
-    // }
-    // if (product_candidates_copy.size() > NETWORK_FLOW_MAX_PRODUCTS) {
-    //     product_candidates_copy.resize(NETWORK_FLOW_MAX_PRODUCTS);
-    // }
-
-    // Find all possible paths
-    std::vector<Path> all_paths;
-    std::vector<Path> valid_paths;
-
-    for (const auto& reactant : reactant_candidates) {
-        for (const auto& product : product_candidates) {
-            if (reactant->derivative_count == 0 || product->precursor_count == 0) {
-                continue;
-            }
-            if (reactant->hash == product->hash) {
-                continue;
-            }
-
-            Path path;
-            path.reactant = reactant;
-            path.product = product;
-            path.significance = reactant->derivative_count * product->precursor_count;
-            all_paths.push_back(path);
-        }
-    }
-
-    // complexity: O(NETWORK_FLOW_MAX_REACTANTS * NETWORK_FLOW_MAX_PRODUCTS * (V +
-    // E))
-    for (auto& path : all_paths) {
-        bool connected = path.connected();
-        if (connected) {
-            valid_paths.push_back(path);
-        }
-    }
-    all_paths.clear();
-
-    // std::sort(valid_paths.begin(), valid_paths.end(),
-    //           [](const Path& a, const Path& b) { return a.significance >
-    //           b.significance; });
-
-    // for (const auto& path : valid_paths) {
-    //     fmt::print("{} -> {} (significance: {})\n",
-    //     path.reactant->molecule->formula, path.product->molecule->formula,
-    //                path.significance);
-    // }
-
-    for (auto& path : valid_paths) {
-        path.Dinic_max_flow();
-    }
-
-    // TODO: Step 2: Solve the max flow problem using the selected pairs as source
-    // and sink, Dinic's algorithm
-    // TODO: Step 3: Output results, like P -> T1 -> T2 -> ... -> Tn -> P (70% ->
-    // 50% -> 30% -> 20% -> ...)
-}
 
 // ============================================================================
 // Reaction Network Improvement Methods

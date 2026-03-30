@@ -50,9 +50,6 @@ extern "C" int cpp_main(int argc, const char** argv)
     }
 
 
-    // uv.reax_flow->identify_candidates();
-    // uv.reax_flow->network_flow_solve();
-
 #ifndef WASM_MODE
     uv.reax_flow->dump_smiles();
     uv.reax_flow->draw_molecules();
@@ -61,8 +58,6 @@ extern "C" int cpp_main(int argc, const char** argv)
     uv.bond_counter->save_file("bond_count.csv");
     uv.ring_counter->save_file("ring_count.csv");
     uv.atom_bonded_num_counter->save_file("atom_bonded_num_count.csv");
-    // Note: species_count_hash.csv disabled - formula-based output preferred
-    // uv.hash_counter->save_file("species_count_hash.csv");
 
     auto end_time = std::chrono::high_resolution_clock::now();
     double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();

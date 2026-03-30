@@ -13,8 +13,6 @@ int NUM_THREADS = 4;
 int MAX_REACTIONS = 60;
 int MAX_KEY_MOLECULES = 60;
 int DUMP_STEPS = 10;
-int NETWORK_FLOW_MAX_REACTANTS = 10;
-int NETWORK_FLOW_MAX_PRODUCTS = 10;
 
 std::string INPUT_FILE = "";
 std::string OUTPUT_DIR = "reax_tools_output/";
@@ -35,7 +33,6 @@ int STABLE_TIME_FRAMES = 3;
 float TIMESTEP_FS = 0.25f;
 int SAMPLING_FREQ = 10;
 
-bool FLAG_MERGE_ELEMENTS = false;
 bool FLAG_RESCALE_MERGE_COUNT = false;
 std::string MERGE_TARGET = "";
 std::vector<int> MERGE_RANGES = {};
@@ -234,7 +231,6 @@ bool operation_set_max_reactions(std::vector<std::string> input_string) {
 bool operation_set_merge_target(std::vector<std::string> input_string) {
     if (input_string.size() != 1) return false;
     MERGE_TARGET = input_string[0];
-    FLAG_MERGE_ELEMENTS = true;
     return true;
 }
 bool operation_set_merge_ranges(std::vector<std::string> input_string) {

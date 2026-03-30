@@ -21,8 +21,8 @@
 #include "string_tools.h"
 #include "system.h"
 
-// Main SMILES generator, RDKit-style
-std::string rdkit_smiles(const Molecule& mol) {
+// Build an RDKit RWMol from a Molecule's atoms and bonds
+static RDKit::RWMol build_rdkit_mol(const Molecule& mol) {
     RDKit::RWMol rdkit_mol;
     std::map<int, int> atom_idx_map;  // Maps our atom id to RDKit atom index
     for (const auto& atom : mol.mol_atoms) {
@@ -52,8 +52,6 @@ std::string rdkit_smiles(const Molecule& mol) {
         } else {
             rdkit_mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::UNSPECIFIED);
         }
-
-        // mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::UNSPECIFIED);
     }
 
     // Skip sanitization and directly set necessary properties for drawing
@@ -62,54 +60,23 @@ std::string rdkit_smiles(const Molecule& mol) {
         atom->setNumExplicitHs(0);  // Set explicit H count to 0
     }
 
+    return rdkit_mol;
+}
+
+// Main SMILES generator, RDKit-style
+std::string rdkit_smiles(const Molecule& mol) {
+    RDKit::RWMol rdkit_mol = build_rdkit_mol(mol);
     std::string smiles = RDKit::MolToSmiles(rdkit_mol);
     return smiles;
 }
 
-// Main SMILES generator, RDKit-style
+// Draw molecule structure as SVG
 void rdkit_draw_molecule(const Molecule& mol) {
     // Too big, don't draw, just use formula in downstream visualization tool.
     if (mol.mol_atoms.size() > 60) return;
 
     try {
-        RDKit::RWMol rdkit_mol;
-        std::map<int, int> atom_idx_map;  // Maps our atom id to RDKit atom index
-        for (const auto& atom : mol.mol_atoms) {
-            int atomic_num = ELEMENT_TO_INDEX[atom->type_name];
-
-            RDKit::Atom rdkit_atom(atomic_num);
-            int idx = rdkit_mol.addAtom(&rdkit_atom);
-            atom_idx_map[atom->id] = idx;
-        }
-
-        // Add bonds
-        for (const auto& bond : mol.mol_bonds) {
-            int begin_idx = atom_idx_map[bond->atom_i->id];
-            int end_idx = atom_idx_map[bond->atom_j->id];
-
-            // If bond already exists (rarely happens), skip
-            if (rdkit_mol.getBondBetweenAtoms(begin_idx, end_idx)) {
-                continue;
-            }
-
-            if (bond->order == 1) {
-                rdkit_mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::SINGLE);
-            } else if (bond->order == 2) {
-                rdkit_mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::DOUBLE);
-            } else if (bond->order == 3) {
-                rdkit_mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::TRIPLE);
-            } else {
-                rdkit_mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::UNSPECIFIED);
-            }
-
-            // mol.addBond(begin_idx, end_idx, RDKit::Bond::BondType::UNSPECIFIED);
-        }
-
-        // Skip sanitization and directly set necessary properties for drawing
-        for (auto atom : rdkit_mol.atoms()) {
-            atom->setNoImplicit(true);  // Prevent implicit H addition
-            atom->setNumExplicitHs(0);  // Set explicit H count to 0
-        }
+        RDKit::RWMol rdkit_mol = build_rdkit_mol(mol);
 
         RDKit::DGeomHelpers::EmbedMolecule(rdkit_mol);
 

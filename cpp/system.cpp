@@ -213,9 +213,6 @@ void System::load_lammpstrj(std::ifstream& file) {
     // load a frame from lammpstrj, create a system instance.
     // when finish all atoms in this frame, stop.
     std::string line;
-    // For rectangular box, maybe support triclinc box later.
-    // xlo, ylo, zlo, xhi, yhi, zhi
-    std::vector<float> bounds(6, 0.0f);
     float xlo = 0.0f, xhi = 0.0f, ylo = 0.0f, yhi = 0.0f, zlo = 0.0f, zhi = 0.0f, lx = 0.0f, ly = 0.0f, lz = 0.0f;
     float x, y, z;
 
@@ -309,7 +306,6 @@ void System::load_lammpstrj(std::ifstream& file) {
 
             box_dim++;
             if (box_dim > 2) {
-                bounds = { xlo, ylo, zlo, xhi, yhi, zhi };
                 this->has_boundaries = true;
                 axis_lengths = { lx, ly, lz };
                 read_box = false;
@@ -499,7 +495,6 @@ void System::build_bonds_by_radius() {
     std::vector<std::pair<Atom*, float>> candidate_id_relative_sq;
     candidate_id_relative_sq.reserve(MAX_NEIGH);
 
-    std::pair<int, float> id_dist_sq;
     std::pair<int, int> type_idx;
 
     for (auto& atom : atoms) {
@@ -524,7 +519,6 @@ void System::build_bonds_by_radius() {
             relative_sq = dist_sq / bond_sq;
 
             if (relative_sq < 1.0f) {
-                id_dist_sq = { neigh->id, dist_sq };
                 candidate_id_relative_sq.emplace_back(std::pair(neigh, relative_sq));
             }
         }
@@ -878,31 +872,6 @@ void System::process_reax_flow() {
     Atom* prev_atom = nullptr;
     Molecule* prev_mol = nullptr;
     Molecule* curr_mol = nullptr;
-
-    // Downgrading: naive comparison of molecules between frames.
-    // for (const auto& curr_atom : this->atoms) {
-    //     prev_atom = prev_sys->get_atom_by_id(curr_atom->id);
-    //     if (!prev_atom) continue;
-
-    //     prev_mol = prev_atom->belong_molecule;
-    //     curr_mol = curr_atom->belong_molecule;
-
-    //     if (prev_mol == nullptr || curr_mol == nullptr) continue;
-
-    //     if (prev_mol->hash != curr_mol->hash) {
-    //         mol_id_pair = { prev_mol->id, curr_mol->id };
-    //         if (reaction_mol_id_pairs.find(mol_id_pair) == reaction_mol_id_pairs.end()) {
-    //             reaction_mol_id_pairs.insert(mol_id_pair);
-    //         }
-    //     }
-    // }
-
-    // for (const auto& pair : reaction_mol_id_pairs) {
-    //     prev_mol = prev_sys->get_molecule_by_id(pair.first);
-    //     curr_mol = this->get_molecule_by_id(pair.second);
-
-    //     reax_flow->add_reaction(this->frame_id, 1, prev_mol, curr_mol);
-    // }
 
     for (const auto& curr_atom : this->atoms) {
         prev_atom = prev_sys->get_atom_by_id(curr_atom->id);
