@@ -382,3 +382,95 @@ for (int neighbor_cell_index : neighbor_cell_indices) {
 7. **内存优化**
    - 使用内存池减少分配开销
    - 压缩稀疏数据结构
+
+---
+
+## 附录：图论环检测算法研究 (2026-03-31)
+
+### 研究目标
+深入分析现有代码中的环检测算法（`find_rings_from_atom`）的复杂度问题，寻找图论中更优的解决方案。
+
+### 关键发现摘要
+
+#### 1. 算法分类
+
+**环检测 vs 环枚举:**
+- **Cycle Detection**: 判断是否存在环 → O(V+E)
+- **Cycle Enumeration**: 列出所有简单环 → 输出大小可能指数级
+
+#### 2. 主要算法
+
+| 算法 | 时间复杂度 | 适用图类型 | 特性 |
+|-----|-----------|-----------|------|
+| **Paton** | O(V²) | 一般图 | 基本环基，简单实现 |
+| **Johnson** | O(V+E+ec) | 有向图 | 枚举所有简单环 |
+| **Vismara MCB** | O(m²) → O(V) | 分子图 | 最小环基，化学专用 |
+| **Horton MCB** | O(m³n) | 一般图 | 最小环基 |
+| **RP-Path** | O(n³) | 大分子 | 路径包含距离矩阵 |
+
+#### 3. 化学信息学实践
+
+**SSSR (Smallest Set of Smallest Rings):**
+- 等同于 MCB (Minimum Cycle Basis)
+- 环数 = 边数 - 顶点数 + 连通分量数
+- 对于稠密环（如富勒烯）可能遗漏"化学相关"环
+
+**扩展方案:**
+- **ESSR**: 包含平面嵌入的面
+- **SER**: 组合SSSR成员直到闭合
+
+#### 4. Paton算法详解 (推荐用于实现)
+
+**来源:** Paton, K. "An algorithm for finding a fundamental set of cycles of a graph." Comm. ACM 12, 9 (1969), 514-518.
+
+**算法思想:**
+```python
+def cycle_basis(G):
+    cycles = []
+    for each connected component:
+        stack = [root]
+        pred = {root: root}   # 前驱节点
+        used = {root: set()}  # 已处理的边
+        
+        while stack:
+            z = stack.pop()  # LIFO - DFS
+            for nbr in G[z]:
+                if nbr not in used:  # 新节点
+                    pred[nbr] = z
+                    stack.append(nbr)
+                    used[nbr] = {z}
+                elif nbr not in used[z]:  # 发现环！
+                    # 构造环：从z回溯到与nbr的共同祖先
+                    cycle = [nbr, z]
+                    p = pred[z]
+                    while p not in used[nbr]:
+                        cycle.append(p)
+                        p = pred[p]
+                    cycle.append(p)
+                    cycles.append(cycle)
+                    used[nbr].add(z)
+    return cycles
+```
+
+**复杂度:** O(V²) 时间，实际对于分子图接近线性
+
+**NetworkX实现:** [networkx.algorithms.cycles.cycle_basis](https://networkx.org/documentation/stable/_modules/networkx/algorithms/cycles.html)
+
+#### 5. 优化建议（基于研究）
+
+**短期方案:**
+1. 使用 Paton 算法替代当前 DFS + 子集检查
+2. 添加双连通分量分解减少问题规模
+3. 用位掩码优化子集检查到 O(1)
+
+**中期方案:**
+1. 实现 BFS + 位掩码版本（针对≤64原子分子）
+2. 对>64原子分子回退到 Paton 算法
+3. 使用测试数据集验证结果一致性
+
+**参考资料:**
+- [Paton ACM 1969](https://www.cs.cmu.edu/afs/cs.cmu.edu/project/phrensy/pub/www/online/ch5.pdf)
+- [Cycle bases in graphs](https://page.math.tu-berlin.de/~moehring/adm3/adm3-2015/paperKreisbasen.pdf)
+- [NetworkX cycle_basis source](https://networkx.org/documentation/stable/_modules/networkx/algorithms/cycles.html)
+- [Fast Parallel Algorithms for Enumeration of Simple Cycles](https://arxiv.org/pdf/2301.01068)
+

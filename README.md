@@ -131,7 +131,9 @@ ITEM: TIMESTEP
 ITEM: NUMBER OF ATOMS
 10000
 ITEM: BOX BOUNDS pp pp pp
-0.0 40.0 0.0 40.0 0.0 40.0
+0.0 40.0
+0.0 40.0
+0.0 40.0
 ITEM: ATOMS id type x y z
 1 1 0.000 0.000 0.000
 2 2 1.000 1.000 1.000
@@ -147,7 +149,16 @@ C 0.000 0.000 0.000
 H 1.000 1.000 1.000
 ...
 ```
-GPUMD、CP2K 直接输出，或通过 OVITO 转格式获得。已包含元素符号，无需 `-t` 参数。
+GPUMD、CP2K 直接输出，或**通过 OVITO 转格式获得**。已包含元素符号，无需 `-t` 参数。
+**重要**如果因为非标准的输出而不能读取其他格式，优先尝试OVITO转格式。
+
+**LAMMPSTRJ转标准Extended XYZ的方法**
+```
+1. 在OVITO中正确载入Lammpstrj文件。
+2. 在Particle Type中，手动为type 1...type N的原子设置正确的元素名。
+3. 如果有PBC问题，可以用Affine Transformation重新定义盒子，但是要注意原子坐标是否需要被重新缩放。
+4. 导出为Extended XYZ文件。
+```
 
 ### 3. 普通 XYZ
 ```
@@ -171,8 +182,8 @@ H 1.000 1.000 1.000
 |------|------|------|
 | `-t` | 定义元素符号（用于 lammpstrj） | `-t C,H,O,N` |
 | `-r` | vdW 半径缩放因子（默认 1.2） | `-r 1.0` |
-| `-tr` | 设置特定元素半径 | `-tr N:1.5` |
-| `-tv` | 设置特定元素化合价 | `-tv N:4,S:6` |
+| `-tr` | 设置特定元素半径 | `-tr N:1.5 O:1.5` |
+| `-tv` | 设置特定元素化合价 | `-tv N:4 S:6` |
 | `--order` | 化学式元素排序 | `--order C,H,O,N` |
 
 ### 高级分析参数
@@ -186,8 +197,6 @@ H 1.000 1.000 1.000
 | `--max-reactions` | 最大反应数（默认 60） | `--max-reactions 100` |
 | `--no-track-reactions` | 禁用反应跟踪（默认启用） | `--no-track-reactions` |
 | `--stable-time` | 反应稳定时间阈值（帧，默认 3） | `--stable-time 5` |
-| `--timestep` | MD 时间步长（fs，默认 0.25） | `--timestep 0.5` |
-| `--sampling-freq` | 采样频率（默认 10） | `--sampling-freq 20` |
 
 ### 自定义元素类型（原子追踪）
 
@@ -256,10 +265,10 @@ dot -Tpng reaction_flow_full.dot -o reaction_flow.png
 pip install -r bin/requirements.txt
 
 # 绘制物种、键、环等统计图
-python bin/reax_plot.py reax_tools_output/
+python bin/reax_plot.py -d reax_tools_output/
 
-# 生成高清反应网络图（含分子结构图嵌入）
-python bin/reax_network.py reax_tools_output/reaction_flow_full.dot
+# 生成高清反应网络图（需要安装graphviz以获取dot命令）
+dot -Tpng reax_tools_output/reaction_flow_full.dot -o reaction_flow_full.png
 ```
 
 ---
