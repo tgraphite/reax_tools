@@ -1,0 +1,15 @@
+{
+  "name": "reax-tools-web",
+  "version": "2.0.0",
+  "description": "ReaxTools Web Dashboard - Modern data visualization interface",
+  "scripts": {
+    "build": "tailwindcss -i ./src/styles/tailwind.css -o ./dist/styles.css --minify",
+    "watch": "tailwindcss -i ./src/styles/tailwind.css -o ./dist/styles.css --watch",
+    "dev": "concurrently \"npm run watch\" \"python -m http.server 8080\""
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.7",
+    "concurrently": "^8.2.2",
+    "tailwindcss": "^3.4.0"
+  }
+}

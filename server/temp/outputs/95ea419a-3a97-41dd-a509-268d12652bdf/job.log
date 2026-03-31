@@ -1,0 +1,140 @@
+ReaxTools: High performance reactive MD post-processer
+Atom Types: 1: N, 2: H, 3: O, 
+Bond radius: N-N 1.860, N-H 1.560, N-O 1.950, H-N 1.560, H-H 1.260, H-O 1.650, O-N 1.950, O-H 1.650, O-O 2.040, 
+Frame    Atoms    Bonds    Mols     R5     R6     R7     R8    
+1        2592     2146     446       0      0      0      0     
+2        2592     2087     505       0      0      0      0     
+3        2592     2079     513       0      0      0      0     
+4        2592     2065     527       0      0      0      0     
+5        2592     2067     525       0      0      0      0     
+6        2592     2065     527       0      0      0      0     
+7        2592     2064     529       0      1      0      0     
+8        2592     2057     536       0      1      0      0     
+9        2592     2059     534       0      1      0      0     
+10       2592     2059     534       0      1      0      0     
+11       2592     2046     546       0      0      0      0     
+12       2592     2054     538       0      0      0      0     
+13       2592     2056     536       0      0      0      0     
+14       2592     2060     532       0      0      0      0     
+15       2592     2059     533       0      0      0      0     
+16       2592     2059     533       0      0      0      0     
+17       2592     2056     536       0      0      0      0     
+18       2592     2059     533       0      0      0      0     
+19       2592     2057     535       0      0      0      0     
+20       2592     2057     535       0      0      0      0     
+21       2592     2054     538       0      0      0      0     
+22       2592     2052     540       0      0      0      0     
+23       2592     2056     536       0      0      0      0     
+24       2592     2058     534       0      0      0      0     
+25       2592     2049     543       0      0      0      0     
+26       2592     2049     543       0      0      0      0     
+27       2592     2051     541       0      0      0      0     
+28       2592     2050     542       0      0      0      0     
+29       2592     2051     541       0      0      0      0     
+30       2592     2043     549       0      0      0      0     
+31       2592     2045     547       0      0      0      0     
+32       2592     2043     549       0      0      0      0     
+33       2592     2047     545       0      0      0      0     
+34       2592     2046     546       0      0      0      0     
+35       2592     2050     542       0      0      0      0     
+36       2592     2050     542       0      0      0      0     
+37       2592     2044     548       0      0      0      0     
+38       2592     2050     542       0      0      0      0     
+39       2592     2052     540       0      0      0      0     
+40       2592     2055     537       0      0      0      0     
+
+
+Note: To avoid too much screen output, only the top 20 species are printed.
+=== Species Report ===
+formula                begin     mid     end average
+H3N                   138.00  143.25  142.75  143.80
+H2O                    48.00   75.00   77.25   72.03
+NO2                    15.00   51.50   50.00   44.03
+N3O4                   97.00   23.25   14.75   36.83
+N2                      9.75   36.75   43.25   32.53
+HN3O5                   8.75   26.50   27.00   22.33
+N3O3                   29.50   17.75   15.25   20.12
+HNO2                    9.50   16.75   21.50   17.42
+H4NO                   10.50   16.50   13.75   15.88
+N2O                     8.75   15.75   14.00   14.50
+N5O5                    4.50   12.25   13.75   11.27
+H3NO                    6.50   14.50    9.75   11.10
+H4N                    47.50    3.25    1.50    7.57
+H2N4O4                  1.25    7.75    9.25    6.97
+H2N                     4.00    7.25    4.50    6.05
+HN3O3                   7.00    5.75    1.75    5.57
+HN2O                    2.75    5.75    5.75    5.53
+HN3O4                  19.25    3.75    3.25    4.95
+N2O3                    0.50    4.00    5.00    3.65
+N3O2                    3.00    2.50    4.50    3.55
+
+=== Integrated Reaction Network Filtering ===
+Step 1: Reducing reversible reactions...
+Step 2: Atom economy filtering...
+Removed: 88 reactions (21.9%)
+Distribution of kept reactions:
+  High AE (>=0.5): 229
+  Mid AE (0.3-0.5): 62
+  Low AE (<0.3, special): 22
+Step 3: Edge betweenness ranking (313 > 60)...
+Kept: 48 (BC top 30 + count top 20 + transfer top 10)
+Removed: 265
+Step 4: Cleaning up isolated nodes...
+Removed 80 isolated nodes
+
+=== Reaction Flow Report ===
+Top 10 key molecules:
+molecule    precursors  derivatives 
+HN3O3       4           4           
+H3N         2           6           
+NO2         6           1           
+N3O4        0           5           
+HN3O4       1           3           
+N3O3        2           2           
+N3O2        1           2           
+H2N4O4      2           1           
+HNO2        2           1           
+HN2O        2           1           
+
+Top 20 key flows:
+from        to          count   atom transfered
+H4N -> H3N = R:103 AT:235
+H3N -> H4NO = R:28 AT:48
+N3O4 -> N3O3 = R:22 AT:102
+N3O4 -> HN3O5 = R:21 AT:81
+N3O3 -> NO2 = R:20 AT:38
+HN3O4 -> N3O3 = R:18 AT:69
+N3O4 -> HN3O4 = R:15 AT:66
+N3O4 -> N5O5 = R:15 AT:51
+H4N -> H2O = R:14 AT:14
+N3O2 -> NO2 = R:11 AT:21
+H4NO -> H3NO = R:11 AT:46
+H3N -> H2N4O4 = R:10 AT:14
+N3O4 -> H2N4O4 = R:10 AT:31
+N3O2 -> N2 = R:10 AT:17
+N3O3 -> HN3O3 = R:9 AT:39
+HN3O3 -> HNO2 = R:9 AT:20
+HN3O3 -> N3O2 = R:8 AT:22
+HN3O4 -> H2O = R:8 AT:11
+NO2 -> HNO2 = R:7 AT:8
+HN3O3 -> N2 = R:7 AT:10
+
+=== Reaction Tracker Report ===
+Total molecules tracked: 3540
+Active molecules: 537
+Reaction events detected: 1415
+
+Top 10 most common reactions:
+  N3O3+H3N -> H3N4O3: 31 times
+  H3N4O3 -> N3O3+H3N: 30 times
+  H2N+HNO2 -> H3N+NO2: 23 times
+  HNO2+H2N -> NO2+H3N: 22 times
+  H3N4O3 -> H3N+N3O3: 22 times
+  H3N+NO2 -> H2N+HNO2: 21 times
+  H3N+N2O -> H3N3O: 20 times
+  H3N+N3O3 -> H3N4O3: 18 times
+  NO2+H3N -> HNO2+H2N: 16 times
+  H3N3O -> H3N+N2O: 15 times
+Saved 800 unique reaction types (sorted by frequency) to reaction_track_events.csv
+Saved 3540 molecule lifetimes to reaction_track_molecules.csv
+Total elapsed time: 2.421 seconds

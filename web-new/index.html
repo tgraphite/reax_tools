@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReaxTools Web 2.0 - 反应分子动力学分析平台</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <link rel="stylesheet" href="./dist/styles.css">
+
+  <!-- JSZip for downloads -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- Marked for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+            R
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">ReaxTools Web</h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400">反应分子动力学分析平台 v2.0</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <!-- Queue Status -->
+          <div id="queueStatus" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+            <span class="relative flex h-3 w-3">
+              <span id="queuePulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span id="queueDot" class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </span>
+            <span class="text-sm text-gray-600 dark:text-gray-300">
+              队列: <span id="queueCount" class="font-medium">0</span> 等待
+            </span>
+          </div>
+
+          <!-- Dark Mode Toggle -->
+          <button id="darkModeToggle" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+            <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Alert Container -->
+    <div id="alertContainer" class="mb-6 space-y-2"></div>
+
+    <!-- Top Row: Submit Form & Real-time Log -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <!-- Job Submission Panel -->
+      <div class="dashboard-card p-6 lg:col-span-1">
+        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          提交分析任务
+        </h2>
+
+        <form id="submitForm" class="space-y-4">
+          <!-- File Upload -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">轨迹文件</label>
+            <div id="dropzone" class="dropzone">
+              <input type="file" id="fileInput" accept=".xyz,.lammpstrj,.trj" class="hidden">
+              <div id="dropzoneContent">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  <span class="font-medium text-primary-500">点击上传</span> 或拖拽文件到此处
+                </p>
+                <p class="text-xs text-gray-500">支持 .xyz, .lammpstrj 格式</p>
+              </div>
+              <div id="fileSelected" class="hidden">
+                <svg class="mx-auto h-10 w-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p id="selectedFilename" class="mt-2 text-sm font-medium text-gray-900 dark:text-white"></p>
+                <button type="button" id="changeFile" class="mt-1 text-xs text-primary-500 hover:text-primary-600">更换文件</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Arguments Input -->
+          <div>
+            <label for="argsInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              分析参数
+              <span class="text-xs text-gray-500 ml-1">(可选)</span>
+            </label>
+            <input type="text" id="argsInput" class="input font-mono text-sm"
+              placeholder="-t C,H,O,N -r 1.2 --max-reactions 100">
+            <p class="mt-1 text-xs text-gray-500">
+              示例: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">-t C,H,O,N</code> 指定元素类型
+            </p>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="submitBtn" class="btn-primary w-full" disabled>
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            开始分析
+          </button>
+        </form>
+
+        <!-- Quick Links -->
+        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <p class="text-xs text-gray-500 mb-2">快速链接:</p>
+          <div class="flex flex-wrap gap-2">
+            <a href="#" onclick="loadSampleFile()" class="text-xs text-primary-500 hover:text-primary-600">加载示例</a>
+            <a href="https://github.com/tgraphite/reax_tools" target="_blank" class="text-xs text-primary-500 hover:text-primary-600">GitHub</a>
+            <a href="#" onclick="showHelp()" class="text-xs text-primary-500 hover:text-primary-600">参数帮助</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Monitor Panel -->
+      <div class="dashboard-card p-6 lg:col-span-2">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-semibold flex items-center gap-2">
+            <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            实时运行状态
+          </h2>
+          <div id="jobStatus" class="hidden">
+            <span id="statusBadge" class="badge-queued">等待中</span>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progressContainer" class="mb-4 hidden">
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-gray-600 dark:text-gray-400">分析进度</span>
+            <span id="progressText" class="font-medium text-primary-600 dark:text-primary-400">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div id="progressBar" class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Log Viewer -->
+        <div class="log-viewer" id="logViewer">
+          <p class="text-gray-500 italic">等待任务提交...</p>
+        </div>
+
+        <!-- Results Actions -->
+        <div id="resultsActions" class="mt-4 hidden flex gap-2">
+          <a id="downloadBtn" href="#" class="btn-primary">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            下载结果
+          </a>
+          <button id="viewResultsBtn" class="btn-secondary">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            </svg>
+            查看图表
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div id="chartsSection" class="hidden mb-6">
+      <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+        <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+        </svg>
+        数据分析图表
+      </h2>
+
+      <!-- Generated Images Grid -->
+      <div id="imagesGrid" class="grid grid-cols-1 xl:grid-cols-2 gap-6"></div>
+
+      <!-- Key Molecules Report -->
+      <div class="dashboard-card p-4 mt-6">
+        <h3 class="font-medium text-gray-900 dark:text-white mb-3">关键分子分析报告</h3>
+        <div id="keyMoleculesReport" class="prose dark:prose-invert max-w-none max-h-[600px] overflow-y-auto pr-2"></div>
+      </div>
+    </div>
+
+    <!-- Job History -->
+    <div class="dashboard-card overflow-hidden">
+      <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold flex items-center gap-2">
+          <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          任务历史
+        </h2>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="data-table w-full">
+          <thead class="bg-gray-50 dark:bg-gray-800">
+            <tr>
+              <th>任务ID</th>
+              <th>文件名</th>
+              <th>状态</th>
+              <th>进度</th>
+              <th>提交时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="jobHistoryTable" class="divide-y divide-gray-200 dark:divide-gray-700">
+            <tr>
+              <td colspan="6" class="text-center py-8 text-gray-500">
+                暂无任务记录
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          ReaxTools Web 2.0 - 高性能反应分子动力学后处理工具
+        </p>
+        <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+          <span>Author: Graphite</span>
+          <a href="mailto:chenhx_cpu@163.com" class="text-primary-500 hover:text-primary-600">chenhx_cpu@163.com</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Help Modal -->
+  <div id="helpModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <h3 class="text-lg font-semibold">参数帮助</h3>
+        <button onclick="closeHelp()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="p-6 prose dark:prose-invert max-w-none text-sm">
+        <h4>基础参数</h4>
+        <table class="w-full text-left border-collapse mb-4">
+          <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700">
+              <th class="py-1 pr-4 font-medium">参数</th>
+              <th class="py-1 pr-4 font-medium">说明</th>
+              <th class="py-1 font-medium">示例</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>-t</code></td><td class="pr-4">定义元素符号（用于 lammpstrj）</td><td><code>-t C,H,O,N</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>-r</code></td><td class="pr-4">vdW 半径缩放因子（默认 1.2）</td><td><code>-r 1.0</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>-tr</code></td><td class="pr-4">设置特定元素半径</td><td><code>-tr N:1.5</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>-tv</code></td><td class="pr-4">设置特定元素化合价</td><td><code>-tv N:4,S:6</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>--order</code></td><td class="pr-4">化学式元素排序</td><td><code>--order C,H,O,N</code></td></tr>
+          </tbody>
+        </table>
+
+        <h4>高级分析参数</h4>
+        <table class="w-full text-left border-collapse mb-4">
+          <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700">
+              <th class="py-1 pr-4 font-medium">参数</th>
+              <th class="py-1 pr-4 font-medium">说明</th>
+              <th class="py-1 font-medium">示例</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>-me</code></td><td class="pr-4">按元素含量归纳</td><td><code>-me C</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>-mr</code></td><td class="pr-4">归纳范围（配合 -me 使用）</td><td><code>-mr 1,4,8,16</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>-rc</code></td><td class="pr-4">输出原子数而非分子数</td><td><code>-rc</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>-norr</code></td><td class="pr-4">保留互逆反应（不抵消）</td><td><code>-norr</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>--max-reactions</code></td><td class="pr-4">最大反应数（默认 60）</td><td><code>--max-reactions 100</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>--no-track-reactions</code></td><td class="pr-4">禁用反应跟踪（默认启用）</td><td><code>--no-track-reactions</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>--stable-time</code></td><td class="pr-4">反应稳定时间阈值（帧，默认 3）</td><td><code>--stable-time 5</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>--timestep</code></td><td class="pr-4">MD 时间步长（fs，默认 0.25）</td><td><code>--timestep 0.5</code></td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="py-1 pr-4"><code>--sampling-freq</code></td><td class="pr-4">采样频率（默认 10）</td><td><code>--sampling-freq 20</code></td></tr>
+          </tbody>
+        </table>
+
+        <h4>自定义元素类型（原子追踪）</h4>
+        <p class="mb-2">通过同时定义 <code>-tr</code> 和 <code>-tv</code> 可创建新元素类型，实现原子标记追踪。例如创建氘(D)和氚(T)追踪氢同位素：</p>
+        <pre class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs overflow-x-auto"><code>-tr D:1.05 T:1.05 -tv D:1 T:1</code></pre>
+
+        <h4>常用示例</h4>
+        <ul class="space-y-1">
+          <li><strong>基础分析：</strong> <code>reax_tools -t C,H,O,N trajectory.lammpstrj</code></li>
+          <li><strong>严格成键判据：</strong> <code>reax_tools -t C,H,O -r 1.0 dump.xyz</code></li>
+          <li><strong>碳数分组统计：</strong> <code>reax_tools -t C,H,O,N -me C -mr 1,4,8,16 -rc trajectory.xyz</code></li>
+          <li><strong>网络分析（保留所有反应）：</strong> <code>reax_tools -t C,H,O,N --max-reactions 200 -norr trajectory.xyz</code></li>
+        </ul>
+
+        <p class="mt-4 text-xs text-gray-500">说明：Web版已自动附加 <code>-nt 1</code> 强制使用单核计算，请不要手动输入 <code>-nt</code> 参数。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Scripts -->
+  <script src="./src/api.js"></script>
+  <script src="./src/charts.js"></script>
+  <script src="./src/main.js"></script>
+</body>
+</html>

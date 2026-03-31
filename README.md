@@ -3,7 +3,7 @@
 > **ReaxTools** is a high-performance post-processing tool for reactive molecular dynamics (ReaxFF / AIMD / MLP-MD). It reads trajectory files from LAMMPS, GPUMD, CP2K, and other MD engines, and produces species statistics, bond analysis, ring detection, reaction network graphs, and reaction event tracking. Available as a CLI binary, a WebAssembly web app, and Python visualization scripts.
 
 <p align="center">
-  <b>高性能 | 多格��支持 | 反应网络分析 | 在线即用</b>
+  <b>高性能 | 多格式支持 | 反应网络分析 | 在线即用</b>
 </p>
 
 <p align="center">
@@ -74,7 +74,31 @@ bash install_reax_tools.sh
 
 **推荐配置**: Linux, 8 核, 轨迹大小 < 4,000,000 原子 x 10,000 帧
 
-### 方式三：手动编译（非必须）
+### 方式三：自建 Web 服务器 (Web 2.0 新版)
+
+使用服务器端执行 + 任务队列的版本，支持更大文件和并发任务：
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/tgraphite/reax_tools
+cd reax_tools
+
+# 2. Docker Compose 一键启动
+docker-compose up -d
+
+# 3. 访问 http://localhost
+```
+
+**特性**:
+- 任务队列系统，支持多任务并发
+- 实时进度推送 (SSE)
+- 支持更大文件 (最高 500MB)
+- 现代化数据大屏界面 (Tailwind CSS)
+- 响应式设计，支持深色模式
+
+详见 [server/README.md](server/README.md)
+
+### 方式四：手动编译（非必须）
 
 #### 编译依赖
 
@@ -261,12 +285,20 @@ reax_tools/
 │   ├── reax_plot.py         # 统计图绘制
 │   ├── reax_network.py      # 反应网络可视化
 │   └── install_reax_tools.sh
-├── web/                    # WebAssembly 在线版
+├── web/                    # WebAssembly 在线版 (旧版)
+├── web-new/                # Web 2.0 - 服务器端版本 (新版)
+│   ├── index.html          # 主页面
+│   ├── src/                # JS 源码
+│   └── dist/               # 编译后的 CSS
+├── server/                 # Web 2.0 后端服务器
+│   ├── src/                # Node.js 源码
+│   └── package.json
 ├── doc/                    # 开发文档 & 变更记录
 ├── test/                   # 测试数据
 ├── CMakeLists.txt
 ├── build_local.sh
-└── build_wasm.sh
+├── build_wasm.sh
+└── docker-compose.yml      # Docker 部署配置
 ```
 
 ---

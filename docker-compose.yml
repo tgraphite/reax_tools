@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: reax-tools-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  server:
+    build: ./server
+    container_name: reax-tools-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MAX_CONCURRENT_JOBS=1
+      - JOB_TIMEOUT=900000
+      - REAX_TOOLS_BINARY=/app/bin/reax_tools
+    volumes:
+      - ./bin:/app/bin:ro
+      - job-outputs:/app/temp/outputs
+      - job-uploads:/app/temp/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Nginx for serving frontend and proxying API
+  nginx:
+    image: nginx:alpine
+    container_name: reax-tools-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./web-new:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - server
+
+volumes:
+  redis-data:
+  job-outputs:
+  job-uploads:
