@@ -74,30 +74,6 @@ bash install_reax_tools.sh
 
 **推荐配置**: Linux, 8 核, 轨迹大小 < 4,000,000 原子 x 10,000 帧
 
-### 方式三：自建 Web 服务器 (Web 2.0 新版)
-
-使用服务器端执行 + 任务队列的版本，支持更大文件和并发任务：
-
-```bash
-# 1. 克隆仓库
-git clone https://github.com/tgraphite/reax_tools
-cd reax_tools
-
-# 2. Docker Compose 一键启动
-docker-compose up -d
-
-# 3. 访问 http://localhost
-```
-
-**特性**:
-- 任务队列系统，支持多任务并发
-- 实时进度推送 (SSE)
-- 支持更大文件 (最高 500MB)
-- 现代化数据大屏界面 (Tailwind CSS)
-- 响应式设计，支持深色模式
-
-详见 [server/README.md](server/README.md)
-
 ### 方式四：手动编译（非必须）
 
 #### 编译依赖
