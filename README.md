@@ -267,7 +267,7 @@ reax_tools/
 │   ├── reax_network.py      # 反应网络可视化
 │   └── install_reax_tools.sh
 ├── web/                    # WebAssembly 在线版 (旧版)
-├── web-new/                # Web 2.0 - 服务器端版本 (新版)
+├── web-new/                # Web 2.0 - 服务器端版本 (新版) // 施工中慎用
 │   ├── index.html          # 主页面
 │   ├── src/                # JS 源码
 │   └── dist/               # 编译后的 CSS
