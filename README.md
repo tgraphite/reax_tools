@@ -180,6 +180,7 @@ H 1.000 1.000 1.000
 
 | 参数 | 说明 | 示例 |
 |------|------|------|
+| `-f` | 文件名 | `-f traj.xyz/traj.lammpstrj` |
 | `-t` | 定义元素符号（用于 lammpstrj） | `-t C,H,O,N` |
 | `-r` | vdW 半径缩放因子（默认 1.2） | `-r 1.0` |
 | `-tr` | 设置特定元素半径 | `-tr N:1.5 O:1.5` |
@@ -212,24 +213,19 @@ H 1.000 1.000 1.000
 
 ### 基础分析
 ```bash
-reax_tools -t C,H,O,N trajectory.lammpstrj
+reax_tools  -f trajectory.lammpstrj -t C,H,O,N
 ```
 
-### 严格成键判据（适合燃烧体系）
+### 严格成键判据
 ```bash
-reax_tools -t C,H,O -r 1.0 dump.xyz
+reax_tools -f dump.xyz -t C,H,O -r 1.0 
 ```
 
 ### 碳数分组统计
 ```bash
-reax_tools -t C,H,O,N -me C -mr 1,4,8,16 -rc trajectory.xyz
+reax_tools -f trajectory.xyz -t C,H,O,N -me C -mr 1,4,8,16 -rc 
 ```
 输出: C1-C3、C4-C7、C8-C15、C16+ 四组的碳原子数随时间变化。
-
-### 网络分析（保留所有反应）
-```bash
-reax_tools -t C,H,O,N --max-reactions 200 -norr trajectory.xyz
-```
 
 ---
 
