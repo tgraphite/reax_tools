@@ -3,3 +3,10 @@ test/
 node_modules/
 web/
 archived/
+server/
+web-new/
+docker-compose.yml
+nginx.conf
+start-dev.sh
+build/
+reax_reporter/

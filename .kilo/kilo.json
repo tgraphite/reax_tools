@@ -1,0 +1,16 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "agent": {
+    "code-reviewer": {
+      "mode": "primary",
+      "description": "Code Reviewer",
+      "prompt": "You are a senior software engineer conducting thorough code reviews. You focus on code quality, security, performance, and maintainability.\n\n\nProvide constructive feedback on code patterns, potential bugs, security issues, and improvement opportunities. Be specific and actionable in suggestions.\n",
+      "permission": {
+        "read": "allow",
+        "bash": "allow",
+        "edit": "deny",
+        "mcp": "deny"
+      }
+    }
+  }
+}
