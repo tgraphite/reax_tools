@@ -1,0 +1,56 @@
+========================================================================
+Accuracy on constitutional-isomer groups
+========================================================================
+
+-- realistic pairs --
+  formula            pairs=  3644 false_merge=  3644 false_split=     0 acc=0.0000
+  wl1                pairs=  3644 false_merge=     1 false_split=     0 acc=0.9997
+  wl2                pairs=  3644 false_merge=     0 false_split=     0 acc=1.0000
+  canonical_smiles   pairs=  3644 false_merge=     0 false_split=     0 acc=1.0000
+  inchi              pairs=  3644 false_merge=     1 false_split=     0 acc=0.9997
+
+-- adversarial pairs --
+  formula            pairs=  4614 false_merge=  4614 false_split=     0 acc=0.0000
+  wl1                pairs=  4614 false_merge=  4614 false_split=     0 acc=0.0000
+  wl2                pairs=  4614 false_merge=     1 false_split=     0 acc=0.9998
+  canonical_smiles   pairs=  4614 false_merge=     0 false_split=     0 acc=1.0000
+  inchi              pairs=  4614 false_merge=     0 false_split=     0 acc=1.0000
+
+-- all pairs --
+  formula            pairs=  8258 false_merge=  8258 false_split=     0 acc=0.0000
+  wl1                pairs=  8258 false_merge=  4615 false_split=     0 acc=0.4411
+  wl2                pairs=  8258 false_merge=     1 false_split=     0 acc=0.9999
+  canonical_smiles   pairs=  8258 false_merge=     0 false_split=     0 acc=1.0000
+  inchi              pairs=  8258 false_merge=     1 false_split=     0 acc=0.9999
+
+========================================================================
+Brute-force audit
+========================================================================
+  C2H6O                    bf=  2 smiles=  2 vf2=  2 agree=True
+  C3H6O                    bf=  6 smiles=  6 vf2=  6 agree=True
+  C3H8O                    bf=  3 smiles=  3 vf2=  3 agree=True
+  C4H10O                   bf=  7 smiles=  7 vf2=  7 agree=True
+  C4H8                     bf=  5 smiles=  5 vf2=  5 agree=True
+  C4H6                     bf=  7 smiles=  7 vf2=  7 agree=True
+  C5H12                    bf=  3 smiles=  3 vf2=  3 agree=True
+  C6H6                     bf=  5 smiles=  5 vf2=  5 agree=True
+  C5H5NO                   bf=  2 smiles=  2 vf2=  2 agree=True
+  regular_d3_n6            bf=  2 smiles=  2 vf2=  2 agree=True
+  regular_d3_n8            bf=  5 smiles=  5 vf2=  5 agree=True
+
+========================================================================
+Atom-order invariance
+========================================================================
+  formula            molecules= 38 variants=228 false_split=0
+  wl1                molecules= 38 variants=228 false_split=0
+  wl2                molecules= 38 variants=228 false_split=0
+  canonical_smiles   molecules= 38 variants=228 false_split=0
+  inchi              molecules= 38 variants=228 false_split=0
+
+========================================================================
+Timing
+========================================================================
+
+Standard InChI merges 2-pyridone and 2-hydroxypyridine (same InChI). Use non-isomeric canonical SMILES, or fixed-H InChI, when constitutional identity must be exact.
+
+Results written to /mnt/d/CurrentProjects/reax_tools/analysis/hash_bench/results

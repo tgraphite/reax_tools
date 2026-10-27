@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "program": "ReaxTools",
+  "version": "2.1",
+  "identity_model": "formula-hash-v2",
+  "input": {"trajectory": "test/isomer_probe/isomerization_ethanol_to_dme.xyz"},
+  "output_directory": "test/isomer_probe/out_isomerization",
+  "elapsed_s": 0.018274,
+  "parameters": {
+    "vdw_scale": 1.200000,
+    "threads": 1,
+    "ring_detection": true,
+    "reaction_events": true,
+    "transfer_flow": true
+  },
+  "files": [
+    "species_count.csv",
+    "bond_count.csv",
+    "atom_bonded_num_count.csv",
+    "ring_count.csv",
+    "reaction_events.csv",
+    "reaction_event_pairs.csv",
+    "transfer_flow.csv",
+    "reaction_snapshots/snapshots_manifest.csv",
+    "molecules.json",
+    "reax_tools.log",
+    "reax_tools_manifest.json"
+  ]
+}

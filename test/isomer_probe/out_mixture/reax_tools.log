@@ -1,0 +1,32 @@
+[run]
+program = ReaxTools
+version = 2.1
+identity_model = formula-hash-v2
+input = test/isomer_probe/mixture_ethanol_plus_dme.xyz
+output_dir = test/isomer_probe/out_mixture
+elapsed_s = 0.016849
+
+[parameters]
+vdw_scale = 1.200000
+threads = 1
+max_neighbors = 10
+rings = enabled
+reaction_events = enabled
+transfer_flow = enabled
+
+[outputs]
+species_count.csv
+bond_count.csv
+atom_bonded_num_count.csv
+ring_count.csv
+reaction_events.csv
+reaction_event_pairs.csv
+transfer_flow.csv
+reaction_snapshots/
+molecules.json
+reax_tools_manifest.json
+reax_tools.log
+
+[validation]
+audit_basis = raw atom-overlap transfer events
+status = generated audit-ready raw outputs

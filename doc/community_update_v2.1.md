@@ -37,7 +37,7 @@ Python 负责过滤、画图和展示。这样以后大多数用户体验和绘�
 
 3. 移除不必要外部依赖
 
-本地默认构建不再依赖 RDKit、Boost、Graphviz 或打包的动态库。安装和分发都更轻。
+C++ 核心构建不再依赖 RDKit、Boost 或 Graphviz。完整 Python 绘图环境仍安装 PyGraphviz 和 PyVista/VTK，网络布局需要 Graphviz，不能把核心依赖与完整安装依赖混为一谈。
 
 4. 反应网络审计增强
 
@@ -52,14 +52,15 @@ python3 tools/check_reax_outputs.py output_dir
 python3 tools/audit_event_network_consistency.py output_dir
 ```
 
-在 `energetic_v3` 和 `gpumd_v3` 测试体系中，event-network 一致性审计均通过。
+2026-09-11 复核：`energetic_v3` 和本地 `gpumd_v3` 的 pair/flow 聚合审计均通过；`energetic_v3` 的旧事件表头不兼容当前 `check_reax_outputs.py`，结构检查请使用 `energetic_v4` 或新生成结果。
 
 5. network 和 flow 的定位更清楚
 
-- `network`：完整的、可审计的物质转移网络视图，是反应网络分析的核心。
+- `transfer_flow.csv`：从已检测事件的原子重叠 pair 聚合得到的完整转移表。
+- `network`：该转移表的过滤视图；默认 top-N 图不包含所有边。
 - `flow`：实验性 Sankey 风格叙事图，用来帮助快速看主线，但会压缩和丢弃部分循环/同层信息。
 
-因此，正式分析和可审计结论建议以 raw CSV 和 `network` 为准；`flow` 更适合作为探索和展示辅助。
+正式统计以 raw CSV 为准，并记录过滤参数。聚合一致不等于反应识别准确：当前物种按分子式区分，不能区分异构体；`--stable-time` 尚未接入原始事件筛选。详见[方法与限制](methods-and-limits.md)。
 
 6. README 和输出风格更新
 
@@ -87,6 +88,6 @@ LAMMPS dump 文件通常需要指定元素类型：
 reax_tools -f dump.lammpstrj -t C,H,O,N -o reax_tools_output
 ```
 
-## 一句话总结
+## 当前适用范围（2026-09-11 核查）
 
-ReaxTools v2.1 的重点不是增加花哨功能，而是把反应网络相关结果从“能画图”推进到“可审计、可复现、可长期维护”。完整 network 是核心可信结果；flow 目前仍是实验性展示功能。
+ReaxTools v2.1 提供事件—原子重叠—物种转移表的审计链。它适合检查统计来源、探索轨迹中的组分变化；化学准确性还需对成键参数、采样间隔和代表性事件分别验证。本说明保留版本发布背景；当前输入限制和安装要求以 README 为准。
