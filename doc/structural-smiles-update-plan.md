@@ -41,6 +41,8 @@
   frames/atoms、species/formulas/events/transfer_edges 和输出列表。
 - 新增 `plot` 的 `key_molecules_page1..3.png`：全局 top-48 结构，
   按时间平均含量 + 反应图加权度排序，RDKit 2D 绘制；不生成 CSV。
+  绘图时用与 core 相同的 residual-valence 贪心补键级，仅用于显示，
+  SMILES/ID 仍保持全单键连接性。
 - N 价 4、O 价 3 写出形式电荷，保证 RDKit 可解析；验证扩到 289 个图。
 - `(a)(b)` 仍只在 Python 端按全局 ID 排序分配，core 输出原始数值 ID。
 

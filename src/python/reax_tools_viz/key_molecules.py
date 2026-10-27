@@ -18,6 +18,7 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from .drawing import prepare_drawing_mol
 from .io import read_transfer_flow
 
 
@@ -116,10 +117,9 @@ def select_key_molecules(
 
 
 def _draw_smiles_png(smiles: str, size: int = 420) -> bytes | None:
-    from rdkit import Chem
     from rdkit.Chem.Draw import rdMolDraw2D
 
-    mol = Chem.MolFromSmiles(smiles)
+    mol = prepare_drawing_mol(smiles)
     if mol is None:
         return None
     drawer = rdMolDraw2D.MolDraw2DCairo(size, size)

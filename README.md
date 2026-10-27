@@ -153,7 +153,7 @@ reax_tools focus -f /tmp/reax_check --centers H3N N3O4 H2O
 reax_tools molecules -f /tmp/reax_check --species H2O
 ```
 
-`plot` also writes `key_molecules_page1.png` through `key_molecules_page3.png`: the 48 most important structures by time-averaged abundance and reaction-graph degree, drawn as 2D structures with `formula (a)` labels. This requires RDKit; if RDKit is absent, `plot` skips the montage with a note. Species count pagination is unchanged.
+`plot` also writes `key_molecules_page1.png` through `key_molecules_page3.png`: the 48 most important structures by time-averaged abundance and reaction-graph degree, drawn as 2D structures with `formula (a)` labels. Drawings apply a **display-only** residual-valence greedy bond-order assignment (the same idea as the core bond builder); the stored SMILES and identity remain all-single and connectivity-only. This requires RDKit; if RDKit is absent, `plot` skips the montage with a note. Species count pagination is unchanged.
 
 `plot` and the default `network` command write two transfer diagrams:
 

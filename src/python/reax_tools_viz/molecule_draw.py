@@ -11,13 +11,12 @@ from pathlib import Path
 
 def _rdkit():
     try:
-        from rdkit import Chem
-        from rdkit.Chem.Draw import MolToMPL
+        from rdkit.Chem.Draw import rdMolDraw2D
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError(
             "RDKit is required for the 'molecules' command: pip install rdkit"
         ) from exc
-    return Chem, MolToMPL
+    return rdMolDraw2D
 
 
 def draw_molecule_record(record: dict, output: str | Path) -> None:
@@ -27,16 +26,18 @@ def draw_molecule_record(record: dict, output: str | Path) -> None:
             f"molecule {record.get('id')} has no SMILES (formula-level fallback)"
         )
 
-    Chem, MolToMPL = _rdkit()
-    mol = Chem.MolFromSmiles(smiles)
+    from .drawing import prepare_drawing_mol
+
+    rdMolDraw2D = _rdkit()
+    mol = prepare_drawing_mol(smiles)
     if mol is None:
         raise ValueError(f"molecule {record.get('id')} has an unparsable SMILES: {smiles}")
 
-    figure = MolToMPL(mol, size=(4, 4), kekulize=True)
-    figure.savefig(output, dpi=300)
-    import matplotlib.pyplot as plt
-
-    plt.close(figure)
+    drawer = rdMolDraw2D.MolDraw2DCairo(900, 900)
+    drawer.drawOptions().padding = 0.06
+    rdMolDraw2D.PrepareAndDrawMolecule(drawer, mol)
+    drawer.FinishDrawing()
+    Path(output).write_bytes(drawer.GetDrawingText())
 
 
 def draw_selected_molecules(
