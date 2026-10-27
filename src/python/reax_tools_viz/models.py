@@ -47,6 +47,6 @@ class ReactionEvent:
 @dataclass(frozen=True)
 class RunBundle:
     root: Path
-    manifest: dict
+    log: dict[str, dict[str, str]]
     molecules: dict[str, MoleculeRecord]
     labels: dict[str, str] = field(default_factory=dict)

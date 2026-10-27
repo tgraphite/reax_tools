@@ -101,4 +101,7 @@ public:
     void save_species_count();
     void save_molecules();
     void brief_report();
+
+    std::size_t species_count() const { return records.size(); }
+    std::size_t formula_count() const;
 };

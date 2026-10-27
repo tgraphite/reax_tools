@@ -198,6 +198,15 @@ def build_corpus():
         if mol is not None:
             cases.append((f"ring_{i}", mol))
 
+    # Formal charges inferred from over-valent N/O at write time.
+    charged_smiles = [
+        "[NH4+]", "[NH3+]O", "[OH3+]", "C[NH3+]", "C[O+](C)C",
+    ]
+    for i, smiles in enumerate(charged_smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is not None:
+            cases.append((f"charged_{i}", mol))
+
     # Size cutoff cases: C66H134 = 200 atoms, C67H136 = 203 atoms.
     cases.append(("cutoff_200_atoms", Chem.MolFromSmiles("C" * 66)))
     cases.append(("cutoff_203_atoms", Chem.MolFromSmiles("C" * 67)))

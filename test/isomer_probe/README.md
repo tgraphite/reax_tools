@@ -1,4 +1,4 @@
-# Isomer identity probe (ReaxTools 2.2)
+# Isomer identity probe (ReaxTools 2.3)
 
 This probe checks structural identity on a pair of constitutional isomers with
 the same molecular formula, C2H6O:
@@ -15,8 +15,8 @@ frames, so the trajectory is a valid, atom-conserving isomerization.
 | --- | --- |
 | `isomerization_ethanol_to_dme.xyz` | 2 frames, 9 atoms: ethanol then DME |
 | `mixture_ethanol_plus_dme.xyz` | 1 frame, 18 atoms: both isomers coexist |
-| `out_isomerization/` | 2.2 analysis of the 2-frame trajectory |
-| `out_mixture/` | 2.2 analysis of the coexisting-isomer frame |
+| `out_isomerization/` | 2.3 analysis of the 2-frame trajectory |
+| `out_mixture/` | 2.3 analysis of the coexisting-isomer frame |
 
 The geometries were generated once with RDKit/ETKDG+MMFF and are stored as
 plain XYZ; RDKit is not needed to reproduce the analysis.
@@ -30,7 +30,7 @@ plain XYZ; RDKit is not needed to reproduce the analysis.
   -o test/isomer_probe/out_mixture -nt 1
 ```
 
-## Observed result (ReaxTools 2.2)
+## Observed result (ReaxTools 2.3)
 
 Both frames contain 9 atoms, 8 bonds and 1 molecule. The two structures receive
 different IDs and different canonical SMILES:

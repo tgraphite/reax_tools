@@ -20,12 +20,15 @@ struct Bond {
     int j = 0;
 };
 
+// Components above this size are formula-level identities.
+constexpr std::size_t kMaxSmilesAtoms = 200;
+
 struct Options {
     // Molecules above this size are treated as formula-level identities:
     // no SMILES is generated and the caller uses the formula hash. 200 is a
     // deliberate cutoff for kerogen/polymer-scale components, where the
     // probability of a meaningful constitutional isomer pair is negligible.
-    std::size_t max_atoms = 200;
+    std::size_t max_atoms = kMaxSmilesAtoms;
     // Colour refinement rounds before giving up.
     std::size_t max_refine_rounds = 4096;
     // Maximum explored IR leaves before giving up.

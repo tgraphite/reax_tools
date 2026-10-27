@@ -1,8 +1,8 @@
-# ReaxTools 2.2
+# ReaxTools 2.3
 
 ReaxTools is a local post-processing toolkit for reactive molecular dynamics trajectories from LAMMPS, GPUMD, CP2K, and related workflows.
 
-Version 2.2 adds **canonical-SMILES structural identity**. Species are no longer identified by molecular formula: constitutional isomers receive different numeric IDs and different SMILES. The C++ core writes raw audit files, while Python owns filtering, plotting, and presentation.
+Version 2.3 keeps **canonical-SMILES structural identity** and removes the JSON manifest: `reax_tools.log` is the single run record. `plot` also writes top-48 2D structure montages (`key_molecules_page*.png`) using abundance and reaction-graph degree. The C++ core writes raw audit files, while Python owns labels, filtering, plotting, and presentation.
 
 ## Install
 
@@ -98,12 +98,12 @@ The C++ core writes raw, audit-oriented files:
 | `reaction_event_pairs.csv`  | Per-event atom-overlap pairs used to audit atom transfer             |
 | `transfer_flow.csv`         | Aggregated atom transfer between structures, with formulas and SMILES|
 | `molecules.csv`             | Identity table: `id,formula,smiles`                                 |
-| `reax_tools.log`            | Run metadata and audit notes                                         |
-| `reax_tools_manifest.json`  | Structured file manifest for Python and web clients                  |
+| `key_molecules_page*.png`   | Optional 2D structure montages for the top-48 important structures  |
+| `reax_tools.log`            | Single human-readable run metadata and audit record                  |
 
-Species IDs are deterministic **64-bit FNV-1a hashes of canonical SMILES**. A different connectivity gives a different SMILES and therefore a different ID, even when the formula is identical. Molecules with more than 200 atoms are treated at formula level: no SMILES is generated and the ID is a hash of the formula; `molecules.csv` leaves the SMILES field empty. This cutoff keeps kerogen/polymer-scale components and accidental whole-system molecules tractable; within the cutoff, constitutional isomers are separated.
+Species IDs are deterministic **64-bit FNV-1a hashes of canonical SMILES**. A different connectivity gives a different SMILES and therefore a different ID, even when the formula is identical. Formal charges are emitted only when needed to keep standard valence parseable (N valence 4, O valence 3); they are not a charge-equilibration model. Molecules with more than 200 atoms are treated at formula level: no SMILES is generated and the ID is a hash of the formula; `molecules.csv` leaves the SMILES field empty. This cutoff keeps kerogen/polymer-scale components and accidental whole-system molecules tractable; within the cutoff, constitutional isomers are separated.
 
-The core writes the event/pair/flow CSV headers even when no events are detected (with reaction tracking enabled), so the manifest and downstream readers see a stable file set. Disabling reaction analysis omits those files.
+The core writes the event/pair/flow CSV headers even when no events are detected (with reaction tracking enabled), so downstream readers see a stable file set. Disabling reaction analysis omits those files.
 
 ## Audited Transfer
 
@@ -117,7 +117,7 @@ python3 tools/check_reax_outputs.py /tmp/reax_check
 python3 tools/audit_event_network_consistency.py /tmp/reax_check
 ```
 
-The checked-in `test/energetic_v3` and `test/energetic_v4` directories are historical 2.1 outputs with the old formula-level schema. They are not compatible with the 2.2 checkers; regenerate with the current core before auditing.
+The checked-in `test/energetic_v3` and `test/energetic_v4` directories are historical 2.1 outputs with the old formula-level schema. They are not compatible with the 2.3 checkers; regenerate with the current core before auditing.
 
 For the locally available `gpumd_v3` fixture, the pair/flow aggregation audit also passes (its source trajectory and some supporting files are not tracked in Git):
 
@@ -153,6 +153,8 @@ reax_tools focus -f /tmp/reax_check --centers H3N N3O4 H2O
 reax_tools molecules -f /tmp/reax_check --species H2O
 ```
 
+`plot` also writes `key_molecules_page1.png` through `key_molecules_page3.png`: the 48 most important structures by time-averaged abundance and reaction-graph degree, drawn as 2D structures with `formula (a)` labels. This requires RDKit; if RDKit is absent, `plot` skips the montage with a note. Species count pagination is unchanged.
+
 `plot` and the default `network` command write two transfer diagrams:
 
 - `molecule_transfer_top24.png`: the 24 most active molecular species and their direct transfers.
@@ -168,7 +170,7 @@ These filters combine with AND semantics. `flow` remains an explicit experimenta
 
 ## Energetic Example
 
-The bundled energetic fixture comes from an ammonium-dinitramide ReaxFF run at 373 K. Its 40 stored frames span 0.2–78.2 ps at 2 ps intervals, as checked against the source trajectory and run log. It is a software regression example, not a validated high-temperature decomposition mechanism. The plots show species counts and atom transfers involving `H4N`, `N3O4`, `H2O`, and `N2`; geometric bond perception and sampling affect those observations. The images below are retained historical 2.1 outputs in `test/energetic_v3` (formula-level identity), not 2.2 outputs or a new benchmark. See [provenance](doc/paper-preparation/local-cases.md).
+The bundled energetic fixture comes from an ammonium-dinitramide ReaxFF run at 373 K. Its 40 stored frames span 0.2–78.2 ps at 2 ps intervals, as checked against the source trajectory and run log. It is a software regression example, not a validated high-temperature decomposition mechanism. The plots show species counts and atom transfers involving `H4N`, `N3O4`, `H2O`, and `N2`; geometric bond perception and sampling affect those observations. The images below are retained historical 2.1 outputs in `test/energetic_v3` (formula-level identity), not 2.3 outputs or a new benchmark. See [provenance](doc/paper-preparation/local-cases.md).
 
 Species counts:
 

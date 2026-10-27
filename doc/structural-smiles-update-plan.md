@@ -20,9 +20,11 @@
 ## 0.1 实施结果
 
 - SMILES 引擎：`src/cpp/smiles.h` / `smiles.cpp`，无外部依赖；200 原子 cutoff。
-- RDKit 验证：284 个图（curated 异构体、C7–C10 全部烷烃、3/4-正则笼、
-  自由基、芳环/桥环/螺环、200/203 原子边界），**283 pass + 1 expected
-  fallback + 0 fail**；随机原子重排 3 次，SMILES 完全一致。
+- RDKit 验证：289 个图（curated 异构体、C7–C10 全部烷烃、3/4-正则笼、
+  自由基、芳环/桥环/螺环、铵/氧鎓、200/203 原子边界），**288 pass + 1
+  expected fallback + 0 fail**；随机原子重排 3 次，SMILES 完全一致。
+- 对 N 价 4、O 价 3 的超价原子写出形式电荷（如 `[NH4+]`），否则 RDKit
+  拒绝解析；形式电荷只用于合法 valence，不是电荷平衡模型。
 - 输出迁移：`molecules.csv`、宽表 `species_count.csv`、带 SMILES 的
   `reaction_events.csv`；删除 `reaction_snapshots/`、`molecules.json`、
   `-me/-mr/-rc`。
@@ -32,6 +34,15 @@
   基线 0.476 s，新版本 0.607 s，约 **1.27x**，低于 2x 目标。
 - 未改：`web/`；`test/energetic_v3/v4` 是旧 schema 历史输出；
   `tools/prepublication_validate.py` 等论文工具未迁移。
+
+## 0.2 2.3 追加
+
+- 删除 `reax_tools_manifest.json`；`reax_tools.log` 记录完整命令、参数、
+  frames/atoms、species/formulas/events/transfer_edges 和输出列表。
+- 新增 `plot` 的 `key_molecules_page1..3.png`：全局 top-48 结构，
+  按时间平均含量 + 反应图加权度排序，RDKit 2D 绘制；不生成 CSV。
+- N 价 4、O 价 3 写出形式电荷，保证 RDKit 可解析；验证扩到 289 个图。
+- `(a)(b)` 仍只在 Python 端按全局 ID 排序分配，core 输出原始数值 ID。
 
 ## 1. 目标与非目标
 

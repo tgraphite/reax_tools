@@ -1,6 +1,6 @@
 # Analysis semantics and current limits
 
-Source review: 2.2 development. This describes the current implementation, not an accuracy certification.
+Source review: 2.3 development. This describes the current implementation, not an accuracy certification.
 
 ## From coordinates to events
 
@@ -23,13 +23,13 @@ Source review: 2.2 development. This describes the current implementation, not a
 | Topic | Current behavior / requirement |
 | --- | --- |
 | Periodicity | Orthorhombic, all axes periodic if a cell is present. Off-diagonal lattice terms and per-axis periodicity flags are not applied. A small cell shorter than the neighbor cutoff also needs validation. |
-| Identity | Canonical SMILES (64-bit ID) for components of at most 200 atoms; constitutional isomers are separated. SMILES is connectivity-only: bond orders, charge, spin, stereochemistry and tautomer normalization are not represented. Components above 200 atoms fall back to formula-level identity. |
+| Identity | Canonical SMILES (64-bit ID) for components of at most 200 atoms; constitutional isomers are separated. SMILES is connectivity-only: bond orders, spin, stereochemistry and tautomer normalization are not represented. Formal charges are emitted only for over-valent N/O (N valence 4, O valence 3) so the SMILES parses; they are not electrochemical charges. Components above 200 atoms fall back to formula-level identity. |
 | Time filtering | `--stable-time` is parsed; `should_mark_stable` is defined but not called by the raw-event path. No HMM or lifetime-based raw-event suppression is implemented. |
 | Time axis | CSV frame IDs start at 1. Convert to physical time from the actual saved-frame interval and starting time; do not assume the internal defaults recover original MD timestamps. |
 | Ring counts | Bounded graph-ring search, defaults 5–8 atoms. Not an ice classifier, aromaticity assignment, or validated universal primitive-ring census. |
 | Memory | Frames are batched, but tracked molecules, events, counters and wide species tables accumulate. Total memory is not independent of trajectory length. |
 | Reproducibility | Event IDs/order and representative structures can vary with traversal/threading. Compare normalized event multisets including multiplicity, and retain each run's matching pair IDs. |
-| Metadata | Run manifest says `canonical-smiles-v1` / `reax-canonical-v1`. Custom radius/valence maps and all timing options are not fully captured. Save the full command and input checksum externally. |
+| Metadata | `reax_tools.log` records version, identity/smiles model, the full command, parameters, frame counts, species/event counts and the output list. There is no JSON manifest; save the input checksum externally if needed. |
 | Empty/disabled results | Event/pair/flow files are written with headers even when no events are detected; disabling reaction tracking omits them. Always use a new output directory to avoid stale files from an earlier run. |
 | Scope of a network | Counts and repeated atom-overlap sums over observed events. No rate constants, activation barriers, elementary mechanism, or guaranteed complete reaction catalogue. |
 

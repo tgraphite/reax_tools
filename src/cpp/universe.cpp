@@ -114,6 +114,11 @@ void Universe::process_traj() {
             };
 
             if (curr_frame_id == 1) {
+                atoms_first_frame = curr_system->atoms.size();
+            }
+            atoms_last_frame = curr_system->atoms.size();
+
+            if (curr_frame_id == 1) {
                 curr_system->is_first_frame = true;
             }
             else {
@@ -177,6 +182,7 @@ void Universe::process_traj() {
 
         systems_to_process.clear();
     }
+    frames_processed = curr_frame_id - 1;
     fmt::print("\n\n");
 
     species_counter->analyze_frame_species();

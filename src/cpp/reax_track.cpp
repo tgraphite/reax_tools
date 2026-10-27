@@ -374,6 +374,7 @@ void ReactionTracker::save_transfer_flow(const std::string& filepath) {
                    record.source_id == record.target_id ? 1 : 0);
     }
     fclose(fp);
+    transfer_edge_count = static_cast<int>(sorted.size());
     fmt::print("Saved {} raw transfer-flow edges to {}\n", sorted.size(), filepath);
 }
 

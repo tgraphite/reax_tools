@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 from pathlib import Path
 
 
@@ -19,7 +18,6 @@ REQUIRED_FILES = [
     "transfer_flow.csv",
     "molecules.csv",
     "reax_tools.log",
-    "reax_tools_manifest.json",
 ]
 
 
@@ -41,15 +39,14 @@ def main() -> int:
     if missing:
         raise SystemExit(f"missing required files: {', '.join(missing)}")
 
-    manifest = json.loads((out / "reax_tools_manifest.json").read_text())
+    log_text = (out / "reax_tools.log").read_text()
+    for required in ["version = ", "identity_model = ", "frames = "]:
+        if required not in log_text:
+            raise SystemExit(f"reax_tools.log missing {required.strip()}")
+
     molecules = read_csv(out / "molecules.csv")
     events = read_csv(out / "reaction_events.csv")
     transfer = read_csv(out / "transfer_flow.csv")
-
-    manifest_files = set(manifest.get("files", []))
-    for name in REQUIRED_FILES:
-        if name not in manifest_files and name != "reax_tools_manifest.json":
-            raise SystemExit(f"manifest does not list {name}")
 
     for count_file in ["bond_count.csv", "atom_bonded_num_count.csv", "ring_count.csv"]:
         header = (out / count_file).read_text().splitlines()[0].split(",")

@@ -1,9 +1,8 @@
-"""Manifest-driven readers for ReaxTools raw output directories."""
+"""Readers for ReaxTools raw output directories."""
 
 from __future__ import annotations
 
 import csv
-import json
 from pathlib import Path
 
 import pandas as pd
@@ -13,7 +12,7 @@ from .models import MoleculeRecord, RunBundle
 
 
 REQUIRED_FILES = {
-    "reax_tools_manifest.json",
+    "reax_tools.log",
     "molecules.csv",
     "species_count.csv",
     "bond_count.csv",
@@ -25,10 +24,27 @@ REQUIRED_FILES = {
 }
 
 
+def parse_run_log(path: str | Path) -> dict[str, dict[str, str]]:
+    """Parse the human-readable run log into sections of key/value pairs."""
+    sections: dict[str, dict[str, str]] = {}
+    current: str | None = None
+    for raw in Path(path).read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            current = line[1:-1]
+            sections.setdefault(current, {})
+            continue
+        if current is not None and "=" in line:
+            key, value = line.split("=", 1)
+            sections[current][key.strip()] = value.strip()
+    return sections
+
+
 def load_bundle(output_dir: str | Path, validate: bool = True) -> RunBundle:
     root = Path(output_dir)
-    manifest_path = root / "reax_tools_manifest.json"
-    manifest = json.loads(manifest_path.read_text())
+    log = parse_run_log(root / "reax_tools.log")
 
     molecules: dict[str, MoleculeRecord] = {}
     with (root / "molecules.csv").open(newline="") as handle:
@@ -44,7 +60,7 @@ def load_bundle(output_dir: str | Path, validate: bool = True) -> RunBundle:
 
     bundle = RunBundle(
         root=root,
-        manifest=manifest,
+        log=log,
         molecules=molecules,
         labels=build_molecule_labels(molecules),
     )

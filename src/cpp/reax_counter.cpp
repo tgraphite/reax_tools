@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include <numeric>
+#include <set>
 
 #include "fmt/format.h"
 #include "string_tools.h"
@@ -72,6 +73,12 @@ void SpeciesCounter::save_molecules() {
         fmt::print(file, "{},{},{}\n", id, csv_escape(record.formula), csv_escape(record.smiles));
     }
     fclose(file);
+}
+
+std::size_t SpeciesCounter::formula_count() const {
+    std::set<std::string> formulas;
+    for (const auto& [id, record] : records) formulas.insert(record.formula);
+    return formulas.size();
 }
 
 void SpeciesCounter::brief_report() {

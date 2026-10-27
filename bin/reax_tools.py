@@ -46,7 +46,7 @@ def run_python(args: list[str]) -> int:
 def print_help() -> None:
     print(
         "ReaxTools\n\n"
-        "Version: 2.2\n\n"
+        "Version: 2.3\n\n"
         "Analyze mode (C++ core):\n"
         "  reax_tools analyze -f <trajectory> [analysis options]\n"
         "  reax_tools -f <trajectory> [analysis options]\n"
@@ -66,7 +66,7 @@ def print_help() -> None:
         "  --stable-time <frames>     molecule stability threshold\n"
         "\n"
         "Python post-processing commands:\n"
-        "  reax_tools plot -f <output_dir>                 default plots\n"
+        "  reax_tools plot -f <output_dir>                 default plots + key molecules\n"
         "  reax_tools counts -f <count.csv|output_dir>     count line plots\n"
         "  reax_tools network -f <flow.csv|output_dir>     transfer network graph\n"
         "  reax_tools flow -f <flow.csv|output_dir>        experimental Sankey flow\n"

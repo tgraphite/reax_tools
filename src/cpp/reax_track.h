@@ -71,6 +71,7 @@ private:
 
     int next_event_id = 0;
     int last_processed_frame = 0;
+    int transfer_edge_count = 0;
 
     TrackedMolecule* find_or_create_tracked(const Molecule* mol, int frame_id);
     void create_reaction_event(int frame_id,
@@ -94,6 +95,7 @@ public:
 
     int get_event_count() const { return static_cast<int>(events.size()); }
     int get_molecule_count() const { return static_cast<int>(all_molecules.size()); }
+    int get_transfer_edge_count() const { return transfer_edge_count; }
     void brief_report() const;
 };
 

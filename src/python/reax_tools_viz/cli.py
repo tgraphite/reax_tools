@@ -22,6 +22,7 @@ from .io import (
 )
 from .molecule_draw import draw_selected_molecules
 from .network import build_transfer_graph, draw_transfer_graph
+from .key_molecules import plot_key_molecules
 from .plots import plot_count_pages, plot_reaction_events
 from .sankey import draw_focus_sankey_set, draw_role_flow
 from .templates import load_plot_template
@@ -363,7 +364,7 @@ def main() -> int:
     if args.command == "summary":
         bundle = load_bundle(args.file)
         print(f"Output directory: {bundle.root}")
-        print(f"Identity model: {bundle.manifest.get('identity_model')}")
+        print(f"Identity model: {bundle.log.get('run', {}).get('identity_model', 'unknown')}")
         print(f"Molecules: {len(bundle.molecules)}")
         return 0
 
@@ -415,6 +416,13 @@ def main() -> int:
                 print(f"Wrote {output}")
             print(f"Wrote {bundle.root / 'reaction_events_cleaned.csv'}")
             for output in event_outputs:
+                print(f"Wrote {output}")
+            key_outputs = plot_key_molecules(
+                bundle,
+                bundle.root,
+                config.get("key_molecules", {}),
+            )
+            for output in key_outputs:
                 print(f"Wrote {output}")
         return 0
 

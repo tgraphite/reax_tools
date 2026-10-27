@@ -1,3 +1,13 @@
+key_molecules:
+  n: 48
+  per_page: 16
+  abundance: mean
+  degree_weight: atom_transfer
+  weights:
+    abundance: 0.6
+    degree: 0.4
+  exclude_self_loops: false
+
 species_count:
   default_file: species_count.csv
   figure_width: 6.0

@@ -44,6 +44,19 @@ int main() {
         bonds.push_back({i, j});
     }
 
+    // Mirror Molecule::update_topology: over-valent N/O get a formal charge
+    // so the emitted SMILES is parseable even though the test input has no
+    // charge field.
+    std::vector<int> degree(n, 0);
+    for (const auto& bond : bonds) {
+        degree[bond.i]++;
+        degree[bond.j]++;
+    }
+    for (int i = 0; i < n; ++i) {
+        if (atoms[i].element == "N" && degree[i] > 3) atoms[i].charge = degree[i] - 3;
+        else if (atoms[i].element == "O" && degree[i] > 2) atoms[i].charge = degree[i] - 2;
+    }
+
     reax_smiles::Result result = reax_smiles::canonical_smiles(atoms, bonds);
     if (result.fallback || result.smiles.empty()) {
         std::cout << "FALLBACK " << result.error << "\n";

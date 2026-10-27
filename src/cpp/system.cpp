@@ -370,7 +370,7 @@ void Molecule::update_topology() {
     formula = rename_formula(mol_formula, ELEMENT_DISPLAY_ORDER);
 
     // >200 atoms: formula-level identity, no SMILES (kerogen/polymer regime).
-    if (mol_atoms.size() > 200) {
+    if (mol_atoms.size() > reax_smiles::kMaxSmilesAtoms) {
         smiles.clear();
         structure_id = reax_smiles::formula_id(formula);
         hash = reax_string_hash(formula);
@@ -387,10 +387,24 @@ void Molecule::update_topology() {
         atom_index[atoms[i]] = i;
     }
 
+    std::map<const Atom*, int> degree;
+    for (const Bond* bond : mol_bonds) {
+        degree[bond->atom_i]++;
+        degree[bond->atom_j]++;
+    }
+
     std::vector<reax_smiles::Atom> smiles_atoms;
     smiles_atoms.reserve(atoms.size());
     for (int i = 0; i < static_cast<int>(atoms.size()); ++i) {
-        smiles_atoms.push_back({i, atoms[i]->type_name, 0});
+        const std::string& element = atoms[i]->type_name;
+        int valence = degree[atoms[i]];
+        // Formal charges are only used to keep standard-valence SMILES
+        // parseable; they are not a charge-equilibration model. ReaxFF
+        // ammonium (N valence 4) and oxonium (O valence 3) are common.
+        int charge = 0;
+        if (element == "N" && valence > 3) charge = valence - 3;
+        else if (element == "O" && valence > 2) charge = valence - 2;
+        smiles_atoms.push_back({i, element, charge});
     }
 
     std::vector<reax_smiles::Bond> smiles_bonds;
