@@ -1,0 +1,49 @@
+{
+  "count_tables_identical": {
+    "bond_count.csv": true,
+    "atom_bonded_num_count.csv": true,
+    "ring_count.csv": true
+  },
+  "species": {
+    "v4_formulas": 126,
+    "v5_formulas": 126,
+    "formula_sets_equal": true,
+    "mismatched_formula_frame_cells": 0,
+    "first_mismatches": []
+  },
+  "molecules": {
+    "v4_rows": 126,
+    "v5_rows": 183,
+    "v4_formulas": 126,
+    "v5_formulas": 126,
+    "formula_sets_equal": true
+  },
+  "events": {
+    "v4_raw": 1241,
+    "v5_raw": 1243,
+    "v4_cancelled": 1221,
+    "v5_cancelled": 1221,
+    "raw_extra": 2,
+    "raw_missing": 0,
+    "cancel_extra": 2,
+    "cancel_missing": 0,
+    "same_formula_v5": 48
+  },
+  "transfer_flow": {
+    "v4_edges": 984,
+    "v5_collapsed_edges": 985,
+    "edge_sets_equal": false,
+    "count_mismatches": 1,
+    "atom_mismatches": 1,
+    "top_count_diffs": [
+      [
+        [
+          "H2N8O11",
+          "H2N8O11"
+        ],
+        0,
+        2
+      ]
+    ]
+  }
+}
