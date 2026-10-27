@@ -1,8 +1,0 @@
-BasedOnStyle: Google
-IndentWidth: 4
-PointerAlignment: Left
-DerivePointerAlignment: false
-ReferenceAlignment: Left
-SpaceBeforeParens: ControlStatements
-SortIncludes: true
-ColumnLimit: 120
