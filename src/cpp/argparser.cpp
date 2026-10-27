@@ -30,10 +30,6 @@ int STABLE_TIME_FRAMES = 3;
 float TIMESTEP_FS = 0.25f;
 int SAMPLING_FREQ = 10;
 
-bool FLAG_RESCALE_MERGE_COUNT = false;
-std::string MERGE_TARGET = "";
-std::vector<int> MERGE_RANGES = {};
-
 std::vector<std::string> ALL_ELEMENTS = {
     "H",  "He", "Li", "Be", "B",  "C",  "N",  "O",  "F",  "Ne", "Na", "Mg", "Al", "Si", "P",  "S",  "Cl",
     "Ar", "K",  "Ca", "Sc", "Ti", "V",  "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se",
@@ -216,30 +212,6 @@ bool operation_set_flag_no_reactions(std::vector<std::string> input_string) {
     FLAG_NO_REACTIONS = true;
     return true;
 }
-bool operation_set_merge_target(std::vector<std::string> input_string) {
-    if (input_string.size() != 1) return false;
-    MERGE_TARGET = input_string[0];
-    return true;
-}
-bool operation_set_merge_ranges(std::vector<std::string> input_string) {
-    MERGE_RANGES.clear();
-    if (input_string.size() == 1) {
-        std::stringstream ss(input_string[0]);
-        std::string item;
-        while (std::getline(ss, item, ',')) {
-            MERGE_RANGES.push_back(std::stoi(item));
-        }
-    } else {
-        for (const auto& s : input_string) {
-            MERGE_RANGES.push_back(std::stoi(s));
-        }
-    }
-    return true;
-}
-bool operation_set_rescale_merge_counts(std::vector<std::string> input_string) {
-    FLAG_RESCALE_MERGE_COUNT = true;
-    return true;
-}
 bool operation_set_flag_no_track_reactions(std::vector<std::string> input_string) {
     FLAG_TRACK_REACTIONS = false;
     FLAG_NO_TRACK_REACTIONS = true;
@@ -297,13 +269,6 @@ ArgParser init_argparser() {
     parser.add_argument("--no-rings", "", "disable ring computation", "Misc", true, operation_set_flag_no_rings);
     parser.add_argument("--no-reactions", "", "disable reaction analysis", "Network output options", true,
                         operation_set_flag_no_reactions);
-    parser.add_argument("--merge-element", "-me", "merge species groups by an element type", "Species output options",
-                        false, operation_set_merge_target);
-    parser.add_argument("--merge-ranges", "-mr", "merge group range, split by commas", "Species output options", false,
-                        operation_set_merge_ranges);
-    parser.add_argument("--rescale-count", "-rc",
-                        "rescale group weight by actual numbers of atoms (instead of molecules)",
-                        "Species output options", true, operation_set_rescale_merge_counts);
     parser.add_argument("--element-order", "-order", "set element order of outputting formulas",
                         "Species output options", false, operation_set_element_order);
     parser.add_argument("--no-track-reactions", "", "disable ChemTrayzer-like reaction tracking", "Reaction tracking",

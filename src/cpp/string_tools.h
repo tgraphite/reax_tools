@@ -28,6 +28,19 @@ inline unsigned int reax_string_hash(const std::string& text) {
     return hash;
 }
 
+// Quote a CSV field only when necessary.  SMILES and formulas normally do not
+// contain commas, but quoting keeps the writer safe for exotic element names.
+inline std::string csv_escape(const std::string& value) {
+    if (value.find_first_of(",\"\n\r") == std::string::npos) return value;
+    std::string out = "\"";
+    for (char ch : value) {
+        if (ch == '"') out += "\"\"";
+        else out += ch;
+    }
+    out += "\"";
+    return out;
+}
+
 template <typename T> void print_info(const T& container, const size_t& num, const bool& two_way = true) {
     size_t size = container.size();
 

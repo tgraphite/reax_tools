@@ -39,10 +39,6 @@ extern int STABLE_TIME_FRAMES;
 extern float TIMESTEP_FS;
 extern int SAMPLING_FREQ;
 
-extern bool FLAG_RESCALE_MERGE_COUNT;
-extern std::string MERGE_TARGET;
-extern std::vector<int> MERGE_RANGES;
-
 extern std::vector<std::string> ALL_ELEMENTS;
 extern std::map<std::string, int> ELEMENT_TO_INDEX;
 extern std::map<std::string, float> ELEMENT_ATOMIC_RADII;

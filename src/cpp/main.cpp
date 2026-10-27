@@ -17,8 +17,9 @@ static void write_run_log(double elapsed_sec) {
 
     fmt::print(fp, "[run]\n");
     fmt::print(fp, "program = ReaxTools\n");
-    fmt::print(fp, "version = {}\n", "2.1");
-    fmt::print(fp, "identity_model = formula-hash-v2\n");
+    fmt::print(fp, "version = {}\n", "2.2");
+    fmt::print(fp, "identity_model = canonical-smiles-v1\n");
+    fmt::print(fp, "smiles_model = reax-canonical-v1\n");
     fmt::print(fp, "input = {}\n", INPUT_FILE);
     fmt::print(fp, "output_dir = {}\n", OUTPUT_DIR);
     fmt::print(fp, "elapsed_s = {:.6f}\n\n", elapsed_sec);
@@ -39,8 +40,7 @@ static void write_run_log(double elapsed_sec) {
     fmt::print(fp, "reaction_events.csv\n");
     fmt::print(fp, "reaction_event_pairs.csv\n");
     fmt::print(fp, "transfer_flow.csv\n");
-    fmt::print(fp, "reaction_snapshots/\n");
-    fmt::print(fp, "molecules.json\n");
+    fmt::print(fp, "molecules.csv\n");
     fmt::print(fp, "reax_tools_manifest.json\n");
     fmt::print(fp, "reax_tools.log\n\n");
 
@@ -55,10 +55,11 @@ static void write_manifest(double elapsed_sec) {
     if (fp == nullptr) return;
 
     fmt::print(fp, "{{\n");
-    fmt::print(fp, "  \"schema_version\": \"1.0\",\n");
+    fmt::print(fp, "  \"schema_version\": \"2.0\",\n");
     fmt::print(fp, "  \"program\": \"ReaxTools\",\n");
-    fmt::print(fp, "  \"version\": \"2.1\",\n");
-    fmt::print(fp, "  \"identity_model\": \"formula-hash-v2\",\n");
+    fmt::print(fp, "  \"version\": \"2.2\",\n");
+    fmt::print(fp, "  \"identity_model\": \"canonical-smiles-v1\",\n");
+    fmt::print(fp, "  \"smiles_model\": \"reax-canonical-v1\",\n");
     fmt::print(fp, "  \"input\": {{\"trajectory\": \"{}\"}},\n", INPUT_FILE);
     fmt::print(fp, "  \"output_directory\": \"{}\",\n", OUTPUT_DIR);
     fmt::print(fp, "  \"elapsed_s\": {:.6f},\n", elapsed_sec);
@@ -77,8 +78,7 @@ static void write_manifest(double elapsed_sec) {
     fmt::print(fp, "    \"reaction_events.csv\",\n");
     fmt::print(fp, "    \"reaction_event_pairs.csv\",\n");
     fmt::print(fp, "    \"transfer_flow.csv\",\n");
-    fmt::print(fp, "    \"reaction_snapshots/snapshots_manifest.csv\",\n");
-    fmt::print(fp, "    \"molecules.json\",\n");
+    fmt::print(fp, "    \"molecules.csv\",\n");
     fmt::print(fp, "    \"reax_tools.log\",\n");
     fmt::print(fp, "    \"reax_tools_manifest.json\"\n");
     fmt::print(fp, "  ]\n");
@@ -88,7 +88,7 @@ static void write_manifest(double elapsed_sec) {
 
 int run_analysis(int argc, const char* const* argv) {
     auto start_time = std::chrono::high_resolution_clock::now();
-    fmt::print("ReaxTools 2.1\n");
+    fmt::print("ReaxTools 2.2\n");
     fmt::print("High-performance reactive MD post-processing\n\n");
 
     ArgParser parser = init_argparser();
@@ -115,19 +115,6 @@ int run_analysis(int argc, const char* const* argv) {
 
     Universe uv;
     uv.process_traj();
-
-    if (FLAG_RESCALE_MERGE_COUNT) {
-        if (MERGE_TARGET.empty() || MERGE_RANGES.empty()) {
-            fmt::print("Error: You cannot use --rescale-count (-rc) option without other merge options (-me, -mr). That makes nonsense\n");
-            return 1;
-        }
-
-        uv.species_counter->rescale_all_by_element(MERGE_TARGET);
-    }
-
-    if (!MERGE_TARGET.empty() && !MERGE_RANGES.empty()) {
-        uv.species_counter->merge_by_element(MERGE_TARGET, MERGE_RANGES);
-    }
 
     uv.bond_counter->save_file("bond_count.csv");
     uv.ring_counter->save_file("ring_count.csv");

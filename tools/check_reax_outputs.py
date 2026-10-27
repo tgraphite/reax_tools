@@ -17,7 +17,7 @@ REQUIRED_FILES = [
     "reaction_events.csv",
     "reaction_event_pairs.csv",
     "transfer_flow.csv",
-    "molecules.json",
+    "molecules.csv",
     "reax_tools.log",
     "reax_tools_manifest.json",
 ]
@@ -42,7 +42,7 @@ def main() -> int:
         raise SystemExit(f"missing required files: {', '.join(missing)}")
 
     manifest = json.loads((out / "reax_tools_manifest.json").read_text())
-    molecules = json.loads((out / "molecules.json").read_text())
+    molecules = read_csv(out / "molecules.csv")
     events = read_csv(out / "reaction_events.csv")
     transfer = read_csv(out / "transfer_flow.csv")
 
@@ -56,13 +56,17 @@ def main() -> int:
         if not header or header[0] != "frame":
             raise SystemExit(f"{count_file} must start with frame column")
 
-    species_header = (out / "species_count.csv").read_text().splitlines()[0].split(",")
-    if species_header != ["frame", "molecule_id", "formula", "count"]:
-        raise SystemExit("species_count.csv must use frame,molecule_id,formula,count schema")
+    molecule_ids = {str(row["id"]) for row in molecules}
+    if len(molecule_ids) != len(molecules):
+        raise SystemExit("molecules.csv contains duplicate ids")
+    for row in molecules:
+        if not row.get("formula"):
+            raise SystemExit(f"molecule {row['id']} has no formula")
 
-    molecule_ids = {str(molecule["id"]) for molecule in molecules.get("molecules", [])}
-    species_rows = read_csv(out / "species_count.csv")
-    unknown_species_ids = {row["molecule_id"] for row in species_rows if row["molecule_id"] not in molecule_ids}
+    species_header = (out / "species_count.csv").read_text().splitlines()[0].split(",")
+    if not species_header or species_header[0] != "frame":
+        raise SystemExit("species_count.csv must start with a frame column")
+    unknown_species_ids = set(species_header[1:]) - molecule_ids
     if unknown_species_ids:
         raise SystemExit(f"species_count.csv references unknown molecule ids: {sorted(unknown_species_ids)[:10]}")
 
@@ -75,14 +79,21 @@ def main() -> int:
     if unknown_transfer_ids:
         raise SystemExit(f"transfer_flow.csv references unknown molecule ids: {sorted(unknown_transfer_ids)[:10]}")
 
-    for required in ["reactant_hashes", "product_hashes", "reactant_formulas", "product_formulas"]:
+    for required in [
+        "reactant_ids",
+        "product_ids",
+        "reactant_formulas",
+        "product_formulas",
+        "reactant_smiles",
+        "product_smiles",
+    ]:
         if events and required not in events[0]:
             raise SystemExit(f"reaction_events.csv missing {required}")
 
     unknown_event_ids = set()
     for row in events:
-        for key in ["reactant_hashes", "product_hashes"]:
-            for molecule_id in row[key].split("+"):
+        for key in ["reactant_ids", "product_ids"]:
+            for molecule_id in row[key].split(";"):
                 if molecule_id and molecule_id not in molecule_ids:
                     unknown_event_ids.add(molecule_id)
     if unknown_event_ids:
@@ -102,7 +113,7 @@ def main() -> int:
     print(f"  events: {len(events)}")
     print(f"  transfer edges: {len(transfer)}")
     print(f"  self-loop count: {self_loop_sum}")
-    print(f"  molecules: {len(molecules.get('molecules', []))}")
+    print(f"  molecules: {len(molecules)}")
     return 0
 
 

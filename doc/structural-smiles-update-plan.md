@@ -1,6 +1,6 @@
 # 结构身份升级方案：canonical SMILES v1
 
-状态：**规划中，未改生产代码**  
+状态：**已实施（2.2）**  
 基线：`main` @ `48b1a86` (chore: checkpoint before structural identity update)  
 目标版本：2.2（输出 schema 破坏性变更，但不是核心化学算法不兼容）
 
@@ -13,10 +13,25 @@
 5. `-me/-mr/-rc` 等合并/缩放功能**从 core 删除**，职责留给未来的 Python 套件。
 6. reaction_events 列名与 `;` 分隔符按方案；不输出 atom ID 列表。
 7. `web/` 暂不改；只改 Python `reax_tools_viz`。
-8. 最坏情况可能是 10K–1M 原子的单个分子（用户误输入金属块体或 `-r` 过大）；
-   性能目标先定 **2x 基线**，需要大分子守卫。
+8. 超过 **200 原子**不生成 SMILES，退化为化学式 + 公式 hash；性能目标 2x 基线。
 9. SMILES **自写**，用 RDKit 充分验证正确性。
 10. 直接破坏旧输出；core + Python 可视化一起发布，端到端负责。
+
+## 0.1 实施结果
+
+- SMILES 引擎：`src/cpp/smiles.h` / `smiles.cpp`，无外部依赖；200 原子 cutoff。
+- RDKit 验证：284 个图（curated 异构体、C7–C10 全部烷烃、3/4-正则笼、
+  自由基、芳环/桥环/螺环、200/203 原子边界），**283 pass + 1 expected
+  fallback + 0 fail**；随机原子重排 3 次，SMILES 完全一致。
+- 输出迁移：`molecules.csv`、宽表 `species_count.csv`、带 SMILES 的
+  `reaction_events.csv`；删除 `reaction_snapshots/`、`molecules.json`、
+  `-me/-mr/-rc`。
+- Python：`reax_tools_viz` 已迁移；破旧的 `snapshots.py`/CLI 已删除；
+  `molecules` 命令改用 SMILES + 可选 RDKit。
+- 性能（`test/energetic.xyz`, 2592 原子 x 40 帧, `-nt 1`, 5 次中位数）：
+  基线 0.476 s，新版本 0.607 s，约 **1.27x**，低于 2x 目标。
+- 未改：`web/`；`test/energetic_v3/v4` 是旧 schema 历史输出；
+  `tools/prepublication_validate.py` 等论文工具未迁移。
 
 ## 1. 目标与非目标
 

@@ -6,7 +6,7 @@ parsing, plotting, or filtering logic.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -14,7 +14,7 @@ from pathlib import Path
 class MoleculeRecord:
     id: str
     formula: str
-    atom_counts: dict[str, int]
+    smiles: str
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,10 @@ class TransferEdge:
     target_id: str
     source_label: str
     target_label: str
+    source_formula: str
+    target_formula: str
+    source_smiles: str
+    target_smiles: str
     count: int
     atom_transfer: int
     self_loop: bool
@@ -32,10 +36,12 @@ class TransferEdge:
 class ReactionEvent:
     event_id: int
     frame: int
-    reactant_hashes: tuple[str, ...]
-    product_hashes: tuple[str, ...]
+    reactant_ids: tuple[str, ...]
+    product_ids: tuple[str, ...]
     reactant_formulas: tuple[str, ...]
     product_formulas: tuple[str, ...]
+    reactant_smiles: tuple[str, ...]
+    product_smiles: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -43,3 +49,4 @@ class RunBundle:
     root: Path
     manifest: dict
     molecules: dict[str, MoleculeRecord]
+    labels: dict[str, str] = field(default_factory=dict)

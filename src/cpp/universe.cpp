@@ -27,11 +27,6 @@ Universe::~Universe() {
         species_counter = nullptr;
     }
 
-    if (reax_flow != nullptr) {
-        delete reax_flow;
-        reax_flow = nullptr;
-    }
-
     if (bond_counter != nullptr) {
         delete bond_counter;
         bond_counter = nullptr;
@@ -45,11 +40,6 @@ Universe::~Universe() {
     if (atom_bonded_num_counter != nullptr) {
         delete atom_bonded_num_counter;
         atom_bonded_num_counter = nullptr;
-    }
-
-    if (hash_counter != nullptr) {
-        delete hash_counter;
-        hash_counter = nullptr;
     }
 
     if (reaction_tracker != nullptr) {
@@ -110,9 +100,8 @@ void Universe::process_traj() {
             System* curr_system = new System();
 
             curr_system->frame_id = curr_frame_id;
-            curr_system->reax_flow = reax_flow;
             curr_system->set_counters(this->species_counter, this->bond_counter, this->ring_counter,
-                this->atom_bonded_num_counter, this->hash_counter);
+                this->atom_bonded_num_counter);
 
             if (ends_with(INPUT_FILE, ".lammpstrj"))
                 curr_system->load_lammpstrj(input_file);
@@ -147,9 +136,6 @@ void Universe::process_traj() {
             }
         }
         parallel_for_each<System>(systems_to_process, &System::process_counters);
-        if (!FLAG_NO_REACTIONS) {
-            parallel_for_each<System>(systems_to_process, &System::process_reax_flow);
-        }
 
         // Process reaction tracking (must be sequential by frame)
         if (FLAG_TRACK_REACTIONS && reaction_tracker != nullptr) {
@@ -157,7 +143,7 @@ void Universe::process_traj() {
             std::sort(systems_to_process.begin(), systems_to_process.end(),
                 [](System* a, System* b) { return a->frame_id < b->frame_id; });
             for (auto& curr_system : systems_to_process) {
-                reaction_tracker->process_frame(curr_system->frame_id, curr_system->molecules, curr_system->has_boundaries, curr_system->axis_lengths);
+                reaction_tracker->process_frame(curr_system->frame_id, curr_system->molecules);
             }
         }
 
@@ -193,10 +179,9 @@ void Universe::process_traj() {
     }
     fmt::print("\n\n");
 
-    species_counter->analyze_frame_formulas();
-    species_counter->save_file();
-
-    reax_flow->save_molecules_json();
+    species_counter->analyze_frame_species();
+    species_counter->save_species_count();
+    species_counter->save_molecules();
 
     // after all batch, free all systems.
     for (auto it = frameid_system.begin(); it != frameid_system.end();) {
@@ -210,6 +195,5 @@ void Universe::process_traj() {
         reaction_tracker->save_raw_events("reaction_events.csv");
         reaction_tracker->save_raw_event_pairs("reaction_event_pairs.csv");
         reaction_tracker->save_transfer_flow("transfer_flow.csv");
-        reaction_tracker->save_reaction_snapshots("reaction_snapshots");
     }
 }

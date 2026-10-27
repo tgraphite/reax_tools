@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "program": "ReaxTools",
-  "version": "2.1",
-  "identity_model": "formula-hash-v2",
+  "version": "2.2",
+  "identity_model": "canonical-smiles-v1",
+  "smiles_model": "reax-canonical-v1",
   "input": {"trajectory": "test/isomer_probe/mixture_ethanol_plus_dme.xyz"},
   "output_directory": "test/isomer_probe/out_mixture",
-  "elapsed_s": 0.016849,
+  "elapsed_s": 0.022697,
   "parameters": {
     "vdw_scale": 1.200000,
     "threads": 1,
@@ -21,8 +22,7 @@
     "reaction_events.csv",
     "reaction_event_pairs.csv",
     "transfer_flow.csv",
-    "reaction_snapshots/snapshots_manifest.csv",
-    "molecules.json",
+    "molecules.csv",
     "reax_tools.log",
     "reax_tools_manifest.json"
   ]

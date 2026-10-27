@@ -1,8 +1,8 @@
-# ReaxTools 2.1
+# ReaxTools 2.2
 
 ReaxTools is a local post-processing toolkit for reactive molecular dynamics trajectories from LAMMPS, GPUMD, CP2K, and related workflows.
 
-Version 2.1 is a major cleanup release. The C++ core now writes stable raw audit files, while Python owns filtering, plotting, and presentation. The atom-transfer table is auditable from raw reaction events; `plot` and `network` provide compact molecule-transfer and reaction-transfer diagrams.
+Version 2.2 adds **canonical-SMILES structural identity**. Species are no longer identified by molecular formula: constitutional isomers receive different numeric IDs and different SMILES. The C++ core writes raw audit files, while Python owns filtering, plotting, and presentation.
 
 ## Install
 
@@ -18,7 +18,8 @@ Requirements:
 
 - CMake 3.14+ and a C++17 compiler (GCC 9+ recommended; GCC 8.x is also supported and links `libstdc++fs` automatically).
 - The installer accepts Python 3.8+ and searches for `python3.13` down to `python3.8`, then `python3`. The unpinned plotting dependencies have their own Python requirements; this is not a tested compatibility matrix for every accepted Python version.
-- The Python plotting installation includes PyGraphviz and PyVista/VTK. Network plots need Graphviz; building PyGraphviz may also require Graphviz development headers and Python development headers (on Debian/Ubuntu: `graphviz libgraphviz-dev python3-dev`).
+- The Python plotting installation includes PyGraphviz. Network plots need Graphviz; building PyGraphviz may also require Graphviz development headers and Python development headers (on Debian/Ubuntu: `graphviz libgraphviz-dev python3-dev`).
+- RDKit is **optional**: install it only if you want `reax_tools molecules` to draw structures from SMILES (`pip install rdkit`).
 
 The C++ core does not require RDKit, Boost, or Graphviz. The Python plotting layer has additional dependencies listed above.
 
@@ -89,39 +90,34 @@ The C++ core writes raw, audit-oriented files:
 
 | File                        | Meaning                                                              |
 | --------------------------- | -------------------------------------------------------------------- |
-| `species_count.csv`         | Species count table: `frame,molecule_id,formula,count`               |
+| `species_count.csv`         | Wide count table: `frame,<id>,<id>,...` (one column per structure)   |
 | `bond_count.csv`            | Bond-type counts by frame                                            |
 | `atom_bonded_num_count.csv` | Atom coordination counts by frame                                    |
 | `ring_count.csv`            | Ring counts by frame                                                 |
-| `reaction_events.csv`       | Lightweight reaction-event index: frame, arity, hashes, and formulas |
+| `reaction_events.csv`       | Event index with IDs, formulas, and SMILES for reactants/products    |
 | `reaction_event_pairs.csv`  | Per-event atom-overlap pairs used to audit atom transfer             |
-| `transfer_flow.csv`         | Aggregated atom transfer between molecular species                   |
-| `reaction_snapshots/`       | C++ reaction snapshot packages for montage rendering                 |
-| `molecules.json`            | Molecule identity records and example graph definitions              |
+| `transfer_flow.csv`         | Aggregated atom transfer between structures, with formulas and SMILES|
+| `molecules.csv`             | Identity table: `id,formula,smiles`                                 |
 | `reax_tools.log`            | Run metadata and audit notes                                         |
 | `reax_tools_manifest.json`  | Structured file manifest for Python and web clients                  |
 
-Species IDs are deterministic 32-bit FNV-1a hashes of the molecular formula. Isomers share an ID; this is not a structural identifier. `molecules.json` contains representative graphs, not an exhaustive isomer catalogue. Current run manifests say `formula-hash-v2`, while the molecule writer still labels its metadata `formula-hash-v1`; historical example outputs also use the older label/IDs. Keep outputs from each run together.
+Species IDs are deterministic **64-bit FNV-1a hashes of canonical SMILES**. A different connectivity gives a different SMILES and therefore a different ID, even when the formula is identical. Molecules with more than 200 atoms are treated at formula level: no SMILES is generated and the ID is a hash of the formula; `molecules.csv` leaves the SMILES field empty. This cutoff keeps kerogen/polymer-scale components and accidental whole-system molecules tractable; within the cutoff, constitutional isomers are separated.
 
-The table describes the default analysis with detected events. Zero-event runs can omit event, pair, transfer, and snapshot files; the manifest currently lists anticipated filenames even when absent. The audit commands below target populated default runs and will flag missing files. Disabling reaction analysis also changes available outputs.
+The core writes the event/pair/flow CSV headers even when no events are detected (with reaction tracking enabled), so the manifest and downstream readers see a stable file set. Disabling reaction analysis omits those files.
 
 ## Audited Transfer
 
-The reaction-transfer analysis is based on atom ownership transfer. `reaction_events.csv` is a compact event index, while `reaction_event_pairs.csv` records per-event reactant-product atom overlaps. `transfer_flow.csv` is exactly the aggregation of `reaction_event_pairs.csv`. For single- and bimolecular snapshot rendering, the C++ core writes self-contained `.rxtsnap.json` packages under `reaction_snapshots/`.
+The reaction-transfer analysis is based on atom ownership transfer. `reaction_events.csv` is a compact event index, while `reaction_event_pairs.csv` records per-event reactant-product atom overlaps. `transfer_flow.csv` is exactly the aggregation of `reaction_event_pairs.csv`. Reaction events now carry IDs, formulas, and SMILES; no coordinates or bond-change lists are written.
 
 Run the built-in audit:
 
 ```bash
-python3 tools/check_reax_outputs.py test/energetic_v4 \
-  --expect-events 1415 \
-  --expect-transfer-edges 984 \
-  --expect-self-loop-count 115
-
-python3 tools/audit_event_network_consistency.py test/energetic_v4 \
-  --expect-event-pairs 4695
+./bin/reax_tools_core -f test/energetic.xyz -o /tmp/reax_check
+python3 tools/check_reax_outputs.py /tmp/reax_check
+python3 tools/audit_event_network_consistency.py /tmp/reax_check
 ```
 
-`energetic_v4` has the event headers expected by the current schema checker. The older `energetic_v3` still passes pair/flow aggregation, but its event headers are incompatible with that checker. Do not overwrite the historical fixtures when running your own analysis.
+The checked-in `test/energetic_v3` and `test/energetic_v4` directories are historical 2.1 outputs with the old formula-level schema. They are not compatible with the 2.2 checkers; regenerate with the current core before auditing.
 
 For the locally available `gpumd_v3` fixture, the pair/flow aggregation audit also passes (its source trajectory and some supporting files are not tracked in Git):
 
@@ -141,19 +137,20 @@ An edge's `count` is the number of overlapping reactant-product instance pairs, 
 Default plots:
 
 ```bash
-reax_tools plot -f test/energetic_v3
+reax_tools plot -f /tmp/reax_check
 ```
 
 Individual products:
 
 ```bash
-reax_tools counts -f test/energetic_v3
-reax_tools counts -f test/energetic_v3 -t H2O,N2,H3N
-reax_tools events -f test/energetic_v3 --max 15
-reax_tools network -f test/energetic_v3 --max-reactions 60
-reax_tools snapshots -f test/energetic_v3
-reax_tools flow -f test/energetic_v3
-reax_tools focus -f test/energetic_v3 --centers H3N N3O4 H2O
+reax_tools counts -f /tmp/reax_check
+reax_tools counts -f /tmp/reax_check -t H2O,N2,H3N
+reax_tools events -f /tmp/reax_check --max 15
+reax_tools network -f /tmp/reax_check --max-reactions 60
+reax_tools flow -f /tmp/reax_check
+reax_tools focus -f /tmp/reax_check --centers H3N N3O4 H2O
+# Requires optional RDKit:
+reax_tools molecules -f /tmp/reax_check --species H2O
 ```
 
 `plot` and the default `network` command write two transfer diagrams:
@@ -171,7 +168,7 @@ These filters combine with AND semantics. `flow` remains an explicit experimenta
 
 ## Energetic Example
 
-The bundled energetic fixture comes from an ammonium-dinitramide ReaxFF run at 373 K. Its 40 stored frames span 0.2–78.2 ps at 2 ps intervals, as checked against the source trajectory and run log. It is a software regression example, not a validated high-temperature decomposition mechanism. The plots show formula counts and atom transfers involving `H4N`, `N3O4`, `H2O`, and `N2`; geometric bond perception and sampling affect those observations. The images below are retained historical outputs in `test/energetic_v3`, not a new benchmark. See [provenance](doc/paper-preparation/local-cases.md).
+The bundled energetic fixture comes from an ammonium-dinitramide ReaxFF run at 373 K. Its 40 stored frames span 0.2–78.2 ps at 2 ps intervals, as checked against the source trajectory and run log. It is a software regression example, not a validated high-temperature decomposition mechanism. The plots show species counts and atom transfers involving `H4N`, `N3O4`, `H2O`, and `N2`; geometric bond perception and sampling affect those observations. The images below are retained historical 2.1 outputs in `test/energetic_v3` (formula-level identity), not 2.2 outputs or a new benchmark. See [provenance](doc/paper-preparation/local-cases.md).
 
 Species counts:
 

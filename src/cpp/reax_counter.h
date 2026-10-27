@@ -1,5 +1,6 @@
 #pragma once
 #include <fmt/core.h>
+#include <cstdint>
 #include <fstream>
 #include <map>
 #include <string>
@@ -79,39 +80,25 @@ public:
     }
 };
 
+struct SpeciesRecord {
+    std::uint64_t id = 0;
+    std::string formula;
+    std::string smiles;  // empty for formula-level fallback
+};
+
 class SpeciesCounter {
 private:
-    std::string file_path;
-    std::string save_path;
-    std::ifstream file;
-    std::ofstream save;
-    std::vector<std::string> formulas;
-
-    std::map<std::string, std::vector<float>> formulas_nums;
-    std::vector<std::vector<std::string>> all_frame_formulas;
+    std::map<std::uint64_t, SpeciesRecord> records;
+    std::map<std::uint64_t, std::vector<int>> counts;
     int nframes = 0;
 
 public:
-    // When read from Lammps reax/c/bonds file.
-    SpeciesCounter(const std::string& file_path);
+    SpeciesCounter() = default;
+    ~SpeciesCounter() = default;
 
-    // For import data from class Universe.
-    SpeciesCounter();
-    ~SpeciesCounter();
-
-    void get_formulas();
-    void get_nums();
-    void import_frame_formulas(int& frame_id, const std::vector<std::string>& frame_formulas);
-    void analyze_frame_formulas();
-
-    // The -me option
-    void merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula);
-    void merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool recalc = false);
-
-    // The -rc option
-    void rescale_all_by_element(const std::string& target_element);
-
+    void import_frame_species(int frame_id, const std::vector<SpeciesRecord>& frame_species);
+    void analyze_frame_species();
+    void save_species_count();
+    void save_molecules();
     void brief_report();
-
-    void save_file();
 };

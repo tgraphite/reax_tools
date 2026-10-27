@@ -4,5 +4,5 @@ numpy>=1.21.0
 matplotlib>=3.5.0
 PyYAML>=6.0
 pygraphviz>=1.11
-pyvista>=0.43.0
-pillow>=10.0.0
+# Optional: rdkit is needed only for 'reax_tools molecules' SMILES drawings.
+# pip install rdkit

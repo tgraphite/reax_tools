@@ -1,327 +1,104 @@
 #include "reax_counter.h"
 
 #include <algorithm>
-#include <functional>
 #include <iostream>
 #include <numeric>
-#include <string>
-#include <unordered_set>
-#include <vector>
 
 #include "fmt/format.h"
 #include "string_tools.h"
-#include "vec_algorithms.h"
 
-// For read data from Lammps species file.
-SpeciesCounter::SpeciesCounter(const std::string& file_path) : file_path(file_path) {
-    file.open(file_path);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << file_path << std::endl << "Exit." << std::endl;
-        exit(EXIT_FAILURE);
-    }
+void SpeciesCounter::import_frame_species(int frame_id, const std::vector<SpeciesRecord>& frame_species) {
+    if (frame_id < 1) return;
+    nframes = std::max(nframes, frame_id);
 
-    get_formulas();
-    get_nums();
-}
-
-// For import data from class Universe.
-SpeciesCounter::SpeciesCounter() {}
-
-SpeciesCounter::~SpeciesCounter() {
-    if (file.is_open())
-        file.close();
-}
-
-void SpeciesCounter::get_formulas() {
-    std::string line;
-    std::unordered_set<std::string> formulas_set;
-
-    while (getline(file, line)) {
-        if (line[0] == '#') {
-            nframes++;
-            std::vector<std::string> parts = split_by_space(line);
-
-            for (std::string formula : parts) {
-                if (formula == "#" || formula == "Timestep" || formula == "No_Moles" || formula == "No_Specs") {
-                    continue;
-                }
-                else {
-                    formulas_set.insert(formula);
-                }
-            }
+    for (const auto& species : frame_species) {
+        auto it = records.find(species.id);
+        if (it == records.end()) {
+            records.emplace(species.id, species);
+        } else if (!species.smiles.empty() && !it->second.smiles.empty() &&
+                   species.smiles != it->second.smiles) {
+            fmt::print(stderr,
+                       "Warning: structure ID collision for id={} ({} vs {})\n",
+                       species.id, it->second.smiles, species.smiles);
         }
-    }
-    file.clear();
-    file.seekg(0);
 
-    formulas = std::vector<std::string>(formulas_set.begin(), formulas_set.end());
-    for (const std::string& formula : formulas) {
-        formulas_nums[formula] = std::vector<float>(nframes, 0.0);
+        auto& values = counts[species.id];
+        if (values.size() < static_cast<std::size_t>(frame_id)) {
+            values.resize(frame_id, 0);
+        }
+        values[frame_id - 1] += 1;
     }
-    return;
 }
 
-void SpeciesCounter::get_nums() {
-    std::string line;
-    std::vector<std::string> cur_formulas;
-    int cur_frame = 0;
-
-    while (getline(file, line)) {
-        int cur_step, cur_mols, cur_spec;
-        std::vector<std::string> parts = split_by_space(line);
-
-        if (parts[0] == "#") {
-            cur_formulas.clear();
-
-            for (size_t i = 4; i < parts.size(); i++) {
-                std::string formula = parts[i];
-                cur_formulas.push_back(formula);
-            }
-        }
-        else {
-            cur_step = std::stoi(parts[0]);
-            cur_mols = std::stoi(parts[1]);
-            cur_spec = std::stoi(parts[2]);
-
-            for (size_t i = 0; i < cur_formulas.size(); i++) {
-                std::string cur_formula = cur_formulas[i];
-                float cur_num = std::stof(parts[i + 3]);
-                formulas_nums[cur_formula][cur_frame] = cur_num;
-            }
-            cur_frame++;
+void SpeciesCounter::analyze_frame_species() {
+    for (auto& [id, values] : counts) {
+        if (values.size() < static_cast<std::size_t>(nframes)) {
+            values.resize(nframes, 0);
         }
     }
 }
 
-// User accessable.
-void SpeciesCounter::merge_formulas(const std::vector<std::string>& formulas, const std::string& new_formula) {
-    std::vector<float> new_nums(nframes, 0.0);
-    for (const std::string& formula : formulas) {
-        std::vector<float> num = formulas_nums[formula];
-        new_nums = add_vectors(new_nums, num);
-    }
+void SpeciesCounter::save_species_count() {
+    FILE* file = create_file("species_count.csv");
+    if (file == nullptr) return;
 
-    for (const std::string& formula : formulas) {
-        formulas_nums.erase(formula);
+    fmt::print(file, "frame");
+    for (const auto& [id, record] : records) {
+        fmt::print(file, ",{}", id);
     }
+    fmt::print(file, "\n");
 
-    formulas_nums[new_formula] = new_nums;
-    return;
+    for (int frame = 0; frame < nframes; ++frame) {
+        fmt::print(file, "{}", frame + 1);
+        for (const auto& [id, record] : records) {
+            auto it = counts.find(id);
+            int value = 0;
+            if (it != counts.end() && static_cast<std::size_t>(frame) < it->second.size()) {
+                value = it->second[frame];
+            }
+            fmt::print(file, ",{}", value);
+        }
+        fmt::print(file, "\n");
+    }
+    fclose(file);
 }
 
-// User accessable.
-void SpeciesCounter::rescale_all_by_element(const std::string& target_element) {
-    for (auto& pair : formulas_nums) {
-        std::string formula = pair.first;
-        std::vector<float>& old_nums = pair.second;
-        std::map<std::string, int> elements_weights = parse_formula(formula);
+void SpeciesCounter::save_molecules() {
+    FILE* file = create_file("molecules.csv");
+    if (file == nullptr) return;
 
-        if (starts_with(formula, "group_")) {
-            continue;
-        }
-
-        for (auto& elem_weight : elements_weights) {
-            std::string elem = elem_weight.first;
-            float weight = float(elem_weight.second);
-
-            if (target_element == elem) {
-                std::vector<float> new_nums = vector_scale(old_nums, weight);
-                formulas_nums[formula] = new_nums;
-            }
-        }
+    fmt::print(file, "id,formula,smiles\n");
+    for (const auto& [id, record] : records) {
+        fmt::print(file, "{},{},{}\n", id, csv_escape(record.formula), csv_escape(record.smiles));
     }
-    return;
-}
-
-// User accessable.
-void SpeciesCounter::merge_by_element(const std::string& target_element, const std::vector<int>& ranges, bool rescale) {
-    for (size_t i = 0; i < ranges.size(); i++) {
-        int start;
-        int end;
-        std::string new_formula;
-
-        if (i < ranges.size() - 1) {
-            start = ranges[i];
-            end = ranges[i + 1] - 1;
-            new_formula = fmt::format("grp_{}{}-{}", target_element, start, end);
-        }
-        else {
-            start = ranges[i];
-            end = 10000;
-            new_formula = fmt::format("grp_{}{}-max", target_element, start);
-        }
-
-        std::vector<std::string> formulas_to_erase;
-        std::vector<float> new_nums(nframes, 0.0);
-        float f_weight;
-
-        for (auto& pair : formulas_nums) {
-            std::string old_formula = pair.first;
-            std::vector<float>& old_nums = pair.second;
-
-            if (starts_with(old_formula, "grp_")) {
-                continue;
-            }
-
-            std::map<std::string, int> elements_weights = parse_formula(old_formula);
-
-            for (const auto& [elem, weight] : elements_weights) {
-                if (target_element == elem && weight >= start && weight <= end) {
-                    if (rescale) {
-                        std::vector<float> weighed_nums = vector_scale(old_nums, weight);
-                        new_nums = add_vectors(new_nums, weighed_nums);
-                        formulas_nums[old_formula] = std::vector<float>(nframes, 0.0);
-                        formulas_to_erase.push_back(old_formula);
-                    }
-                    else {
-                        new_nums = add_vectors(new_nums, old_nums);
-                        formulas_nums[old_formula] = std::vector<float>(nframes, 0.0);
-                        formulas_to_erase.push_back(old_formula);
-                    }
-                }
-            }
-        }
-
-        formulas_nums[new_formula] = new_nums;
-        fmt::print("Merge {} formulas into {}\n", formulas_to_erase.size(), new_formula);
-
-        for (const auto& formula : formulas_to_erase) {
-            formulas_nums.erase(formula);
-        }
-    }
-    fmt::print("\n");
-    return;
+    fclose(file);
 }
 
 void SpeciesCounter::brief_report() {
-    // sort formulas_nums by average in descending order
-    std::vector<std::pair<std::string, float>> sorted_formulas_averages;
-    float average = 0;
-    for (const auto& pair : formulas_nums) {
-        average = std::accumulate(pair.second.begin(), pair.second.end(), 0.0f) / nframes;
-        sorted_formulas_averages.push_back(std::make_pair(pair.first, average));
-    }
-    std::sort(sorted_formulas_averages.begin(), sorted_formulas_averages.end(),
-        [](const auto& a, const auto& b) { return a.second > b.second; });
-
-    // get formulas going to report
-    int max_species_print = 20;
-    int min_frames_print = 10;
-    if (sorted_formulas_averages.size() > max_species_print) {
-        fmt::print("Note: To avoid too much screen output, only the top {} species are printed.\n", max_species_print);
-        sorted_formulas_averages.resize(max_species_print);
+    if (records.empty()) {
+        fmt::print("=== Species Report ===\n(no species)\n");
+        return;
     }
 
-    if (nframes < min_frames_print) {
-        fmt::print("Note: The number of frames is less than {}.\n", min_frames_print);
-        fmt::print("{}\n", "=== Species Report ===");
-        std::string header = fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end");
-        fmt::print("{}\n", header);
-        for (const auto& pair : sorted_formulas_averages) {
-            std::string formula = pair.first;
-            std::vector<float> nums = formulas_nums[formula];
-            int mid_frame = nframes / 2;
-            fmt::print("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}\n", formula, nums[0], nums[mid_frame], nums[nframes - 1]);
+    std::vector<std::pair<double, const SpeciesRecord*>> ranking;
+    ranking.reserve(records.size());
+    for (const auto& [id, record] : records) {
+        double total = 0.0;
+        auto it = counts.find(id);
+        if (it != counts.end()) {
+            total = std::accumulate(it->second.begin(), it->second.end(), 0.0);
         }
+        ranking.emplace_back(total, &record);
     }
-    else {
-        fmt::print("{}\n", "=== Species Report ===");
-        std::string header =
-            fmt::format("{:<20s}{:>8s}{:>8s}{:>8s}{:>8s}", "formula", "begin", "mid", "end", "average");
-        fmt::print("{}\n", header);
-        for (const auto& pair : sorted_formulas_averages) {
-            std::string formula = pair.first;
-            std::vector<float> nums = formulas_nums[formula];
-            size_t range = nframes / 10;
-            size_t begin_l = 0;
-            size_t mid_l = nframes * 5 / 10;
-            size_t end_l = nframes * 9 / 10;
+    std::sort(ranking.begin(), ranking.end(),
+              [](const auto& a, const auto& b) { return a.first > b.first; });
 
-            float f_range = float(range);
-            float average = 0.0f;
-            float begin = 0.0f;
-            float mid = 0.0f;
-            float end = 0.0f;
-
-            for (size_t i = 0; i < nframes; i++) {
-                average += nums[i];
-                if ((i >= begin_l) && (i < begin_l + range))
-                    begin += nums[i];
-                else if ((i >= mid_l) && (i < mid_l + range))
-                    mid += nums[i];
-                else if ((i >= end_l) && (i < end_l + range))
-                    end += nums[i];
-            }
-
-            average /= float(nframes);
-            begin /= f_range;
-            mid /= f_range;
-            end /= f_range;
-
-            fmt::print("{:<20s}{:>8.2f}{:>8.2f}{:>8.2f}{:>8.2f}\n", formula, begin, mid, end, average);
-        }
+    const std::size_t limit = std::min<std::size_t>(ranking.size(), 20);
+    fmt::print("=== Species Report ===\n");
+    fmt::print("{:<20s}{:>10s}  {}\n", "formula", "average", "smiles");
+    for (std::size_t i = 0; i < limit; ++i) {
+        const auto* record = ranking[i].second;
+        fmt::print("{:<20s}{:>10.2f}  {}\n", record->formula,
+                   ranking[i].first / std::max(nframes, 1), record->smiles);
     }
-    fmt::print("\n");
-}
-
-// Get current frame formulas (std::map<std::string, int>) from class Universe.
-void SpeciesCounter::import_frame_formulas(int& frame_id, const std::vector<std::string>& formulas) {
-    if (all_frame_formulas.size() < frame_id) {
-        all_frame_formulas.resize(frame_id);
-    }
-
-    all_frame_formulas[frame_id - 1] = formulas;
-}
-
-// Analyze imported frame formulas and get standard formulas_nums after
-// ReaxSpeices::import_frame_formulas all done.
-void SpeciesCounter::analyze_frame_formulas() {
-    // all_formulas_set : any occured formula, non-repeat.
-    std::unordered_set<std::string> all_formulas_set;
-    nframes = all_frame_formulas.size();
-
-    for (auto& frame_formulas_set : all_frame_formulas) {
-        for (auto& formula : frame_formulas_set) {
-            // If this formula not in all_formulas_set, append, otherwise skip.
-            all_formulas_set.insert(formula);
-        }
-    }
-
-    // Initialize formulas_nums for all formulas appeared in class Universe.
-    // formulas_nums: map<string, vector<float>>
-    formulas_nums.clear();
-    for (const std::string& formula : all_formulas_set) {
-        formulas_nums[formula] = std::vector<float>(nframes, 0.0);
-    }
-
-    for (size_t i = 0; i < nframes; i++) {
-        for (auto& formula : all_frame_formulas[i]) {
-            formulas_nums[formula][i] += 1.0f;
-        }
-    }
-}
-
-// General function, save file to given path.
-void SpeciesCounter::save_file() {
-    FILE* file = create_file("species_count.csv");
-
-    fmt::print(file, "frame,molecule_id,formula,count\n");
-
-    std::vector<std::pair<unsigned int, std::string>> sorted_formulas;
-    for (const auto& pair : formulas_nums) {
-        sorted_formulas.emplace_back(reax_string_hash(pair.first), pair.first);
-    }
-    std::sort(sorted_formulas.begin(), sorted_formulas.end(),
-        [](const auto& a, const auto& b) {
-            if (a.first != b.first) return a.first < b.first;
-            return a.second < b.second;
-        });
-
-    for (size_t i = 0; i < nframes; i++) {
-        for (const auto& [molecule_id, formula] : sorted_formulas) {
-            fmt::print(file, "{},{},{},{}\n", i + 1, molecule_id, formula, formulas_nums[formula][i]);
-        }
-    }
-
-    fclose(file);
 }

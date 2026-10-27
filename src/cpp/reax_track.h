@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdint>
 #include <fstream>
 #include <map>
 #include <set>
@@ -16,165 +17,86 @@
 struct Molecule;
 class System;
 
-struct AtomSnapshot {
-    int id;
-    std::string element;
-    float x;
-    float y;
-    float z;
-};
-
-struct BondSnapshot {
-    int atom_i;
-    int atom_j;
-    int order;
-    float length;
-};
-
-/**
- * @brief TrackedMolecule - A molecule with lifecycle tracking
- * 
- * Similar to ChemTrayzer's MDMolecule, this class tracks a molecule's
- * existence over multiple frames, including its predecessors and successors.
- */
 struct TrackedMolecule {
-    static int next_id;  // Global counter for unique IDs
-    
-    int id;                          // Unique molecule ID
-    int start_frame;                 // First frame where this molecule appears
-    int end_frame;                   // Last frame (INT_MAX if still active)
-    std::unordered_set<int> atom_ids;  // Set of atom IDs in this molecule
-    std::vector<AtomSnapshot> atoms;   // Atom coordinates at molecule creation
-    std::vector<BondSnapshot> bonds;   // Bonds at molecule creation
-    std::string formula;             // Chemical formula
-    unsigned int hash;               // Hash of formula
-    
-    // Network connections (similar to ChemTrayzer's MDMoleculeNetwork)
+    static int next_id;
+
+    int id = 0;
+    int start_frame = 0;
+    int end_frame = INT_MAX;
+    std::unordered_set<int> atom_ids;
+    std::string formula;
+    std::string smiles;          // empty for formula-level fallback
+    std::uint64_t structure_id = 0;
+
     std::vector<TrackedMolecule*> predecessors;
     std::vector<TrackedMolecule*> successors;
-    
-    // Tracking state
-    bool is_stable;                  // Whether molecule has reached stable lifetime
-    bool is_processed;               // Whether reaction involving this mol has been recorded
-    
-    TrackedMolecule(int frame, const Molecule* mol, bool has_boundaries = false, const std::vector<float>& axis_lengths = {});
-    ~TrackedMolecule() = default;
-    
-    // Check if molecule is still active (not ended)
+
+    bool is_stable = false;
+    bool is_processed = false;
+
+    TrackedMolecule(int frame, const Molecule* mol);
+
     bool is_active() const { return end_frame == INT_MAX; }
-    
-    // Get lifetime in frames
     int lifetime(int current_frame) const {
-        if (is_active()) return current_frame - start_frame;
-        return end_frame - start_frame;
+        return is_active() ? current_frame - start_frame : end_frame - start_frame;
     }
-    
-    // String representation for output
     std::string to_string() const;
 };
 
-/**
- * @brief ReactionEvent - A single reaction event detected between frames
- * 
- * Records the reactants, products, and frame/time information.
- */
 struct ReactionEvent {
-    int event_id;                    // Unique event ID
-    int frame_id;                    // Frame where reaction was detected
-    float time_fs;                   // Simulation time in femtoseconds
-    
+    int event_id = 0;
+    int frame_id = 0;
+    float time_fs = 0.0f;
+
     std::vector<TrackedMolecule*> reactants;
     std::vector<TrackedMolecule*> products;
-    
-    // For detailed analysis
-    std::set<std::pair<int, int>> formed_bonds;
-    std::set<std::pair<int, int>> broken_bonds;
-    
+
     ReactionEvent(int eid, int fid, float time);
-    
-    // Get string representation of reactants/products
-    std::string get_reactants_string() const;
+
+    std::string get_reactants_string() const;  // formula list
     std::string get_products_string() const;
-    
-    // Verify atom conservation
     bool check_atom_conservation() const;
 };
 
-/**
- * @brief ReactionTracker - Main class for tracking molecular evolution and reactions
- * 
- * Implements the ChemTrayzer-like algorithm for detecting reactions from
- * molecular dynamics trajectories without bond order information.
- */
 class ReactionTracker {
 private:
-    // Current state: atom ID -> TrackedMolecule
     std::unordered_map<int, TrackedMolecule*> atom_to_molecule;
-    
-    // All molecules ever tracked
     std::vector<TrackedMolecule*> all_molecules;
-    
-    // Currently active molecules (still existing in current frame)
     std::unordered_set<TrackedMolecule*> active_molecules;
-    
-    // Detected reaction events
     std::vector<ReactionEvent> events;
-    
-    // Configuration
-    int stable_time_frames;          // TStable: minimum frames for molecule to be stable
-    float timestep_fs;               // MD timestep in fs
-    int sampling_frequency;          // Frame sampling frequency
-    
-    // Internal tracking
-    int next_event_id;
-    int last_processed_frame;
-    
-    // Helper: Find or create tracked molecule from System's Molecule
-    TrackedMolecule* find_or_create_tracked(const Molecule* mol, int frame_id, bool has_boundaries = false, const std::vector<float>& axis_lengths = {});
-    
-    // Helper: Check if a molecule should be marked as stable
-    bool should_mark_stable(TrackedMolecule* mol, int current_frame);
-    
-    // Helper: Create reaction event from reactants and products
-    void create_reaction_event(int frame_id, 
+
+    int stable_time_frames = 3;
+    float timestep_fs = 0.25f;
+    int sampling_frequency = 10;
+
+    int next_event_id = 0;
+    int last_processed_frame = 0;
+
+    TrackedMolecule* find_or_create_tracked(const Molecule* mol, int frame_id);
+    void create_reaction_event(int frame_id,
                                const std::vector<TrackedMolecule*>& reactants,
                                const std::vector<TrackedMolecule*>& products);
-    
-    // Helper: Detect reactions using symmetric difference algorithm
-    void detect_reactions_from_changes(int frame_id, 
-                                       const std::unordered_map<int, Molecule*>& current_atom_to_mol,
-                                       const std::unordered_set<int>& changed_atoms,
-                                       bool has_boundaries,
-                                       const std::vector<float>& axis_lengths);
-    
-    // Helper: Mark stable molecules and create events
-    void process_stable_molecules(int current_frame);
-    
+    void detect_reactions_from_changes(
+        int frame_id,
+        const std::unordered_map<int, Molecule*>& current_atom_to_mol,
+        const std::unordered_set<int>& changed_atoms);
+
 public:
     ReactionTracker(int stable_frames = 3, float ts = 0.25f, int freq = 10);
     ~ReactionTracker();
-    
-    // Process a single frame - main entry point
-    void process_frame(int frame_id, const std::vector<Molecule*>& molecules, bool has_boundaries = false, const std::vector<float>& axis_lengths = {});
-    
-    // Finalize and save results
+
+    void process_frame(int frame_id, const std::vector<Molecule*>& molecules);
     void finalize(int last_frame);
+
     void save_raw_events(const std::string& filepath);
     void save_raw_event_pairs(const std::string& filepath);
     void save_transfer_flow(const std::string& filepath);
-    void save_reaction_snapshots(const std::string& directory);
-    void save_events(const std::string& filepath);
-    void save_molecule_lifetimes(const std::string& filepath);
-    
-    // Getters
-    int get_event_count() const { return events.size(); }
-    int get_molecule_count() const { return all_molecules.size(); }
-    
-    // Brief report
+
+    int get_event_count() const { return static_cast<int>(events.size()); }
+    int get_molecule_count() const { return static_cast<int>(all_molecules.size()); }
     void brief_report() const;
 };
 
-// Global pointer for easy access (similar to other globals in reax_tools)
 extern bool FLAG_TRACK_REACTIONS;
 extern int STABLE_TIME_FRAMES;
 extern float TIMESTEP_FS;

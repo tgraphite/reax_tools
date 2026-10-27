@@ -1,0 +1,2 @@
+event_id,frame,source_id,target_id,source_formula,target_formula,source_smiles,target_smiles,tracked_source_id,tracked_target_id,atom_overlap
+0,2,9888429903061026892,12567411285834319415,C2H6O,C2H6O,[C]([H])([H])([C]([H])([H])([H]))[O]([H]),[C]([H])([H])([H])[O][C]([H])([H])([H]),0,1,9

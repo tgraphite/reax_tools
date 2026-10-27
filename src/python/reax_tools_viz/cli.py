@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 from pathlib import Path
 
@@ -14,12 +13,17 @@ from .filters import (
     aggregate_reaction_events,
     filter_transfer_flow,
 )
-from .io import load_bundle, read_reaction_events, read_transfer_flow
+from .io import (
+    load_bundle,
+    load_molecule_labels,
+    read_reaction_events,
+    read_transfer_flow,
+    read_transfer_flow_file,
+)
 from .molecule_draw import draw_selected_molecules
 from .network import build_transfer_graph, draw_transfer_graph
 from .plots import plot_count_pages, plot_reaction_events
 from .sankey import draw_focus_sankey_set, draw_role_flow
-from .snapshots import render_snapshot_directory
 from .templates import load_plot_template
 
 
@@ -84,8 +88,21 @@ def _safe_name(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", value)
 
 
-def plot_count_file(path: Path, output_dir: Path, config: dict, targets=None, top: int | None = None) -> list[Path]:
-    df = pd.read_csv(path)
+def plot_count_file(
+    path: Path,
+    output_dir: Path,
+    config: dict,
+    targets=None,
+    top: int | None = None,
+    bundle=None,
+) -> list[Path]:
+    if path.name == "species_count.csv":
+        df = pd.read_csv(path, dtype=str)
+        labels = bundle.labels if bundle is not None else load_molecule_labels(path.parent)
+        if labels:
+            df = df.rename(columns=labels)
+    else:
+        df = pd.read_csv(path)
     section = dict(config.get(_count_config_key(path.name), {}))
     if top is not None:
         section["max_per_page"] = top
@@ -218,7 +235,7 @@ def _draw_network_command(args, *, legacy_flow: bool = False) -> int:
     bundle = _load_bundle_or_none(path)
     config = _resolve_config(path, args.template)
     network_config = _network_config(config, args)
-    raw_flow = read_transfer_flow(bundle) if bundle else pd.read_csv(path, dtype={"source_id": str, "target_id": str})
+    raw_flow = read_transfer_flow(bundle) if bundle else read_transfer_flow_file(path)
     output_dir = bundle.root if bundle else path.parent
     cli_filtered = any(
         value is not None
@@ -337,15 +354,9 @@ def main() -> int:
     events.add_argument("-mol", "--mol", action="store_true", help="Reserve space for molecule embedding")
     events.add_argument("--no-cancel", action="store_true")
 
-    molecules = sub.add_parser("molecules", help="Draw selected molecule graph examples")
-    molecules.add_argument("-f", "--file", required=True, help="molecules.json or ReaxTools output directory")
-    molecules.add_argument("--species", nargs="*", help="Formula or molecule id to draw")
-
-    snapshots = sub.add_parser("snapshots", help="Render reaction snapshot montage figures")
-    snapshots.add_argument("-f", "--file", required=True, help="ReaxTools output directory with reaction_snapshots/")
-    snapshots.add_argument("--limit", type=int, default=30, help="Maximum snapshot packages to render; default: 30")
-    snapshots.add_argument("--all", action="store_true", help="Render every snapshot package")
-    snapshots.add_argument("--force", action="store_true", help="Overwrite existing montage PNG files")
+    molecules = sub.add_parser("molecules", help="Draw structures from molecules.csv SMILES")
+    molecules.add_argument("-f", "--file", required=True, help="molecules.csv or ReaxTools output directory")
+    molecules.add_argument("--species", nargs="*", help="Formula, SMILES or molecule id to draw")
 
     args = parser.parse_args()
 
@@ -370,6 +381,7 @@ def main() -> int:
                     config,
                     targets=getattr(args, "targets", None),
                     top=args.top,
+                    bundle=bundle,
                 )
                 for output in written:
                     print(f"Wrote {output}")
@@ -385,7 +397,12 @@ def main() -> int:
             raw_flow = read_transfer_flow(bundle)
             transfer_outputs = _draw_default_transfer_views(raw_flow, bundle.root, network_config)
             raw_events = read_reaction_events(bundle)
-            cleaned = aggregate_reaction_events(raw_events, bundle.molecules, cancel_common=True)
+            cleaned = aggregate_reaction_events(
+                raw_events,
+                bundle.molecules,
+                labels=bundle.labels,
+                cancel_common=True,
+            )
             cleaned.to_csv(bundle.root / "reaction_events_cleaned.csv", index=False)
             event_config = config.get("reaction_events", {})
             event_outputs = plot_reaction_events(
@@ -406,7 +423,7 @@ def main() -> int:
         bundle = _load_bundle_or_none(path)
         config = _resolve_config(path, args.template)
         flow_config = dict(config.get("flow", {}))
-        raw_flow = read_transfer_flow(bundle) if bundle else pd.read_csv(path, dtype={"source_id": str, "target_id": str})
+        raw_flow = read_transfer_flow(bundle) if bundle else read_transfer_flow_file(path)
         output_dir = bundle.root if bundle else path.parent
         for key, value in {
             "max_species_per_level": args.max_species_per_level,
@@ -433,7 +450,7 @@ def main() -> int:
             focus_config["max_in"] = args.max_in
         if args.max_out is not None:
             focus_config["max_out"] = args.max_out
-        raw_flow = read_transfer_flow(bundle) if bundle else pd.read_csv(path, dtype={"source_id": str, "target_id": str})
+        raw_flow = read_transfer_flow(bundle) if bundle else read_transfer_flow_file(path)
         output_dir = bundle.root if bundle else path.parent
         written = draw_focus_sankey_set(
             raw_flow,
@@ -462,6 +479,7 @@ def main() -> int:
             cleaned = aggregate_reaction_events(
                 raw_events,
                 bundle.molecules if bundle else None,
+                labels=bundle.labels if bundle else None,
                 cancel_common=not args.no_cancel,
             )
         cleaned.to_csv(output_dir / "reaction_events_cleaned.csv", index=False)
@@ -475,20 +493,13 @@ def main() -> int:
     if args.command == "molecules":
         path = _input_path(args.file)
         if path.is_dir():
-            molecule_path = path / "molecules.json"
+            molecule_path = path / "molecules.csv"
             output_dir = path / "molecule_pictures"
         else:
             molecule_path = path
             output_dir = path.parent / "molecule_pictures"
-        records = json.loads(molecule_path.read_text()).get("molecules", [])
+        records = pd.read_csv(molecule_path, dtype=str).to_dict("records")
         written = draw_selected_molecules(records, output_dir, args.species)
-        for item in written:
-            print(f"Wrote {item}")
-        return 0
-
-    if args.command == "snapshots":
-        output_dir = _input_path(args.file)
-        written = render_snapshot_directory(output_dir, limit=None if args.all else args.limit, force=args.force)
         for item in written:
             print(f"Wrote {item}")
         return 0

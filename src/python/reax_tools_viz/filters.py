@@ -73,11 +73,18 @@ def cancel_reverse_transfer_edges(flow: pd.DataFrame, *, direction_by: str = "co
         key = tuple(sorted((source, target)))
         sign = 1 if (source, target) == key else -1
         if key not in records:
+            flip = source != key[0]
+            def pick(column: str, default: str = "") -> str:
+                return str(row.get(column, default))
             records[key] = {
                 "source_id": key[0],
                 "target_id": key[1],
-                "source_label": row["source_label"] if source == key[0] else row["target_label"],
-                "target_label": row["target_label"] if target == key[1] else row["source_label"],
+                "source_label": pick("source_label") if not flip else pick("target_label"),
+                "target_label": pick("target_label") if not flip else pick("source_label"),
+                "source_formula": pick("source_formula") if not flip else pick("target_formula"),
+                "target_formula": pick("target_formula") if not flip else pick("source_formula"),
+                "source_smiles": pick("source_smiles") if not flip else pick("target_smiles"),
+                "target_smiles": pick("target_smiles") if not flip else pick("source_smiles"),
                 "count": 0,
                 "atom_transfer": 0,
                 "self_loop": 0,
@@ -95,6 +102,10 @@ def cancel_reverse_transfer_edges(flow: pd.DataFrame, *, direction_by: str = "co
                 "target_id": rec["source_id"],
                 "source_label": rec["target_label"],
                 "target_label": rec["source_label"],
+                "source_formula": rec.get("target_formula", ""),
+                "target_formula": rec.get("source_formula", ""),
+                "source_smiles": rec.get("target_smiles", ""),
+                "target_smiles": rec.get("source_smiles", ""),
                 "count": abs(rec["count"]),
                 "atom_transfer": abs(rec["atom_transfer"]),
                 "self_loop": 0,
@@ -108,6 +119,10 @@ def cancel_reverse_transfer_edges(flow: pd.DataFrame, *, direction_by: str = "co
         "target_id",
         "source_label",
         "target_label",
+        "source_formula",
+        "target_formula",
+        "source_smiles",
+        "target_smiles",
         "count",
         "atom_transfer",
         "self_loop",
@@ -188,7 +203,11 @@ def top_flow_centers(flow: pd.DataFrame, n: int) -> list[str]:
 def _split_ids(value: str) -> list[str]:
     if not value or value == "nan":
         return []
-    return [part for part in str(value).split("+") if part]
+    # Semicolon is the structural-event separator.  Fall back to "+" for
+    # hand-written legacy tables that do not contain charged SMILES.
+    text = str(value)
+    separator = ";" if ";" in text else "+"
+    return [part for part in text.split(separator) if part]
 
 
 def cancel_common_ids(reactants: list[str], products: list[str]) -> tuple[list[str], list[str]]:
@@ -207,12 +226,13 @@ def aggregate_reaction_events(
     events: pd.DataFrame,
     molecules: dict[str, object] | None = None,
     *,
+    labels: dict[str, str] | None = None,
     cancel_common: bool = True,
 ) -> pd.DataFrame:
     records: dict[tuple[tuple[str, ...], tuple[str, ...]], dict] = {}
     for _, row in events.iterrows():
-        reactant_column = "reactant_hashes" if "reactant_hashes" in events.columns else "reactant_ids"
-        product_column = "product_hashes" if "product_hashes" in events.columns else "product_ids"
+        reactant_column = "reactant_ids" if "reactant_ids" in events.columns else "reactant_hashes"
+        product_column = "product_ids" if "product_ids" in events.columns else "product_hashes"
         reactants = _split_ids(row[reactant_column])
         products = _split_ids(row[product_column])
         if cancel_common:
@@ -222,23 +242,31 @@ def aggregate_reaction_events(
         key = (tuple(sorted(reactants)), tuple(sorted(products)))
         frame = int(row["frame"])
         if key not in records:
-            if molecules:
-                reactant_labels = "+".join(getattr(molecules[id_], "formula", id_) for id_ in key[0])
-                product_labels = "+".join(getattr(molecules[id_], "formula", id_) for id_ in key[1])
-            elif "reactant_formulas" in events.columns and "product_formulas" in events.columns:
-                reactant_labels = str(row["reactant_formulas"])
-                product_labels = str(row["product_formulas"])
-            else:
-                reactant_labels = "+".join(key[0])
-                product_labels = "+".join(key[1])
+            def label_for(molecule_id: str) -> str:
+                if labels and molecule_id in labels:
+                    return labels[molecule_id]
+                if molecules and molecule_id in molecules:
+                    return str(getattr(molecules[molecule_id], "formula", molecule_id))
+                return molecule_id
+
+            reactant_labels = " + ".join(label_for(id_) for id_ in key[0])
+            product_labels = " + ".join(label_for(id_) for id_ in key[1])
             records[key] = {
                 "frequency": 0,
                 "first_frame": frame,
                 "last_frame": frame,
-                "reactant_ids": "+".join(key[0]),
-                "product_ids": "+".join(key[1]),
+                "reactant_ids": ";".join(key[0]),
+                "product_ids": ";".join(key[1]),
                 "reactants": reactant_labels,
                 "products": product_labels,
+                "reactant_smiles": ";".join(
+                    str(getattr(molecules[id_], "smiles", "")) if molecules and id_ in molecules else ""
+                    for id_ in key[0]
+                ),
+                "product_smiles": ";".join(
+                    str(getattr(molecules[id_], "smiles", "")) if molecules and id_ in molecules else ""
+                    for id_ in key[1]
+                ),
             }
         rec = records[key]
         rec["frequency"] += 1

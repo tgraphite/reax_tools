@@ -10,6 +10,7 @@
 #include "cell_list.h"
 #include "fmt/format.h"
 #include "reax_counter.h"
+#include "smiles.h"
 #include "universe.h"
 #include "vec_algorithms.h"
 
@@ -357,6 +358,69 @@ void System::load_lammpstrj(std::ifstream& file) {
  * @brief Set atom types and initialize type-related mappings and valences.
  * @param type_names Vector of atom type names.
  */
+void Molecule::update_topology() {
+    types_nums.clear();
+    std::string mol_formula;
+    for (auto& mol_atom : mol_atoms) {
+        types_nums[mol_atom->type_name]++;
+    }
+    for (auto& pair : types_nums) {
+        mol_formula += fmt::format("{}{}", pair.first, pair.second);
+    }
+    formula = rename_formula(mol_formula, ELEMENT_DISPLAY_ORDER);
+
+    // >200 atoms: formula-level identity, no SMILES (kerogen/polymer regime).
+    if (mol_atoms.size() > 200) {
+        smiles.clear();
+        structure_id = reax_smiles::formula_id(formula);
+        hash = reax_string_hash(formula);
+        for (auto& atom : mol_atoms) atom->belong_molecule = this;
+        return;
+    }
+
+    std::vector<Atom*> atoms(mol_atoms.begin(), mol_atoms.end());
+    std::sort(atoms.begin(), atoms.end(),
+        [](const Atom* a, const Atom* b) { return a->id < b->id; });
+
+    std::map<const Atom*, int> atom_index;
+    for (int i = 0; i < static_cast<int>(atoms.size()); ++i) {
+        atom_index[atoms[i]] = i;
+    }
+
+    std::vector<reax_smiles::Atom> smiles_atoms;
+    smiles_atoms.reserve(atoms.size());
+    for (int i = 0; i < static_cast<int>(atoms.size()); ++i) {
+        smiles_atoms.push_back({i, atoms[i]->type_name, 0});
+    }
+
+    std::vector<reax_smiles::Bond> smiles_bonds;
+    smiles_bonds.reserve(mol_bonds.size());
+    for (const Bond* bond : mol_bonds) {
+        auto i = atom_index.find(bond->atom_i);
+        auto j = atom_index.find(bond->atom_j);
+        if (i == atom_index.end() || j == atom_index.end()) continue;
+        smiles_bonds.push_back({i->second, j->second});
+    }
+    std::sort(smiles_bonds.begin(), smiles_bonds.end(), [](const auto& a, const auto& b) {
+        if (a.i != b.i) return a.i < b.i;
+        return a.j < b.j;
+    });
+
+    reax_smiles::Result result = reax_smiles::canonical_smiles(smiles_atoms, smiles_bonds);
+    if (result.fallback || result.smiles.empty()) {
+        smiles.clear();
+        structure_id = reax_smiles::formula_id(formula);
+    } else {
+        smiles = result.smiles;
+        structure_id = reax_smiles::smiles_id(smiles);
+    }
+
+    hash = reax_string_hash(formula);  // legacy formula hash, kept for now
+    for (auto& atom : mol_atoms) {
+        atom->belong_molecule = this;
+    }
+}
+
 void System::set_types() {
     total_types = INPUT_ELEMENT_TYPES.size();
 
@@ -771,15 +835,18 @@ void System::process_this() {
  *        Thread-safe import of frame formulas and molecule comparison with previous frame.
  */
 void System::process_counters() {
-    std::vector<std::string> frame_formulas(molecules.size());
+    std::vector<SpeciesRecord> frame_species(molecules.size());
     std::map<std::string, int> bond_count_map;
     std::map<std::string, int> ring_count_map;
     std::map<std::string, int> atom_bonded_num_count_map;
-    std::map<std::string, int> hash_count_map;
 
-    // Formulas, aka reax_species.
+    // Structural species records: id + formula + canonical SMILES.
     for (size_t i = 0; i < molecules.size(); i++) {
-        frame_formulas[i] = molecules[i]->formula;
+        frame_species[i] = {
+            molecules[i]->structure_id,
+            molecules[i]->formula,
+            molecules[i]->smiles,
+        };
     }
 
     // Bonds
@@ -820,26 +887,13 @@ void System::process_counters() {
         ring_count_map[key] = count;
     }
 
-    // Molecule hashes
-    std::string hash_str;
-    for (const auto& molecule : molecules) {
-        hash_str = std::to_string(molecule->hash);
-        if (hash_count_map.find(hash_str) == hash_count_map.end()) {
-            hash_count_map[hash_str] = 1;
-        }
-        else {
-            hash_count_map[hash_str]++;
-        }
-    }
-
     // Lock the shared species_counter import operations.
     {
         std::lock_guard<std::mutex> lock(species_counter_mutex);
-        species_counter->import_frame_formulas(frame_id, frame_formulas);
+        species_counter->import_frame_species(frame_id, frame_species);
         bond_counter->import_frame_values(frame_id, bond_count_map);
         atom_bonded_num_counter->import_frame_values(frame_id, atom_bonded_num_count_map);
         ring_counter->import_frame_values(frame_id, ring_count_map);
-        hash_counter->import_frame_values(frame_id, hash_count_map);
     }
 }
 
@@ -865,67 +919,6 @@ inline Molecule* System::get_molecule_by_id(const int& mol_id) {
     }
 }
 
-void System::process_reax_flow() {
-    // These computations are safe without lock.
-    for (auto& molecule : molecules) {
-        reax_flow->register_molecule(molecule);
-    }
-
-    if (prev_sys == nullptr)  // The first frame.
-        return;
-
-    std::vector<int> intersection;
-    std::unordered_set<std::pair<int, int>, pair_hash> reaction_mol_id_pairs;
-    std::pair<int, int> mol_id_pair = { 0, 0 };
-    Atom* prev_atom = nullptr;
-    Molecule* prev_mol = nullptr;
-    Molecule* curr_mol = nullptr;
-
-    for (const auto& curr_atom : this->atoms) {
-        prev_atom = prev_sys->get_atom_by_id(curr_atom->id);
-        if (!prev_atom) continue;
-
-        prev_mol = prev_atom->belong_molecule;
-        curr_mol = curr_atom->belong_molecule;
-
-        if (prev_mol == nullptr || curr_mol == nullptr) continue;
-
-        if (prev_mol->hash != curr_mol->hash) {
-            mol_id_pair = { prev_mol->id, curr_mol->id };
-            if (reaction_mol_id_pairs.find(mol_id_pair) == reaction_mol_id_pairs.end()) {
-                reaction_mol_id_pairs.insert(mol_id_pair);
-            }
-        }
-    }
-
-    for (const auto& pair : reaction_mol_id_pairs) {
-        intersection.clear();
-
-        prev_mol = prev_sys->get_molecule_by_id(pair.first);
-        curr_mol = this->get_molecule_by_id(pair.second);
-
-        const auto& smaller = prev_mol->atom_ids.size() < curr_mol->atom_ids.size()
-            ? prev_mol->atom_ids
-            : curr_mol->atom_ids;
-        const auto& larger = prev_mol->atom_ids.size() < curr_mol->atom_ids.size()
-            ? curr_mol->atom_ids
-            : prev_mol->atom_ids;
-        for (int id : smaller) {
-            if (larger.count(id)) {
-                intersection.push_back(id);
-            }
-        }
-
-        if (intersection.size() > 0) {
-            reax_flow->add_reaction(this->frame_id, intersection.size(), prev_mol, curr_mol);
-        }
-    }
-}
-
-/**
- * @brief Analyze molecular reactions and update the reaction flow by comparing molecules between frames.
- *        Records reactions based on atom overlap and contribution metrics.
- */
 void System::compute_ring_counts() {
     // Initialize ring counts for sizes 3 to MAX_RING_SIZE
     // MAX_RING_SIZE in defines.h / defines.cpp

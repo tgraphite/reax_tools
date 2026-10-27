@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <fstream>
 #include <map>
 #include <mutex>
@@ -10,10 +11,8 @@
 
 #include "fmt/format.h"
 #include "reax_counter.h"
-#include "reax_flow.h"
 #include "string_tools.h"
 
-class ReaxFlow;
 struct Atom;
 struct Bond;
 struct Molecule;
@@ -92,7 +91,9 @@ inline bool operator==(const Bond& lhs, const Bond& rhs) {
 struct Molecule {
     int id;
     unsigned int hash;
+    std::uint64_t structure_id = 0;
     std::string formula;
+    std::string smiles;  // empty for formula-level fallback (>200 atoms or failed search)
 
     std::unordered_set<int> atom_ids;
     std::unordered_set<Atom*> mol_atoms;
@@ -103,8 +104,10 @@ struct Molecule {
     Molecule(const Molecule& other)
         : id(other.id),
         hash(other.hash),
+        structure_id(other.structure_id),
         atom_ids(other.atom_ids),
         formula(other.formula),
+        smiles(other.smiles),
         types_nums(other.types_nums) {
         // Map from old Atom* to new Atom*
         std::map<const Atom*, Atom*> atom_map;
@@ -149,27 +152,12 @@ struct Molecule {
         return fmt::format("Mol: {} Atoms:{} Bonds:{}\n", formula, mol_atoms.size(), mol_bonds.size());
     };
 
-    inline void update_topology() {
-        // Formula
-        std::string mol_formula;
-        for (auto& mol_atom : mol_atoms) {
-            types_nums[mol_atom->type_name]++;
-        }
-
-        for (auto& pair : types_nums) {
-            mol_formula += fmt::format("{}{}", pair.first, pair.second);
-        }
-        formula = rename_formula(mol_formula, ELEMENT_DISPLAY_ORDER);
-
-        hash = reax_string_hash(formula);
-
-        for (auto& atom : mol_atoms) {
-            atom->belong_molecule = this;
-        }
-    };
+    void update_topology();
 };
 
-inline bool operator==(const Molecule& lhs, const Molecule& rhs) { return (lhs.hash == rhs.hash); };
+inline bool operator==(const Molecule& lhs, const Molecule& rhs) {
+    return (lhs.structure_id == rhs.structure_id);
+};
 
 class System {
 public:
@@ -203,13 +191,11 @@ public:
     std::map<int, int> ring_counts;
 
     System* prev_sys = nullptr;
-    ReaxFlow* reax_flow;
     SpeciesCounter* species_counter;
 
     Counter<int>* bond_counter;
     Counter<int>* ring_counter;
     Counter<int>* atom_bonded_num_counter;
-    Counter<int>* hash_counter;
 
     System();
     ~System();
@@ -229,15 +215,13 @@ public:
 
     void process_this();
     void process_counters();
-    void process_reax_flow();
 
     void set_counters(SpeciesCounter* _species_counter, Counter<int>* _bond_counter, Counter<int>* _ring_counter,
-        Counter<int>* _atom_bonded_num_counter, Counter<int>* _hash_counter) {
+        Counter<int>* _atom_bonded_num_counter) {
         species_counter = _species_counter;
         bond_counter = _bond_counter;
         ring_counter = _ring_counter;
         atom_bonded_num_counter = _atom_bonded_num_counter;
-        hash_counter = _hash_counter;
     };
 
     void compute_ring_counts();

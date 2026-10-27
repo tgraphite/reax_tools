@@ -141,11 +141,6 @@ def _plot_line_page(
     plt.close(fig)
 
 
-def _prepare_species_table(species_count: pd.DataFrame) -> tuple[pd.Series, pd.DataFrame]:
-    pivot = species_count.pivot(index="frame", columns="formula", values="count").fillna(0)
-    return pd.Series(pivot.index, name="frame"), pivot
-
-
 def _prepare_wide_table(df: pd.DataFrame) -> tuple[pd.Series, pd.DataFrame]:
     frame_col = "frame" if "frame" in df.columns else df.columns[0]
     value_cols = [col for col in df.columns if col != frame_col]
@@ -220,10 +215,7 @@ def plot_count_pages(
     ylabel: str = "Count",
 ) -> list[Path]:
     output = Path(output)
-    if file_name == "species_count.csv" and {"frame", "formula", "count"}.issubset(df.columns):
-        frames, table = _prepare_species_table(df)
-    else:
-        frames, table = _prepare_wide_table(df)
+    frames, table = _prepare_wide_table(df)
     if table.empty:
         return []
 
