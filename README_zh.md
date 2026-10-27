@@ -1,35 +1,22 @@
 # ReaxTools
 
+[English](README.md) | 中文
+
 ReaxTools 是面向 ReaxFF/机器学习势/AIMD 等任意反应分子动力学轨迹的本地后处理工具。ReaxTools从 XYZ 或 LAMMPS dump 中识别键和分子，按结构统计物种、反应事件和原子转移，输出可审计的 CSV 与图表。
 
 ## 核心功能
 
-下表为 `test/energetic_20k` 的实际运行结果；左侧是功能，右侧是 `reax_tools plot` 生成的图。
+| 功能     | 示例                                                                         |
+| -------- | ---------------------------------------------------------------------------- |
+| 物质含量 | <img src="test/example_figures/species.jpg" width="620" alt="物质含量">     |
+| 键统计   | <img src="test/example_figures/bonds.png" width="620" alt="键统计">         |
+| 配位数   | <img src="test/example_figures/atomtypes.png" width="620" alt="配位数">     |
+| 环统计   | <img src="test/example_figures/rings.png" width="620" alt="环统计">         |
+| 反应频次 | <img src="test/example_figures/reactions.png" width="620" alt="反应频次">   |
+| 反应路径 | <img src="test/example_figures/reaction_view.jpg" width="620" alt="反应路径"> |
+| 转移网络 | <img src="test/example_figures/transfer.png" width="620" alt="转移网络">     |
+| 关键结构 | <img src="test/example_figures/molecules.png" width="620" alt="关键结构">   |
 
-| 功能 | energetic_20k 示例 |
-| --- | --- |
-| 物质含量 | <img src="test/figures/species_count.png" width="620" alt="物质含量"> |
-| 键统计 | <img src="test/figures/bond_count.png" width="620" alt="键统计"> |
-| 配位数 | <img src="test/figures/atom_bonded_num_count.png" width="620" alt="配位数"> |
-| 环统计 | <img src="test/figures/ring_count.png" width="620" alt="环统计"> |
-| 反应事件 | <img src="test/figures/reaction_events.png" width="620" alt="反应事件"> |
-| 分子转移 | <img src="test/figures/molecule_transfer.png" width="620" alt="分子转移"> |
-| 反应转移 | <img src="test/figures/reaction_transfer.png" width="620" alt="反应转移"> |
-| 关键结构 | <img src="test/figures/key_molecules.png" width="620" alt="关键结构"> |
-
-一次分析会生成以下文件：
-
-| 文件                        | 内容                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------- |
-| `species_count.csv`         | 宽表，第一列 `frame`，其余每列一个结构 ID，值为该帧计数；缺失为 0                 |
-| `molecules.csv`             | 结构身份表：`id,formula,smiles`                                                   |
-| `reaction_events.csv`       | 每个事件的 frame、反应物/产物 ID、分子式和 SMILES                                 |
-| `reaction_event_pairs.csv`  | 每个事件内反应物-产物实例的原子重叠对，用于审计 transfer flow                     |
-| `transfer_flow.csv`         | 结构间聚合转移边：source/target、formula、SMILES、count、atom_transfer、self_loop |
-| `bond_count.csv`            | 每帧各元素对的键数                                                                |
-| `atom_bonded_num_count.csv` | 每帧各元素的配位数分布                                                            |
-| `ring_count.csv`            | 每帧 5–8 元环的数量                                                               |
-| `reax_tools.log`            | 运行记录：版本、完整命令、参数、帧数/原子数、结构数、事件数、输出列表             |
 
 ## 安装与快速使用
 
