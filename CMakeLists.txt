@@ -29,6 +29,13 @@ if(REAX_ENABLE_THREADS)
     target_link_libraries(reax_tools_core PRIVATE Threads::Threads)
 endif()
 
+# Test-only SMILES targets.  The production core does not depend on them.
+add_executable(smiles_selftest tests/cpp/smiles_selftest.cpp src/cpp/smiles.cpp)
+target_include_directories(smiles_selftest PRIVATE src/cpp)
+
+add_executable(smiles_cli tests/cpp/smiles_cli.cpp src/cpp/smiles.cpp)
+target_include_directories(smiles_cli PRIVATE src/cpp)
+
 # GCC 8.x keeps std::filesystem in a separate library; GCC 9+ does not.
 if(REAX_FORCE_STDCXXFS OR (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9))
     target_link_libraries(reax_tools_core PRIVATE stdc++fs)

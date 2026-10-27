@@ -14,4 +14,7 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 *.xyz
+!test/isomer_probe/*.xyz
 test/gpumd_v3/molecules.json
+bin/smiles_cli
+bin/smiles_selftest
