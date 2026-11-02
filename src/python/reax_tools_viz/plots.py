@@ -9,6 +9,7 @@ from typing import Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import MaxNLocator
 
 from .chemistry import formula_to_subscript, natural_count_key, parse_atom_degree, parse_bond
 
@@ -134,6 +135,7 @@ def _plot_line_page(
         ax.plot(frame_values, table[column], linewidth=line_width, label=label)
     ax.set_xlabel("Frame", fontsize=11)
     ax.set_ylabel(ylabel, fontsize=11)
+    ax.xaxis.set_major_locator(MaxNLocator(6))
     ax.tick_params(labelsize=10)
     _bottom_legend(ax, labels, legend_columns)
     fig.subplots_adjust(left=0.12, right=0.98, top=0.94, bottom=0.30)
