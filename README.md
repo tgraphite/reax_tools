@@ -67,6 +67,30 @@ Common options:
 | `--no-rings` | Disable ring detection |
 | `--no-reactions` | Disable transfer-flow analysis |
 | `--no-track-reactions` | Disable reaction-event tracking |
+| `--dump N` | Write `frame_<id>.data` at 0-based indices 0, N, 2N, ... (file ids stay 1-based) |
+| `--dumpxyz N` | Write one `<basename>.marked.xyz` at the same 0-based indices |
+| `--mark-ring-atoms` | Store atom ring size instead of molecule id in `--dump` data |
+
+### Triclinic cells and structure dumps
+
+ReaxTools reads general triclinic cells from extended XYZ and restricted triclinic
+boxes from LAMMPS dump files. XYZ `Lattice` values follow the OVITO/ASE
+column-major convention: `ax ay az bx by bz cx cy cz`. LAMMPS dump tilt factors
+`xy/xz/yz` are converted back to the real box bounds before wrapping atoms.
+
+`--dump N` writes LAMMPS data files containing atoms, bonds, angles, and
+dihedrals. The molecule-ID column is sorted by molecule size (largest first) so
+that independent molecules are easy to distinguish. With `--mark-ring-atoms`
+the same column stores the atom's smallest ring size instead; non-ring atoms are
+0, and `--no-rings` (or its alias `--no-ring`) silently writes 0 for every atom.
+
+`--dumpxyz N` writes a single multi-frame extended XYZ file with per-atom
+`id`, `molecule`, `molsize`, `ringsize`, `formula`, `molmass`, and
+`mol<Element>` fields. The file can be opened directly in OVITO. OVITO 3.15
+skips the optional string `formula` column with a warning but reads all numeric
+fields; OVITO 3.17 supports the string column as well. The `mol<Element>`
+columns are fixed from `-t/--types` or the first frame, so keep the element
+composition constant across the trajectory (the usual reactive-MD case).
 
 Plotting commands:
 
@@ -85,7 +109,8 @@ reax_tools summary -f output
 
 ## Current limitations
 
-1. Triclinic cells and per-axis periodicity are not supported.
+1. LAMMPS dump files must use a restricted triclinic box; the optional
+   `ITEM: BOX BOUNDS general triclinic` form is rejected with an error.
 2. Electronic structure is not included.
 3. Only constitutional isomers of small and medium molecules are resolved.
 

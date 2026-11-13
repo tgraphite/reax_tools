@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <map>
 #include <mutex>
@@ -9,6 +11,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "cell.h"
 #include "fmt/format.h"
 #include "reax_counter.h"
 #include "string_tools.h"
@@ -31,6 +34,8 @@ struct Atom {
     int max_valence;
     bool saturated = false;
     bool on_ring = false;
+    // Smallest ring containing this atom; 0 for non-ring atoms.
+    int ringsize = 0;
 
     Molecule* belong_molecule = nullptr;
 
@@ -46,7 +51,8 @@ struct Atom {
 
     Atom(int _id, int _type_id, const std::vector<float>& _coord, std::string _type_name)
         : id(_id), type_id(_type_id), coord(_coord), type_name(_type_name) {
-        max_valence = ELEMENT_MAX_VALENCIES[type_name];
+        auto it = ELEMENT_MAX_VALENCIES.find(type_name);
+        max_valence = (it == ELEMENT_MAX_VALENCIES.end()) ? 4 : it->second;
     };
     ~Atom() {
         neighs.clear();
@@ -174,7 +180,7 @@ public:
     float neigh_radius = 0.0f;
     unsigned int hash;
 
-    std::vector<float> axis_lengths;
+    Cell cell;
     std::vector<Atom*> atoms;
     std::vector<Molecule*> molecules;
     std::vector<Molecule*> rings;
@@ -230,6 +236,10 @@ public:
         std::vector<Atom*>& current_path);
 
     void dump_lammps_data();
+    void dump_xyz_marked(FILE* file, const std::vector<std::string>& element_columns);
+
+    std::vector<Molecule*> molecules_by_size() const;
+    std::map<const Molecule*, int> molecule_dump_ids() const;
 
     Atom* get_atom_by_id(const int& atom_id);
     Molecule* get_molecule_by_id(const int& mol_id);

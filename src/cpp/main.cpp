@@ -36,6 +36,8 @@ static void write_run_log(double elapsed_sec,
     fmt::print(fp, "vdw_scale = {:.6f}\n", RVDW_FACTOR);
     fmt::print(fp, "threads = {}\n", NUM_THREADS);
     fmt::print(fp, "max_neighbors = {}\n", MAX_NEIGH);
+    fmt::print(fp, "dump_steps = {}\n", FLAG_DUMP_STRUCTURE ? std::to_string(DUMP_STEPS) : "disabled");
+    fmt::print(fp, "dumpxyz_steps = {}\n", FLAG_DUMP_XYZ ? std::to_string(DUMP_XYZ_STEPS) : "disabled");
     fmt::print(fp, "rings = {}\n", FLAG_NO_RINGS ? "disabled" : "enabled");
     fmt::print(fp, "reaction_events = {}\n", FLAG_TRACK_REACTIONS ? "enabled" : "disabled");
     fmt::print(fp, "transfer_flow = {}\n", FLAG_NO_REACTIONS ? "disabled" : "enabled");
@@ -61,6 +63,10 @@ static void write_run_log(double elapsed_sec,
         fmt::print(fp, "reaction_event_pairs.csv\n");
     }
     if (!FLAG_NO_REACTIONS) fmt::print(fp, "transfer_flow.csv\n");
+    if (FLAG_DUMP_STRUCTURE) fmt::print(fp, "frame_*.data\n");
+    if (FLAG_DUMP_XYZ) {
+        fmt::print(fp, "{}.marked.xyz\n", std::filesystem::path(INPUT_FILE).stem().string());
+    }
     fmt::print(fp, "molecules.csv\n");
     fmt::print(fp, "reax_tools.log\n\n");
 
@@ -100,7 +106,13 @@ int run_analysis(int argc, const char* const* argv) {
     }
 
     if (!std::filesystem::exists(OUTPUT_DIR)) {
-        std::filesystem::create_directory(OUTPUT_DIR);
+        std::error_code ec;
+        std::filesystem::create_directories(OUTPUT_DIR, ec);
+        if (ec) {
+            std::cerr << "Error: could not create output directory " << OUTPUT_DIR << ": " << ec.message()
+                      << std::endl;
+            return 1;
+        }
     }
 
     Universe uv;

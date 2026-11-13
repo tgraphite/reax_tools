@@ -80,6 +80,17 @@ void Universe::process_traj() {
     std::map<int, System*> frameid_system;
     std::vector<System*> systems_to_process;
 
+    FILE* dumpxyz_file = nullptr;
+    std::vector<std::string> dumpxyz_elements;
+    if (FLAG_DUMP_XYZ) {
+        const std::string raw_basename = std::filesystem::path(INPUT_FILE).stem().string();
+        dumpxyz_file = create_file(raw_basename + ".marked.xyz");
+        if (dumpxyz_file == nullptr) {
+            fmt::print(stderr, "Error: could not create marked XYZ output\n");
+            FLAG_DUMP_XYZ = false;
+        }
+    }
+
     while (input_file.is_open() && !input_file.eof()) {
         // flush
         if (curr_frame_id > 1) {
@@ -160,6 +171,35 @@ void Universe::process_traj() {
                 curr_system->dump_lammps_data();
             }
 
+            if (FLAG_DUMP_XYZ && dumpxyz_file != nullptr &&
+                (curr_system->frame_id - 1) % DUMP_XYZ_STEPS == 0) {
+                if (dumpxyz_elements.empty()) {
+                    if (!INPUT_ELEMENT_TYPES.empty()) {
+                        dumpxyz_elements = INPUT_ELEMENT_TYPES;
+                    }
+                    else {
+                        for (const auto& pair : curr_system->type_itos) dumpxyz_elements.push_back(pair.second);
+                    }
+                    auto display_index = [](const std::string& element) {
+                        auto found = std::find(ELEMENT_DISPLAY_ORDER.begin(), ELEMENT_DISPLAY_ORDER.end(),
+                            element);
+                        return (found == ELEMENT_DISPLAY_ORDER.end())
+                                   ? static_cast<int>(ELEMENT_DISPLAY_ORDER.size())
+                                   : static_cast<int>(found - ELEMENT_DISPLAY_ORDER.begin());
+                    };
+                    std::sort(dumpxyz_elements.begin(), dumpxyz_elements.end(),
+                        [&](const std::string& a, const std::string& b) {
+                            const int va = display_index(a);
+                            const int vb = display_index(b);
+                            if (va != vb) return va < vb;
+                            return a < b;
+                        });
+                    dumpxyz_elements.erase(
+                        std::unique(dumpxyz_elements.begin(), dumpxyz_elements.end()), dumpxyz_elements.end());
+                }
+                curr_system->dump_xyz_marked(dumpxyz_file, dumpxyz_elements);
+            }
+
             if (curr_system->is_first_frame) {
                 fmt::print("Atom Types: ");
                 for (auto& pair : curr_system->type_itos) {
@@ -184,6 +224,11 @@ void Universe::process_traj() {
     }
     frames_processed = curr_frame_id - 1;
     fmt::print("\n\n");
+
+    if (dumpxyz_file != nullptr) {
+        fclose(dumpxyz_file);
+        dumpxyz_file = nullptr;
+    }
 
     species_counter->analyze_frame_species();
     species_counter->save_species_count();

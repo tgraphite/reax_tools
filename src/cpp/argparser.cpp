@@ -11,6 +11,7 @@ int MAX_NEIGH = 10;
 
 int NUM_THREADS = 4;
 int DUMP_STEPS = 10;
+int DUMP_XYZ_STEPS = 10;
 
 std::string INPUT_FILE = "";
 std::string OUTPUT_DIR = "reax_tools_output/";
@@ -18,6 +19,7 @@ std::vector<std::string> INPUT_ELEMENT_TYPES = {};
 float RVDW_FACTOR = 1.2;
 
 bool FLAG_DUMP_STRUCTURE = false;
+bool FLAG_DUMP_XYZ = false;
 bool FLAG_MARK_RING_ATOMS = false;
 
 bool FLAG_NO_RINGS = false;
@@ -196,8 +198,18 @@ bool operation_set_num_threads(std::vector<std::string> input_string) {
 }
 bool operation_set_flag_dump_structure(std::vector<std::string> input_string) {
     if (input_string.size() != 1) return false;
+    const int steps = std::stoi(input_string[0]);
+    if (steps < 1) return false;
     FLAG_DUMP_STRUCTURE = true;
-    DUMP_STEPS = std::stoi(input_string[0]);
+    DUMP_STEPS = steps;
+    return true;
+}
+bool operation_set_flag_dump_xyz(std::vector<std::string> input_string) {
+    if (input_string.size() != 1) return false;
+    const int steps = std::stoi(input_string[0]);
+    if (steps < 1) return false;
+    FLAG_DUMP_XYZ = true;
+    DUMP_XYZ_STEPS = steps;
     return true;
 }
 bool operation_set_flag_mark_ring_atoms(std::vector<std::string> input_string) {
@@ -262,11 +274,14 @@ ArgParser init_argparser() {
     parser.add_argument("--type-valence", "-tv", "set atomic valence for element, e.g. -tv N:4", "key input", false,
                         operation_set_type_valence);
     parser.add_argument("--threads", "-nt", "number of threads", "Performance", false, operation_set_num_threads);
-    parser.add_argument("--dump", "", "dump lammps data file (.data) for every N frames", "Misc", false,
+    parser.add_argument("--dump", "", "dump lammps data file (.data) every N frames (0-based)", "Misc", false,
                         operation_set_flag_dump_structure);
-    parser.add_argument("--mark-ring-atoms", "", "use mol id entry to mark ring atom when dump data", "Misc", true,
-                        operation_set_flag_mark_ring_atoms);
+    parser.add_argument("--dumpxyz", "", "write <basename>.marked.xyz every N frames (0-based)", "Misc", false,
+                        operation_set_flag_dump_xyz);
+    parser.add_argument("--mark-ring-atoms", "", "use mol id entry to store atom ring size when dump data", "Misc",
+                        true, operation_set_flag_mark_ring_atoms);
     parser.add_argument("--no-rings", "", "disable ring computation", "Misc", true, operation_set_flag_no_rings);
+    parser.add_argument("--no-ring", "", "alias for --no-rings", "Misc", true, operation_set_flag_no_rings);
     parser.add_argument("--no-reactions", "", "disable reaction analysis", "Network output options", true,
                         operation_set_flag_no_reactions);
     parser.add_argument("--element-order", "-order", "set element order of outputting formulas",

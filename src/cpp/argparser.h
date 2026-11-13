@@ -20,6 +20,7 @@ extern int MAX_NEIGH;
 
 extern int NUM_THREADS;
 extern int DUMP_STEPS;
+extern int DUMP_XYZ_STEPS;
 
 extern std::string INPUT_FILE;
 extern std::string OUTPUT_DIR;
@@ -27,6 +28,7 @@ extern std::vector<std::string> INPUT_ELEMENT_TYPES;
 extern float RVDW_FACTOR;
 
 extern bool FLAG_DUMP_STRUCTURE;
+extern bool FLAG_DUMP_XYZ;
 extern bool FLAG_MARK_RING_ATOMS;
 
 extern bool FLAG_NO_RINGS;
@@ -214,7 +216,12 @@ class ArgParser {
             for (const auto& long_name : option_names) {
                 const auto& opt = options.at(long_name);
                 // Format:   -s, --long   Description
-                fmt::print("    {:<6}, {:<16}: {}\n", opt.short_name, opt.long_name, opt.desc);
+                if (opt.short_name.empty()) {
+                    fmt::print("    {:<22}: {}\n", opt.long_name, opt.desc);
+                }
+                else {
+                    fmt::print("    {:<6}, {:<16}: {}\n", opt.short_name, opt.long_name, opt.desc);
+                }
             }
             fmt::print("\n");
         }

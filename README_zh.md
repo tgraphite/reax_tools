@@ -68,6 +68,27 @@ reax_tools -f dump.lammpstrj -t C,H,O,N -o output
 | `--no-rings`           | 关闭环检测                           |
 | `--no-reactions`       | 关闭 transfer-flow 分析              |
 | `--no-track-reactions` | 关闭反应事件跟踪                     |
+| `--dump N`             | 在 0 基帧号 0, N, 2N, ... 输出 `frame_<id>.data`（文件名仍为 1 基） |
+| `--dumpxyz N`          | 在相同 0 基帧号输出一个 `<basename>.marked.xyz` |
+| `--mark-ring-atoms`    | `--dump` 的 molecule-ID 列改存原子环尺寸 |
+
+### 三斜晶胞与结构导出
+
+ReaxTools 支持扩展 XYZ 中的一般三斜晶胞，以及 LAMMPS dump 的 restricted
+triclinic 盒子。XYZ 的 `Lattice` 采用 OVITO/ASE 的列优先约定：
+`ax ay az bx by bz cx cy cz`。LAMMPS dump 的 `xy/xz/yz` 倾斜因子会先反算成
+真实盒子边界，再进行原子包裹。
+
+`--dump N` 输出包含 atoms、bonds、angles、dihedrals 的 LAMMPS data 文件。
+molecule-ID 列默认按分子原子数从大到小排序，便于区分独立分子。使用
+`--mark-ring-atoms` 时，同一列改存该原子所属的最小环尺寸；非环原子为 0，
+配合 `--no-rings`（或别名 `--no-ring`）时静默输出全 0，不报错。
+
+`--dumpxyz N` 输出单个多帧扩展 XYZ 文件，包含 `id`、`molecule`、
+`molsize`、`ringsize`、`formula`、`molmass` 和 `mol<元素>` 字段，
+可直接用 OVITO 打开。OVITO 3.15 会跳过可选的字符串 `formula` 列并给出警告，
+但所有数值字段正常读取；OVITO 3.17 也支持该字符串列。`mol<元素>` 列由
+`-t/--types` 或首帧固定，因此轨迹的元素组成应保持不变（反应 MD 的常态）。
 
 绘图命令：
 
@@ -86,7 +107,8 @@ reax_tools summary -f output
 
 ## 当前限制
 
-1. 不支持三斜晶胞和逐轴周期性；
+1. LAMMPS dump 必须是 restricted triclinic 盒子；可选的
+   `ITEM: BOX BOUNDS general triclinic` 形式会明确报错；
 2. 与电子结构无关；
 3. 仅区分中小分子构造异构体。
 

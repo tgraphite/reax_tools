@@ -1,98 +1,114 @@
 #include "cell_list.h"
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
 #include "fmt/format.h"
 #include "system.h"
-#include "vec_algorithms.h"
 
 Cell_list::~Cell_list() { cells.clear(); }
-// Note that all the atoms have been transformed to {0, lx, 0, ly, 0, lz} before.
-Cell_list::Cell_list(std::vector<Atom*> atoms, const float& radius, const std::vector<float> axis_lengths,
+
+// Atoms are binned in fractional coordinates.  The number of bins along
+// fractional axis i is chosen so that one bin is at least r_cut wide in the
+// direction normal to the opposite lattice plane.  With that choice a 3x3x3
+// stencil is sufficient even for strongly skewed cells.
+Cell_list::Cell_list(const std::vector<Atom*>& atoms, const float& radius, const Cell& in_cell,
                      const int& max_neigh) {
+    this->radius = radius;
     radius_sq = radius * radius;
     this->max_neigh = max_neigh;
-    this->axis_lengths = axis_lengths;
+    cell = in_cell;
 
-    this->cell_nx = floor(axis_lengths[0] / radius);
-    this->cell_ny = floor(axis_lengths[1] / radius);
-    this->cell_nz = floor(axis_lengths[2] / radius);
-    this->cell_nyz = cell_ny * cell_nz;
-
-    this->cell_lx = axis_lengths[0] / cell_nx;
-    this->cell_ly = axis_lengths[1] / cell_ny;
-    this->cell_lz = axis_lengths[2] / cell_nz;
-
-    this->inv_cell_lx = 1.0f / cell_lx;
-    this->inv_cell_ly = 1.0f / cell_ly;
-    this->inv_cell_lz = 1.0f / cell_lz;
-
-    int cell_idx_x, cell_idx_y, cell_idx_z;
-
-    cells.resize(cell_nx * cell_ny * cell_nz);
-    int reserve_atoms = ceil(atoms.size() / cells.size() * 2);
-    for (auto& cell : cells) {
-        cell.reserve(reserve_atoms);
-    }
-
-    for (auto& atom : atoms) {
-        std::vector<int> cell_idx_xyz = get_cell_index_xyz(atom);
-        int cell_idx = cell_idx_xyz[0] * cell_ny * cell_nz + cell_idx_xyz[1] * cell_nz + cell_idx_xyz[2];
-
-        // Add bounds checking to prevent segfault
-        if (cell_idx >= 0 && cell_idx < cells.size()) {
-            Atom* copy_ptr = atom;
-            cells[cell_idx].push_back(copy_ptr);
+    cell_nx = 1;
+    cell_ny = 1;
+    cell_nz = 1;
+    if (radius > 0.0f) {
+        for (int i = 0; i < 3; ++i) {
+            const double reciprocal_norm = Cell::norm({cell.inv[i][0], cell.inv[i][1], cell.inv[i][2]});
+            int n = 1;
+            if (reciprocal_norm > 0.0) {
+                n = static_cast<int>(std::floor(1.0 / (static_cast<double>(radius) * reciprocal_norm)));
+            }
+            if (n < 1) n = 1;
+            if (i == 0) cell_nx = n;
+            if (i == 1) cell_ny = n;
+            if (i == 2) cell_nz = n;
         }
     }
+    cell_nyz = cell_ny * cell_nz;
+
+    cells.resize(static_cast<std::size_t>(cell_nx) * cell_ny * cell_nz);
+    const std::size_t reserve_atoms =
+        std::max<std::size_t>(1, (atoms.size() * 2) / std::max<std::size_t>(1, cells.size()));
+    for (auto& bin : cells) bin.reserve(reserve_atoms);
+
+    for (auto* atom : atoms) {
+        std::array<double, 3> f = cell.fractional_vec(atom->coord);
+        for (int i = 0; i < 3; ++i) {
+            if (cell.periodic[i]) f[i] -= std::floor(f[i]);
+        }
+        frac[atom] = f;
+        const int idx = get_cell_index(atom);
+        if (idx >= 0 && idx < static_cast<int>(cells.size())) cells[idx].push_back(atom);
+    }
 }
 
-inline std::vector<int> Cell_list::get_cell_index_xyz(Atom* atom) {
-    int cell_idx_x = floor(atom->coord[0] / cell_lx);
-    int cell_idx_y = floor(atom->coord[1] / cell_ly);
-    int cell_idx_z = floor(atom->coord[2] / cell_lz);
-
-    return {cell_idx_x, cell_idx_y, cell_idx_z};
+int Cell_list::get_cell_index(Atom* atom) const {
+    auto it = frac.find(atom);
+    if (it == frac.end()) return -1;
+    const auto& f = it->second;
+    int ix = static_cast<int>(std::floor(f[0] * cell_nx));
+    int iy = static_cast<int>(std::floor(f[1] * cell_ny));
+    int iz = static_cast<int>(std::floor(f[2] * cell_nz));
+    if (ix < 0) ix = 0;
+    if (ix >= cell_nx) ix = cell_nx - 1;
+    if (iy < 0) iy = 0;
+    if (iy >= cell_ny) iy = cell_ny - 1;
+    if (iz < 0) iz = 0;
+    if (iz >= cell_nz) iz = cell_nz - 1;
+    return ix * cell_nyz + iy * cell_nz + iz;
 }
 
-#define WRAP_COORD(val, max) ((val) < 0 ? (max) - 1 : (val) >= (max) ? 0 : (val))
-inline std::vector<int> Cell_list::get_neighbor_cell_indices_number(Atom* atom) {
-    int cell_idx_x = floor(atom->coord[0] / cell_lx);
-    int cell_idx_y = floor(atom->coord[1] / cell_ly);
-    int cell_idx_z = floor(atom->coord[2] / cell_lz);
+std::vector<int> Cell_list::get_neighbor_cell_indices(Atom* atom) const {
+    auto it = frac.find(atom);
+    if (it == frac.end()) return {};
+    const auto& f = it->second;
+    int ix = static_cast<int>(std::floor(f[0] * cell_nx));
+    int iy = static_cast<int>(std::floor(f[1] * cell_ny));
+    int iz = static_cast<int>(std::floor(f[2] * cell_nz));
+    if (ix < 0) ix = 0;
+    if (ix >= cell_nx) ix = cell_nx - 1;
+    if (iy < 0) iy = 0;
+    if (iy >= cell_ny) iy = cell_ny - 1;
+    if (iz < 0) iz = 0;
+    if (iz >= cell_nz) iz = cell_nz - 1;
 
-    std::vector<int> neighbor_cell_indices;
-    neighbor_cell_indices.reserve(27); // 3x3x3 neighbors
-
+    std::array<int, 27> indices{};
+    int count = 0;
     for (int dx = -1; dx <= 1; ++dx) {
-        int x = WRAP_COORD(cell_idx_x + dx, cell_nx);
+        const int nx = (ix + dx + cell_nx) % cell_nx;
         for (int dy = -1; dy <= 1; ++dy) {
-            int y = WRAP_COORD(cell_idx_y + dy, cell_ny);
+            const int ny = (iy + dy + cell_ny) % cell_ny;
             for (int dz = -1; dz <= 1; ++dz) {
-                int z = WRAP_COORD(cell_idx_z + dz, cell_nz);
-                neighbor_cell_indices.push_back(x * cell_nyz + y * cell_nz + z);
+                const int nz = (iz + dz + cell_nz) % cell_nz;
+                indices[count++] = nx * cell_nyz + ny * cell_nz + nz;
             }
         }
     }
-    return neighbor_cell_indices;
+    std::sort(indices.begin(), indices.begin() + count);
+    const int unique_count = static_cast<int>(std::unique(indices.begin(), indices.begin() + count) - indices.begin());
+    return std::vector<int>(indices.begin(), indices.begin() + unique_count);
 }
 
 void Cell_list::search_neighbors(Atom* atom) {
-    float distance_sq = 0.0f;
-    std::vector<int> neighbor_cell_indices = get_neighbor_cell_indices_number(atom);
-
+    const std::vector<int> neighbor_cell_indices = get_neighbor_cell_indices(atom);
     for (int neighbor_cell_index : neighbor_cell_indices) {
-        for (Atom* candidate_neighbor : cells[neighbor_cell_index]) {
-            if (atom->neighs.size() >= max_neigh) {
-                break;
-            }
-
-            if (candidate_neighbor != atom) {
-                distance_sq = distance_sq_pbc(atom->coord, candidate_neighbor->coord, axis_lengths);
-                if (distance_sq < radius_sq) {
-                    atom->neighs.insert(candidate_neighbor);
-                }
+        for (Atom* candidate : cells[neighbor_cell_index]) {
+            if (atom->neighs.size() >= static_cast<std::size_t>(max_neigh)) return;
+            if (candidate == atom) continue;
+            if (cell.distance_sq(atom->coord, candidate->coord) < radius_sq) {
+                atom->neighs.insert(candidate);
             }
         }
     }
