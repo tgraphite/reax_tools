@@ -9,12 +9,14 @@ start-dev.sh
 build/
 reax_reporter/
 tmp/
+.tmp/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 *.egg-info/
 *.xyz
 !test/isomer_probe/*.xyz
+!test/fixtures/*.xyz
 test/gpumd_v3/molecules.json
 test/energetic_v5/
 test/energetic_v6/
@@ -22,3 +24,4 @@ test/energetic_20k/
 test/gpumd_v4/
 bin/smiles_cli
 bin/smiles_selftest
+bin/cell_test

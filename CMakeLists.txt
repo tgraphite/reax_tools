@@ -36,6 +36,12 @@ target_include_directories(smiles_selftest PRIVATE src/cpp)
 add_executable(smiles_cli test/cpp/smiles_cli.cpp src/cpp/smiles.cpp)
 target_include_directories(smiles_cli PRIVATE src/cpp)
 
+# Header-only geometry unit test.
+enable_testing()
+add_executable(cell_test test/cpp/cell_test.cpp)
+target_include_directories(cell_test PRIVATE src/cpp)
+add_test(NAME cell_test COMMAND cell_test)
+
 # GCC 8.x keeps std::filesystem in a separate library; GCC 9+ does not.
 if(REAX_FORCE_STDCXXFS OR (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9))
     target_link_libraries(reax_tools_core PRIVATE stdc++fs)
