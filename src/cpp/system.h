@@ -208,6 +208,8 @@ public:
     void finish();
 
     void set_types();
+    static void reset_type_registry();
+    static int register_type(const std::string& name);
     void load_xyz(std::ifstream& file);
     void load_lammpstrj(std::ifstream& file);
 

@@ -79,8 +79,10 @@ column-major convention: `ax ay az bx by bz cx cy cz`. LAMMPS dump tilt factors
 `xy/xz/yz` are converted back to the real box bounds before wrapping atoms.
 
 `--dump N` writes LAMMPS data files containing atoms, bonds, angles, and
-dihedrals. The molecule-ID column is sorted by molecule size (largest first) so
-that independent molecules are easy to distinguish. With `--mark-ring-atoms`
+dihedrals. Element type IDs are assigned once for the whole trajectory, so every
+frame uses the same `type -> element` mapping. The molecule-ID column is sorted
+by molecule size (largest first) so that independent molecules are easy to
+distinguish. With `--mark-ring-atoms`
 the same column stores the atom's smallest ring size instead; non-ring atoms are
 0, and `--no-rings` (or its alias `--no-ring`) silently writes 0 for every atom.
 

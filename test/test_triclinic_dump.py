@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CORE = ROOT / "bin" / "reax_tools_core"
 COMBUSTION = ROOT / "test" / "combustion.xyz"
 SMALL = ROOT / "test" / "fixtures" / "small_molecules.xyz"
+VARYING = ROOT / "test" / "fixtures" / "varying_element_order.xyz"
 MASSES = {"H": 1.008, "C": 12.011, "N": 14.007, "O": 15.999}
 
 
@@ -173,7 +174,7 @@ def frames_from_combustion(limit: int):
 
 def parse_data(path: Path):
     lines = path.read_text().splitlines()
-    result = {"atoms": [], "bonds": [], "angles": [], "dihedrals": [], "box": []}
+    result = {"atoms": [], "bonds": [], "angles": [], "dihedrals": [], "box": [], "masses": {}}
     section = None
     for line in lines:
         stripped = line.strip()
@@ -191,6 +192,11 @@ def parse_data(path: Path):
             continue
         if stripped.startswith("Masses"):
             section = "masses"
+            continue
+        if section == "masses":
+            values = stripped.split()
+            if len(values) >= 3 and values[0].isdigit() and values[-2] == "#":
+                result["masses"][int(values[0])] = values[-1]
             continue
         if "xlo" in stripped or "ylo" in stripped or "zlo" in stripped:
             result["box"].append(stripped)
@@ -446,6 +452,20 @@ class ReaxToolsTriclinicTests(unittest.TestCase):
         self.assertEqual(carbon[:12], [6] * 12)
         self.assertEqual(carbon[12:20], [2] * 8)
         self.assertEqual(carbon[20:], [0] * 3)
+
+    def test_dump_type_ids_stable(self):
+        out = self.root / "out_varying"
+        self.run_core(VARYING, out, ["--dump", "1"])
+        first = parse_data(out / "frame_1.data")
+        second = parse_data(out / "frame_2.data")
+        expected = {1: "O", 2: "C", 3: "H", 4: "N", 5: "S"}
+        self.assertEqual(first["masses"], expected)
+        self.assertEqual(second["masses"], expected)
+
+        first_atom = next(atom for atom in first["atoms"] if atom["id"] == 1)
+        second_atom = next(atom for atom in second["atoms"] if atom["id"] == 1)
+        self.assertEqual(first_atom["type"], 1)   # O
+        self.assertEqual(second_atom["type"], 3)  # H must keep its global id
 
     def test_origin_preserved(self):
         source = self.root / "origin.xyz"

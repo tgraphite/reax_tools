@@ -25,6 +25,14 @@ std::mutex species_counter_mutex;
 
 namespace {
 
+// Type ids must be stable for the whole trajectory.  Otherwise a frame whose
+// first atom happens to be O assigns type 1 to O, and a later frame whose first
+// atom is H reassigns type 1 to H, so a sequence of --dump files no longer
+// agrees on element names.
+std::map<std::string, int> global_type_stoi;
+std::map<int, std::string> global_type_itos;
+bool global_type_registry_initialized = false;
+
 struct PropertyColumn {
     std::string name;
     char type = 'R';
@@ -332,12 +340,11 @@ void System::load_xyz(std::ifstream& file) {
     auto add_type = [&](const std::string& name) -> int {
         auto found = type_stoi.find(name);
         if (found != type_stoi.end()) return found->second;
-        int next_id = 1;
-        for (const auto& pair : type_itos) next_id = std::max(next_id, pair.first + 1);
-        type_itos[next_id] = name;
-        type_stoi[name] = next_id;
-        total_types = std::max(total_types, next_id);
-        return next_id;
+        const int type_id = System::register_type(name);
+        type_itos[type_id] = name;
+        type_stoi[name] = type_id;
+        total_types = std::max(total_types, type_id);
+        return type_id;
     };
 
     int atom_count = 0;
@@ -574,12 +581,11 @@ void System::load_lammpstrj(std::ifstream& file) {
     auto add_type = [&](const std::string& name) -> int {
         auto found = type_stoi.find(name);
         if (found != type_stoi.end()) return found->second;
-        int next_id = 1;
-        for (const auto& pair : type_itos) next_id = std::max(next_id, pair.first + 1);
-        type_itos[next_id] = name;
-        type_stoi[name] = next_id;
-        total_types = std::max(total_types, next_id);
-        return next_id;
+        const int type_id = System::register_type(name);
+        type_itos[type_id] = name;
+        type_stoi[name] = type_id;
+        total_types = std::max(total_types, type_id);
+        return type_id;
     };
 
     int atoms_count = 0;
@@ -742,20 +748,41 @@ void Molecule::update_topology() {
     }
 }
 
-void System::set_types() {
-    total_types = INPUT_ELEMENT_TYPES.size();
-
-    if (total_types == 0) {
-        return;
-    }
-
+void System::reset_type_registry() {
+    global_type_stoi.clear();
+    global_type_itos.clear();
     int type_id = 0;
-    for (auto& name : INPUT_ELEMENT_TYPES) {
-        type_id++;
-        type_itos[type_id] = name;
-        type_stoi[name] = type_id;
+    for (const auto& name : INPUT_ELEMENT_TYPES) {
+        if (name.empty() || global_type_stoi.find(name) != global_type_stoi.end()) continue;
+        ++type_id;
+        global_type_stoi[name] = type_id;
+        global_type_itos[type_id] = name;
+    }
+    global_type_registry_initialized = true;
+}
 
-        // Initialize ELEMENT_MAX_VALENCIES for each type
+int System::register_type(const std::string& name) {
+    if (!global_type_registry_initialized) reset_type_registry();
+    auto found = global_type_stoi.find(name);
+    if (found != global_type_stoi.end()) return found->second;
+
+    int next_id = 1;
+    if (!global_type_itos.empty()) next_id = global_type_itos.rbegin()->first + 1;
+    global_type_stoi[name] = next_id;
+    global_type_itos[next_id] = name;
+    return next_id;
+}
+
+void System::set_types() {
+    if (!global_type_registry_initialized) reset_type_registry();
+
+    type_stoi = global_type_stoi;
+    type_itos = global_type_itos;
+    total_types = type_itos.empty() ? 0 : type_itos.rbegin()->first;
+
+    for (const auto& pair : type_itos) {
+        const std::string& name = pair.second;
+        // Initialize ELEMENT_MAX_VALENCIES for each type.
         if (ELEMENT_MAX_VALENCIES.find(name) == ELEMENT_MAX_VALENCIES.end()) {
             ELEMENT_MAX_VALENCIES[name] = 4;  // Default max valence
         }

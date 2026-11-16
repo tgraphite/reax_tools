@@ -80,6 +80,7 @@ triclinic 盒子。XYZ 的 `Lattice` 采用 OVITO/ASE 的列优先约定：
 真实盒子边界，再进行原子包裹。
 
 `--dump N` 输出包含 atoms、bonds、angles、dihedrals 的 LAMMPS data 文件。
+元素 type ID 在整条轨迹中只分配一次，因此每一帧的 `type -> 元素` 映射一致。
 molecule-ID 列默认按分子原子数从大到小排序，便于区分独立分子。使用
 `--mark-ring-atoms` 时，同一列改存该原子所属的最小环尺寸；非环原子为 0，
 配合 `--no-rings`（或别名 `--no-ring`）时静默输出全 0，不报错。

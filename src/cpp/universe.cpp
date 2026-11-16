@@ -72,6 +72,8 @@ void parallel_for_each(std::vector<T*>& objects, Func func) {
 #endif
 
 void Universe::process_traj() {
+    System::reset_type_registry();
+
     int max_neigh = 10;
     int curr_frame_id = 1;
 

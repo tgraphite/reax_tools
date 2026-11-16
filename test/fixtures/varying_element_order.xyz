@@ -1,0 +1,14 @@
+5
+Lattice="40 0 0 0 40 0 0 0 40" Properties=species:S:1:pos:R:3 pbc="T T T"
+O 1 1 1
+C 9 1 1
+H 17 1 1
+N 25 1 1
+S 33 1 1
+5
+Lattice="40 0 0 0 40 0 0 0 40" Properties=species:S:1:pos:R:3 pbc="T T T"
+H 1 1 1
+C 9 1 1
+O 17 1 1
+S 25 1 1
+N 33 1 1
